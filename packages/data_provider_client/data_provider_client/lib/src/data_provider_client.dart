@@ -17,6 +17,9 @@ abstract class DataProviderClient {
     required this.rideLogsResource,
     required this.lessonsResource,
     required this.billingResource,
+    required this.multiBarnResource,
+    required this.vendorsResource,
+    required this.brandingResource,
   });
 
   /// Resource exposing information about accounts.
@@ -48,6 +51,15 @@ abstract class DataProviderClient {
 
   /// Resource exposing billing, charges, and templates data.
   final BillingResource billingResource;
+
+  /// Resource exposing multi-barn operations.
+  final MultiBarnResource multiBarnResource;
+
+  /// Resource exposing vendor operations.
+  final VendorsResource vendorsResource;
+
+  /// Resource exposing barn branding operations.
+  final BrandingResource brandingResource;
 
   // /// Resource exposing information about the user, allowing
   // /// to authenticate, and to list user's licenses

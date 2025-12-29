@@ -26,6 +26,8 @@ extension DataProviderExceptionX on DataProviderException {
         l10n.userAlreadyInAnotherBarn,
       NotFoundBarnException() => l10n.barnNotAvailable,
 
+      ConflictException() => l10n.alreadyExists,
+      BadRequestException() => l10n.invalidArgument,
       FailedPreconditionException() => l10n.failedPreconditionTitle,
 
       // Map payment codes to localized titles
@@ -68,6 +70,10 @@ extension DataProviderExceptionX on DataProviderException {
       NotFoundBarnException() => l10n.barnNotFoundDescription,
       DeserializationException(:final className, :final key) =>
         l10n.invalidFieldDescription(className, key),
+      ConflictException(:final message) =>
+        message ?? l10n.alreadyExistsDescription,
+      BadRequestException(:final message) =>
+        message ?? l10n.invalidArgumentDescription,
       FailedPreconditionException() => l10n.failedPreconditionMessage,
 
       // Use specific backend/Stripe-provided message if available; otherwise fallback per code

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gl_horses/core/core.dart';
 import 'package:gl_horses/features/billing/providers/providers.dart';
+import 'package:gl_horses/l10n/l10n.dart';
 import 'package:go_router/go_router.dart';
 import 'package:models/models.dart';
 import 'package:uuid/uuid.dart';

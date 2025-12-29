@@ -1,0 +1,14 @@
+name: multi_barn_repository
+description: A Multi-Barn Repository Interface
+publish_to: none
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  data_provider_client:
+    path: ../data_provider_client/data_provider_client
+  equatable: ^2.0.7
+  models:
+    path: ../models
+  rxdart: ^0.28.0

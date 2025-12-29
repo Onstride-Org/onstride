@@ -44,6 +44,20 @@ final class AlreadyExistsException extends DataProviderException {
   const AlreadyExistsException();
 }
 
+/// Thrown when a resource already exists or there's a version conflict.
+final class ConflictException extends DataProviderException {
+  final String? message;
+
+  const ConflictException({this.message});
+}
+
+/// Thrown when the request was invalid or malformed.
+final class BadRequestException extends DataProviderException {
+  final String? message;
+
+  const BadRequestException({this.message});
+}
+
 /// Thrown when one or more fields sent to the server are invalid.
 final class InvalidArgumentException extends DataProviderException {
   final String? message;

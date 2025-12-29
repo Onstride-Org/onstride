@@ -1,11 +1,14 @@
 export 'authentication/authentication.dart';
 export 'barn/barns.dart';
 export 'billing/billing.dart';
+export 'branding/branding.dart';
 export 'horses/horses.dart';
 export 'invitations/invitations.dart';
 export 'invoices/invoices.dart';
 export 'lessons/lessons.dart';
+export 'multi_barn/multi_barn.dart';
 export 'notifications/notifications.dart';
 export 'ride_logs/ride_logs.dart';
 export 'tasks/tasks.dart';
 export 'users/users.dart';
+export 'vendors/vendors.dart';

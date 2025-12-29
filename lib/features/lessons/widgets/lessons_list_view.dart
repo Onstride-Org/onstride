@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gl_horses/core/core.dart';
 import 'package:gl_horses/features/lessons/providers/providers.dart';
 import 'package:gl_horses/features/lessons/widgets/lesson_card.dart';
+import 'package:gl_horses/l10n/l10n.dart';
 import 'package:models/models.dart';
 
 /// List view of scheduled lessons.

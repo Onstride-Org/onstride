@@ -82,6 +82,12 @@ dependencies:
     path: packages/lessons_repository
   billing_repository:
     path: packages/billing_repository
+  multi_barn_repository:
+    path: packages/multi_barn_repository
+  vendors_repository:
+    path: packages/vendors_repository
+  branding_repository:
+    path: packages/branding_repository
   file_picker: ^10.3.3
   firebase_crashlytics: ^5.0.1
   firebase_analytics: ^12.0.4

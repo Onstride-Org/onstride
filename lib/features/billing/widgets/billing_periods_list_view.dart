@@ -108,7 +108,10 @@ class _StatusChip extends StatelessWidget {
     final (color, label) = switch (status) {
       BillingPeriodStatus.open => (Colors.blue, 'Open'),
       BillingPeriodStatus.invoiced => (Colors.orange, 'Invoiced'),
-      BillingPeriodStatus.closed => (Colors.green, 'Closed'),
+      BillingPeriodStatus.closed => (Colors.grey, 'Closed'),
+      BillingPeriodStatus.paid => (Colors.green, 'Paid'),
+      BillingPeriodStatus.partiallyPaid => (Colors.amber, 'Partial'),
+      BillingPeriodStatus.overdue => (Colors.red, 'Overdue'),
     };
 
     return Container(

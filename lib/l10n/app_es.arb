@@ -100,5 +100,22 @@
   "rideLogged": "Monta Registrada",
   "rideLoggedDescription": "Cuando alguien registra una monta en tu caballo",
   "weeklySummary": "Resumen Semanal",
-  "weeklySummaryDescription": "Recibir un resumen semanal de montas por email"
+  "weeklySummaryDescription": "Recibir un resumen semanal de montas por email",
+
+  "pleaseSelectTrainer": "Por favor selecciona un entrenador",
+  "lessonRequestSent": "Solicitud de clase enviada",
+  "dateAndTime": "Fecha y Hora",
+  "sendRequest": "Enviar Solicitud",
+  "lessonDeclined": "Clase rechazada",
+  "counterProposalSent": "Contrapropuesta enviada",
+  "declineRequest": "Rechazar Solicitud",
+  "declineRequestConfirmation": "¿Estás seguro de que quieres rechazar esta solicitud?",
+  "reason": "Razón",
+  "decline": "Rechazar",
+  "counterProposal": "Contrapropuesta",
+  "suggestAlternativeTime": "Sugerir un horario alternativo",
+  "sendCounter": "Enviar Contrapropuesta",
+  "lessonUpdated": "Clase actualizada",
+  "cancelLesson": "Cancelar Clase",
+  "cancelLessonConfirmation": "¿Estás seguro de que quieres cancelar esta clase?"
 }

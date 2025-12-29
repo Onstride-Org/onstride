@@ -678,5 +678,22 @@
   "veterinary": "Veterinary",
   "equipmentCharge": "Equipment",
   "trainingCharge": "Training",
-  "otherCharge": "Other"
+  "otherCharge": "Other",
+
+  "pleaseSelectTrainer": "Please select a trainer",
+  "lessonRequestSent": "Lesson request sent",
+  "dateAndTime": "Date & Time",
+  "sendRequest": "Send Request",
+  "lessonDeclined": "Lesson declined",
+  "counterProposalSent": "Counter proposal sent",
+  "declineRequest": "Decline Request",
+  "declineRequestConfirmation": "Are you sure you want to decline this request?",
+  "reason": "Reason",
+  "decline": "Decline",
+  "counterProposal": "Counter Proposal",
+  "suggestAlternativeTime": "Suggest an alternative time",
+  "sendCounter": "Send Counter",
+  "lessonUpdated": "Lesson updated",
+  "cancelLesson": "Cancel Lesson",
+  "cancelLessonConfirmation": "Are you sure you want to cancel this lesson?"
 }

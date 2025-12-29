@@ -4,6 +4,7 @@ import 'package:gl_horses/core/core.dart';
 import 'package:gl_horses/features/lessons/providers/providers.dart';
 import 'package:gl_horses/features/lessons/screens/create_lesson_request_screen.dart';
 import 'package:gl_horses/features/lessons/widgets/widgets.dart';
+import 'package:gl_horses/l10n/l10n.dart';
 import 'package:go_router/go_router.dart';
 import 'package:models/models.dart';
 

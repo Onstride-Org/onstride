@@ -4,6 +4,7 @@ import 'package:app_config_repository/app_config_repository.dart';
 import 'package:auth_repository/auth_repository.dart';
 import 'package:barns_repository/barns_repository.dart';
 import 'package:billing_repository/billing_repository.dart';
+import 'package:branding_repository/branding_repository.dart';
 import 'package:data_provider_client/data_provider_client.dart';
 import 'package:database_client/database_client.dart';
 import 'package:firebase_authentication_client/firebase_authentication_client.dart';
@@ -17,11 +18,13 @@ import 'package:horse_repository/horse_repository.dart';
 import 'package:invitations_repository/invitations_repository.dart';
 import 'package:invoices_repository/invoices_repository.dart';
 import 'package:lessons_repository/lessons_repository.dart';
+import 'package:multi_barn_repository/multi_barn_repository.dart';
 import 'package:remote_config_client/remote_config_client.dart';
 import 'package:ride_logs_repository/ride_logs_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:tasks_repository/tasks_repository.dart';
 import 'package:users_repository/users_repository.dart';
+import 'package:vendors_repository/vendors_repository.dart';
 
 part 'repository_providers.g.dart';
 
@@ -56,6 +59,9 @@ DataProviderClient dataProviderClient(Ref ref) {
     rideLogsResource: FirebaseRideLogsResource(),
     lessonsResource: FirebaseLessonsResource(),
     billingResource: FirebaseBillingResource(),
+    multiBarnResource: FirebaseMultiBarnResource(),
+    vendorsResource: FirebaseVendorsResource(),
+    brandingResource: FirebaseBrandingResource(),
   );
 }
 
@@ -128,5 +134,20 @@ LessonsRepository lessonsRepository(Ref ref) => LessonsRepository(
 
 @Riverpod(keepAlive: true)
 BillingRepository billingRepository(Ref ref) => BillingRepository(
+  dataProviderClient: ref.watch(dataProviderClientProvider),
+);
+
+@Riverpod(keepAlive: true)
+MultiBarnRepository multiBarnRepository(Ref ref) => MultiBarnRepository(
+  dataProviderClient: ref.watch(dataProviderClientProvider),
+);
+
+@Riverpod(keepAlive: true)
+VendorsRepository vendorsRepository(Ref ref) => VendorsRepository(
+  dataProviderClient: ref.watch(dataProviderClientProvider),
+);
+
+@Riverpod(keepAlive: true)
+BrandingRepository brandingRepository(Ref ref) => BrandingRepository(
   dataProviderClient: ref.watch(dataProviderClientProvider),
 );

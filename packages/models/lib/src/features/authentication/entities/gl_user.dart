@@ -29,6 +29,9 @@ sealed class GLUser with _$GLUser {
 }
 
 extension GLUserExt on GLUser {
+  /// Returns the user's full name, or email, or 'Unknown' if neither available.
+  String get fullName => name ?? email ?? 'Unknown';
+
   bool get isOwner => accountType == AccountType.owner;
 
   bool get isGroomer => accountType == AccountType.groomer;

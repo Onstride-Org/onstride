@@ -4,6 +4,7 @@ import 'package:gl_horses/core/core.dart';
 import 'package:gl_horses/features/billing/providers/providers.dart';
 import 'package:gl_horses/features/horses/providers/providers.dart';
 import 'package:gl_horses/features/users/providers/providers.dart';
+import 'package:gl_horses/l10n/l10n.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:models/models.dart';
@@ -115,17 +116,11 @@ class _CreateChargeScreenState extends ConsumerState<CreateChargeScreen> {
       }
     });
 
-    final clients = usersState.maybeWhen(
-      success: (users) => users
-          .where((u) => u.accountType == AccountType.boarder)
-          .toList(),
-      orElse: () => <GLUser>[],
-    );
+    final clients = usersState.allUsers
+        .where((u) => u.accountType == AccountType.boarder)
+        .toList();
 
-    final horses = horsesState.maybeWhen(
-      success: (data) => data.horses,
-      orElse: () => <HorseModel>[],
-    );
+    final horses = horsesState.horses;
 
     final isLoading = createState is LoadingCreateChargeState;
 

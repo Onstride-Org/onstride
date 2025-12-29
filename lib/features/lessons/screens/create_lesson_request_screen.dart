@@ -4,6 +4,7 @@ import 'package:gl_horses/core/core.dart';
 import 'package:gl_horses/features/horses/providers/providers.dart';
 import 'package:gl_horses/features/lessons/providers/providers.dart';
 import 'package:gl_horses/features/users/providers/providers.dart';
+import 'package:gl_horses/l10n/l10n.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:models/models.dart';
@@ -130,20 +131,14 @@ class _CreateLessonRequestScreenState
     });
 
     // Get trainers from users
-    final trainers = usersState.maybeWhen(
-      success: (users) => users
-          .where((u) =>
-              u.accountType == AccountType.owner ||
-              u.accountType == AccountType.manager)
-          .toList(),
-      orElse: () => <GLUser>[],
-    );
+    final trainers = usersState.allUsers
+        .where((u) =>
+            u.accountType == AccountType.owner ||
+            u.accountType == AccountType.manager)
+        .toList();
 
     // Get horses
-    final horses = horsesState.maybeWhen(
-      success: (data) => data.horses,
-      orElse: () => <HorseModel>[],
-    );
+    final horses = horsesState.horses;
 
     final isLoading = createState is LoadingCreateLessonRequestState;
 

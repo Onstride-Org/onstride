@@ -5,6 +5,7 @@ import 'package:gl_horses/features/billing/providers/providers.dart';
 import 'package:gl_horses/features/billing/screens/create_charge_screen.dart';
 import 'package:gl_horses/features/billing/screens/create_template_screen.dart';
 import 'package:gl_horses/features/billing/widgets/widgets.dart';
+import 'package:gl_horses/l10n/l10n.dart';
 import 'package:go_router/go_router.dart';
 
 /// Main billing management screen.
