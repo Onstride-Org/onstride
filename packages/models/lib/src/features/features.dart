@@ -1,3 +1,4 @@
+export 'ai_features/ai_features.dart';
 export 'authentication/authentication.dart';
 export 'barn/barns.dart';
 export 'billing/billing.dart';
