@@ -23,3 +23,7 @@ exports.sendTaskReminders = require("./src/notifications/send_task_reminders");
 // EMAIL FUNCTIONS
 //--------------------------------------------------------------------------------------
 exports.sendWelcomeEmail = require("./src/emails/send_welcome_email");
+//--------------------------------------------------------------------------------------
+// HORSE FUNCTIONS
+//--------------------------------------------------------------------------------------
+exports.assignStrideNumber = require("./src/horses/assign_stride_number");
