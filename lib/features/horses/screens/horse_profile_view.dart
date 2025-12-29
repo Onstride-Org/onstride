@@ -6,6 +6,7 @@ import 'package:gl_horses/core/core.dart';
 import 'package:gl_horses/features/features.dart';
 import 'package:gl_horses/features/horses/providers/load_horse_tasks/load_horse_tasks.dart';
 import 'package:gl_horses/features/horses/providers/load_horse_tasks/load_horse_tasks_state.dart';
+import 'package:gl_horses/features/horses/services/horse_export_service.dart';
 import 'package:gl_horses/features/tasks/providers/get_boarder_horses/get_boarder_horses_provider.dart';
 import 'package:gl_horses/l10n/l10n.dart';
 import 'package:go_router/go_router.dart';
@@ -108,6 +109,11 @@ class _HorseProfileViewState extends ConsumerState<HorseProfileView> {
                         ],
                       ),
                       GLSpaces.px48,
+                      RideLogList(
+                        horseId: horse.id,
+                        barnId: horse.barnId,
+                      ),
+                      GLSpaces.px24,
                       HorseDocumentList(horse: horse),
                       GLSpaces.px8,
                       _TaskList(state: tasksState),
@@ -186,6 +192,35 @@ class HorseProfileAppBar extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(56);
 
+  Future<void> _shareHorseProfile(
+    BuildContext context,
+    WidgetRef ref,
+    HorseModel horse,
+  ) async {
+    // Get boarder name if available
+    final boarder = ref.read(fetchUsersProvider).getUserById(horse.boarderId ?? '');
+    final stall = ref.read(accountProvider.notifier).getStallPositionById(horse.stallId);
+
+    // Get ride log data if available
+    final rideLogsState = ref.read(fetchRideLogsProvider);
+    List<RideLogModel>? rideLogs;
+    RideLogSummary? summary;
+
+    if (rideLogsState is SuccessFetchRideLogsState) {
+      rideLogs = rideLogsState.rideLogs;
+      summary = rideLogsState.summary;
+    }
+
+    await HorseExportService.shareHorseProfile(
+      context: context,
+      horse: horse,
+      boarderName: boarder?.name,
+      stallName: stall?.stallName,
+      recentRideLogs: rideLogs,
+      rideLogSummary: summary,
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(accountProvider).currentUser;
@@ -202,6 +237,12 @@ class HorseProfileAppBar extends ConsumerWidget implements PreferredSizeWidget {
         style: Theme.of(context).textTheme.titleLarge,
       ),
       actions: [
+        // Share button
+        IconButton(
+          onPressed: () => _shareHorseProfile(context, ref, horse),
+          icon: const Icon(Icons.share),
+          tooltip: 'Share Profile',
+        ),
         if (user.isOwner ||
             user.isBoarder ||
             (user.isEmployee && user.canManageHorses))

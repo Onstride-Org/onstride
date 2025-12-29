@@ -19,3 +19,7 @@ exports.stripeWebhook = require("./src/payments/stripe_webhook");
 // NOTIFICATIONS FUNCTIONS
 //--------------------------------------------------------------------------------------
 exports.sendTaskReminders = require("./src/notifications/send_task_reminders");
+//--------------------------------------------------------------------------------------
+// EMAIL FUNCTIONS
+//--------------------------------------------------------------------------------------
+exports.sendWelcomeEmail = require("./src/emails/send_welcome_email");

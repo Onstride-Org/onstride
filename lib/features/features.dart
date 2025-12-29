@@ -5,6 +5,7 @@ export 'home/home.dart';
 export 'horses/horses.dart';
 export 'invoices/invoices.dart';
 export 'profile/profile.dart';
+export 'ride_logs/ride_logs.dart';
 export 'tasks/tasks.dart';
 export 'users/users.dart';
 export 'welcome/welcome.dart';

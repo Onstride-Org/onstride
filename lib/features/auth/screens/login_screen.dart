@@ -1,5 +1,6 @@
 import 'package:app_ui/app_ui.dart';
 import 'package:auth_repository/auth_repository.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -167,7 +168,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: .23.sh),
+                SizedBox(height: kIsWeb ? 40.h : .23.sh),
                 Padding(
                   padding: 20.edgeInsetsH,
                   child: Column(
@@ -317,7 +318,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ],
                         ),
-                        GLSpaces.px72,
+                        SizedBox(height: kIsWeb ? 24.h : 72.h),
                       ],
                     ),
                   ),

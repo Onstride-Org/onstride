@@ -16,6 +16,7 @@ import 'package:horse_repository/horse_repository.dart';
 import 'package:invitations_repository/invitations_repository.dart';
 import 'package:invoices_repository/invoices_repository.dart';
 import 'package:remote_config_client/remote_config_client.dart';
+import 'package:ride_logs_repository/ride_logs_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:tasks_repository/tasks_repository.dart';
 import 'package:users_repository/users_repository.dart';
@@ -50,6 +51,7 @@ DataProviderClient dataProviderClient(Ref ref) {
     barnsResource: FirebaseBarnsResource(),
     invoicesResource: FirebaseInvoicesResource(app: Firebase.app()),
     invitationsResource: FirebaseInvitationsResource(),
+    rideLogsResource: FirebaseRideLogsResource(),
   );
 }
 
@@ -107,5 +109,10 @@ InvoicesRepository invoicesRepository(Ref ref) => InvoicesRepository(
 
 @Riverpod(keepAlive: true)
 InvitationsRepository invitationsRepository(Ref ref) => InvitationsRepository(
+  dataProviderClient: ref.watch(dataProviderClientProvider),
+);
+
+@Riverpod(keepAlive: true)
+RideLogsRepository rideLogsRepository(Ref ref) => RideLogsRepository(
   dataProviderClient: ref.watch(dataProviderClientProvider),
 );

@@ -76,6 +76,8 @@ dependencies:
     path: packages/invoices_repository
   invitations_repository:
     path: packages/invitations_repository
+  ride_logs_repository:
+    path: packages/ride_logs_repository
   file_picker: ^10.3.3
   firebase_crashlytics: ^5.0.1
   firebase_analytics: ^12.0.4

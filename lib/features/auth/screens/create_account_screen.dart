@@ -336,7 +336,7 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
                   ),
                 ],
               ),
-              GLSpaces.px40,
+              SizedBox(height: kIsWeb ? 24.h : 40.h),
             ],
           ),
         ),

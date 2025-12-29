@@ -14,6 +14,7 @@ abstract class DataProviderClient {
     required this.barnsResource,
     required this.invoicesResource,
     required this.invitationsResource,
+    required this.rideLogsResource,
   });
 
   /// Resource exposing information about accounts.
@@ -36,6 +37,9 @@ abstract class DataProviderClient {
 
   /// Resource exposing invitation data.
   final InvitationsResource invitationsResource;
+
+  /// Resource exposing ride logs data.
+  final RideLogsResource rideLogsResource;
 
   // /// Resource exposing information about the user, allowing
   // /// to authenticate, and to list user's licenses
