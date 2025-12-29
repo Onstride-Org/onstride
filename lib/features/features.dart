@@ -1,6 +1,7 @@
 export 'admin/admin.dart';
 export 'auth/auth.dart';
 export 'barns/barns.dart';
+export 'dashboard/dashboard.dart';
 export 'home/home.dart';
 export 'horses/horses.dart';
 export 'invoices/invoices.dart';

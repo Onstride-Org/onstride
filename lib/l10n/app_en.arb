@@ -506,5 +506,27 @@
   "viewHorseInfo": "View horse info",
   "rememberMe": "Remember me",
   "userDeletedTitle": "User was deleted",
-  "userDeletedSubtitle": "Do you want to create a new account with this email?"
+  "userDeletedSubtitle": "Do you want to create a new account with this email?",
+  "todaysTasks": "Today's Tasks",
+  "noTasksForToday": "No tasks for today",
+  "andMoreTasks": "+{count} more tasks",
+  "@andMoreTasks": {
+    "description": "Shows how many more tasks are hidden",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addTask": "Add Task",
+  "addHorse": "Add Horse",
+  "logRide": "Log Ride",
+  "noHorsesAvailable": "No Horses Available",
+  "pleaseAddAHorseFirst": "Please add a horse first to log a ride.",
+  "thisWeek": "This Week",
+  "barnOverview": "Barn Overview",
+  "boarders": "Boarders",
+  "total": "total",
+  "pendingTasks": "Pending",
+  "overdue": "Overdue"
 }
