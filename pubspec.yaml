@@ -78,6 +78,10 @@ dependencies:
     path: packages/invitations_repository
   ride_logs_repository:
     path: packages/ride_logs_repository
+  lessons_repository:
+    path: packages/lessons_repository
+  billing_repository:
+    path: packages/billing_repository
   file_picker: ^10.3.3
   firebase_crashlytics: ^5.0.1
   firebase_analytics: ^12.0.4

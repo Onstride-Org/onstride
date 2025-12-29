@@ -3,6 +3,7 @@ import 'package:account_repository/account_repository.dart';
 import 'package:app_config_repository/app_config_repository.dart';
 import 'package:auth_repository/auth_repository.dart';
 import 'package:barns_repository/barns_repository.dart';
+import 'package:billing_repository/billing_repository.dart';
 import 'package:data_provider_client/data_provider_client.dart';
 import 'package:database_client/database_client.dart';
 import 'package:firebase_authentication_client/firebase_authentication_client.dart';
@@ -15,6 +16,7 @@ import 'package:gl_horses/core/config/flavor_config.dart';
 import 'package:horse_repository/horse_repository.dart';
 import 'package:invitations_repository/invitations_repository.dart';
 import 'package:invoices_repository/invoices_repository.dart';
+import 'package:lessons_repository/lessons_repository.dart';
 import 'package:remote_config_client/remote_config_client.dart';
 import 'package:ride_logs_repository/ride_logs_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -52,6 +54,8 @@ DataProviderClient dataProviderClient(Ref ref) {
     invoicesResource: FirebaseInvoicesResource(app: Firebase.app()),
     invitationsResource: FirebaseInvitationsResource(),
     rideLogsResource: FirebaseRideLogsResource(),
+    lessonsResource: FirebaseLessonsResource(),
+    billingResource: FirebaseBillingResource(),
   );
 }
 
@@ -114,5 +118,15 @@ InvitationsRepository invitationsRepository(Ref ref) => InvitationsRepository(
 
 @Riverpod(keepAlive: true)
 RideLogsRepository rideLogsRepository(Ref ref) => RideLogsRepository(
+  dataProviderClient: ref.watch(dataProviderClientProvider),
+);
+
+@Riverpod(keepAlive: true)
+LessonsRepository lessonsRepository(Ref ref) => LessonsRepository(
+  dataProviderClient: ref.watch(dataProviderClientProvider),
+);
+
+@Riverpod(keepAlive: true)
+BillingRepository billingRepository(Ref ref) => BillingRepository(
   dataProviderClient: ref.watch(dataProviderClientProvider),
 );

@@ -1,8 +1,10 @@
 export 'authentication/authentication.dart';
 export 'barn/barns.dart';
+export 'billing/billing.dart';
 export 'horses/horses.dart';
 export 'invitations/invitations.dart';
 export 'invoices/invoices.dart';
+export 'lessons/lessons.dart';
 export 'notifications/notifications.dart';
 export 'ride_logs/ride_logs.dart';
 export 'tasks/tasks.dart';

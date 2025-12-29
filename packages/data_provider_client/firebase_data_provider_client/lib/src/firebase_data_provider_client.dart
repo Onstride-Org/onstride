@@ -16,6 +16,8 @@ class FirebaseDataProviderClient implements DataProviderClient {
     required this.invoicesResource,
     required this.invitationsResource,
     required this.rideLogsResource,
+    required this.lessonsResource,
+    required this.billingResource,
   });
 
   /// Resource exposing information about accounts.
@@ -45,4 +47,10 @@ class FirebaseDataProviderClient implements DataProviderClient {
 
   @override
   final RideLogsResource rideLogsResource;
+
+  @override
+  final LessonsResource lessonsResource;
+
+  @override
+  final BillingResource billingResource;
 }
