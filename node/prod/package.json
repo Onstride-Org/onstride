@@ -1,0 +1,10 @@
+{
+  "name": "gl-prod-tools",
+  "private": true,
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  },
+  "scripts": {
+    "set-admin": "node tools/set_admin_claim.js"
+  }
+}

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Splash theme only for app launch (kept simple) -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <!-- Display the launch background until Flutter draws the first frame -->
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+
+    <!-- Runtime app theme MUST inherit from Material Components for Stripe -->
+    <style name="Theme.GLHorses" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Customize as needed -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <!-- If you have dynamic colors or brand palette, map them here -->
+        <!-- <item name="colorPrimary">@color/brand_500</item> -->
+    </style>
+
+</resources>

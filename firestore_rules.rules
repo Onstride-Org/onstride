@@ -1,0 +1,195 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function uid() {
+      return request.auth.uid;
+    }
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(uid()));
+    }
+    function hasAccountType(type) {
+      return isSignedIn() && userDoc().data.account_type == type;
+    }
+    function isOwner() {
+      return hasAccountType('owner');
+    }
+    function isBoarder() {
+      return hasAccountType('boarder');
+    }
+    function isAdmin() {
+      return hasAccountType('admin');
+    }
+    // permissions is stored as an array<string> in users/{uid}.permissions
+    function hasPermission(perm) {
+      return isSignedIn() && (perm in userDoc().data.permissions);
+    }
+      match /logs/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn(); 
+    }
+    // -------------------------------------------------------------------
+    // Collection: app_data
+    // - Read: only if authenticated
+    // - Write (create/update/delete): only if account_type == 'admin'
+    // -------------------------------------------------------------------
+    match /app_data/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+
+      // ---------------------------------------------------------------
+      // Subcollection: app_data/horses/{subCollection}/{docId}
+      // Applies to horses_breed, horses_colors, horses_sex_status
+      // - Same rules as parent app_data
+      // ---------------------------------------------------------------
+      match /horses_breed/{subDocId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if isAdmin() || isOwner();
+      }
+      match /horses_breed/{subDocId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if isAdmin() || isOwner();
+      }
+      match /horses_sex_status/{subDocId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if isAdmin();
+      }
+      
+    }
+
+    // -------------------------------------------------------------------
+    // Collection: barns
+    // - Read: only if authenticated
+    // - Create: only if account_type == 'owner'
+    // - Update: allowed if user has permission 'horseManagement'
+    //            OR 'barnManagement' OR account_type == 'owner'
+    // - Delete: denied by default
+    // -------------------------------------------------------------------
+    match /barns/{barnId} {
+      allow read: if isSignedIn();
+
+      allow create: if isOwner();
+
+      allow update: if
+				isAdmin() ||
+        hasPermission('horseManagement') ||
+        hasPermission('barnManagement') ||
+        isOwner();
+
+      // delete not requested => denied by default
+
+      // ---------------------------
+      // Subcollection: barns/{barnId}/logs
+      // - Create/Update: allowed if account_type == 'owner'
+      //                  OR user has permission 'barnManagement'
+      // - Delete: denied
+      // - Read: denied by default
+      // ---------------------------
+      match /logs/{logId} {
+        allow create, update: if isOwner() || hasPermission('barnManagement');
+      }
+
+      // ---------------------------
+      // Subcollection: barns/{barnId}/delete_user_logs
+      // - Create/Update: allowed if account_type == 'owner'
+      //                  OR user has permission 'userManagement'
+      // - Delete: denied
+      // - Read: denied by default
+      // ---------------------------
+      match /delete_user_logs/{logId} {
+        allow create, update: if isAdmin() || isOwner() || hasPermission('userManagement');
+      }
+      
+			// ---------------------------
+      // Subcollection: barns/{barnId}/delete_horses_logs
+      // - Create/Update: allowed if account_type == 'owner'
+      //                  OR user has permission 'userManagement'
+      // - Delete: denied
+      // - Read: denied by default
+      // ---------------------------
+      match /delete_horses_logs/{logId} {
+        allow create, update: if isOwner() || hasPermission('horseManagement');
+      }
+
+
+      // -------------------------------------------------------------------
+      // Subcollection: invoices
+      // - Read: owner, permission 'generateInvoices', or boarder
+      // - Create: owner or permission 'generateInvoices'
+      // - Update: owner, permission 'generateInvoices', or boarder
+      //           AND only if status == 'pending'
+      // - Delete: owner or permission 'generateInvoices'
+      //           AND only if status == 'pending'
+      // -------------------------------------------------------------------
+      match /invoices/{invoiceId} {
+        allow read: if isOwner() || hasPermission('generateInvoices') || isBoarder();
+        allow create: if isOwner() || hasPermission('generateInvoices');
+
+        allow update: 
+        if (
+            (isBoarder() && 
+              (resource.data.status == 'pending' || resource.data.status =='processing' || resource.data.status == 'failed'  ||  
+                (	
+                  resource.data.status == 'paid' &&
+                  request.resource.data.diff(resource.data).changedKeys().hasOnly(['receipt_url'])
+                )
+              )
+            ) || 
+            (
+            	(
+              	isOwner() || hasPermission('generateInvoices'))	&& resource.data.status == 'pending'
+              ) 
+          );
+        allow delete: if (isOwner() || hasPermission('generateInvoices'))
+                      && resource.data.status == 'pending';
+      }
+    }
+    // -------------------------------------------------------------------
+    // Collection: horses
+    // - Read: only if authenticated
+    // - Create/Update/Delete: only if authenticated
+    // -------------------------------------------------------------------
+    match /horses/{horseId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isSignedIn() && (isAdmin() || isOwner() 
+      || hasPermission('horseManagement') || isBoarder() ) ;
+      allow update: if isSignedIn() && (isAdmin() || isOwner() 
+      || hasPermission('barnManagement')
+      || hasPermission('horseManagement'));
+    }
+
+    // -------------------------------------------------------------------
+    // Collection: tasks
+    // - Read: only if authenticated
+    // - Create/Update/Delete: only if authenticated
+    // -------------------------------------------------------------------
+    match /tasks/{taskId} {
+      allow read, create, update, delete: if isSignedIn();
+    }
+		// ------------------------------------------------------------
+    // Collection: users
+    // - GET: allowed if authenticated OR if the document id equals
+    //        its 'email' field (supports your invalid-credential fallback).
+    // - LIST (queries/pagination): allowed only if authenticated.
+    // - WRITE (create/update/delete): allowed only if authenticated.
+    //   NOTE: This grants write access to any authenticated user; tighten later if needed.
+    // ------------------------------------------------------------
+    match /users/{userId} {
+      // Allow single-document reads for:
+      // 1) Signed-in users, OR
+      // 2) Unauthenticated access when docId equals the 'email' field
+      allow get: if isSignedIn() || (resource.data.email == resource.id);
+
+      // Allow listing (queries/pagination) for signed-in users
+      allow list: if isSignedIn();
+      allow read: if isSignedIn();
+
+      // Allow writes for signed-in users (broad access by design per request)
+      allow create, update, delete: if isSignedIn();
+    }
+  }
+}

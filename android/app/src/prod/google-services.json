@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "286054909933",
+    "project_id": "gl-horses-prod",
+    "storage_bucket": "gl-horses-prod.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:286054909933:android:f26403a948e6bf10ea49e4",
+        "android_client_info": {
+          "package_name": "com.smartup.gl_horses"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCXjZ4AJfmvgzYaBnAkUN5f4Q1IOtMMgas"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

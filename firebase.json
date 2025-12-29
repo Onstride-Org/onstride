@@ -1,0 +1,84 @@
+{
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "gl-horses-prod",
+          "appId": "1:286054909933:android:f26403a948e6bf10ea49e4",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "gl-horses-prod",
+          "appId": "1:286054909933:ios:257022e5eda2f2c4ea49e4",
+          "uploadDebugSymbols": true,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "gl-horses-develop",
+          "configurations": {
+            "android": "1:930733642707:android:53b3959089907c8c72d526",
+            "ios": "1:930733642707:ios:487473c1318924f772d526"
+          }
+        },
+        "lib/firebase/firebase_options_dev.dart": {
+          "projectId": "gl-horses-develop",
+          "configurations": {
+            "android": "1:930733642707:android:2dc1d64f72491d2872d526",
+            "ios": "1:930733642707:ios:42af79c15f96d85672d526"
+          }
+        },
+        "lib/firebase_options_prod.dart": {
+          "projectId": "gl-horses-prod",
+          "configurations": {
+            "android": "1:286054909933:android:f26403a948e6bf10ea49e4",
+            "ios": "1:286054909933:ios:257022e5eda2f2c4ea49e4"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions/dev",
+      "codebase": "dev-functions",
+      "runtime": "nodejs20",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    },
+    {
+      "source": "functions/prod",
+      "codebase": "prod-functions",
+      "runtime": "nodejs20",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ]
+}

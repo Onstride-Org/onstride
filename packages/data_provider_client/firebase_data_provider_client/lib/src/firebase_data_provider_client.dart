@@ -1,0 +1,44 @@
+// ignore_for_file: unused_field
+
+import 'package:data_provider_client/data_provider_client.dart';
+import 'package:firebase_data_provider_client/src/resource/resource.dart';
+
+/// {@template firebase_data_provider_client}
+/// {@endtemplate}
+class FirebaseDataProviderClient implements DataProviderClient {
+  /// {@macro firebase_data_provider_client}
+  FirebaseDataProviderClient({
+    required this.accountsResource,
+    required this.horseResource,
+    required this.tasksResource,
+    required this.usersResource,
+    required this.barnsResource,
+    required this.invoicesResource,
+    required this.invitationsResource,
+  });
+
+  /// Resource exposing information about accounts.
+  @override
+  final FirebaseAccountsResource accountsResource;
+
+  @override
+  // Resource exposing tasks data.
+  final FirebaseTasksResource tasksResource;
+
+  @override
+  // Resource exposing users data.
+  final FirebaseUsersResource usersResource;
+
+  // Resource exposing horses data.
+  @override
+  final FirebaseHorseResource horseResource;
+
+  @override
+  final BarnsResource barnsResource;
+
+  @override
+  final InvoicesResource invoicesResource;
+
+  @override
+  final InvitationsResource invitationsResource;
+}

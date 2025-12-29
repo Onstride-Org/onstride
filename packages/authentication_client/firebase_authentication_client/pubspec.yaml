@@ -1,0 +1,25 @@
+name: firebase_authentication_client
+description: A Firebase implementation of the authentication client interface
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  authentication_client:
+    path: ../authentication_client
+  cloud_firestore: ^6.0.0
+  firebase_auth: ^6.0.0
+  flutter:
+    sdk: flutter
+  google_sign_in: ^6.3.0
+  #google_sign_in_web: ^0.12.0+3
+  rxdart: ^0.28.0
+  sign_in_with_apple: ^7.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  mocktail: ^1.0.4
+  very_good_analysis: ^9.0.0

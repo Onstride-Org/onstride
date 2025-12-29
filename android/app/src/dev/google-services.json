@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "930733642707",
+    "project_id": "gl-horses-develop",
+    "storage_bucket": "gl-horses-develop.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:930733642707:android:53b3959089907c8c72d526",
+        "android_client_info": {
+          "package_name": "com.smartup.gl_horses"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAD4mFd9om7Oh7NOdNT-2bx542NA_FCfcw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:930733642707:android:737905524f405c7672d526",
+        "android_client_info": {
+          "package_name": "com.smartup.gl_horses.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAD4mFd9om7Oh7NOdNT-2bx542NA_FCfcw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:930733642707:android:2dc1d64f72491d2872d526",
+        "android_client_info": {
+          "package_name": "com.smartup.glhorses.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAD4mFd9om7Oh7NOdNT-2bx542NA_FCfcw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
