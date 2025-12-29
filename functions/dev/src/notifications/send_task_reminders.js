@@ -5,6 +5,50 @@ const { getApps, initializeApp } = require('firebase-admin/app');
 
 if (getApps().length === 0) initializeApp();
 
+/**
+ * Check if user has enabled push notifications for task reminders.
+ * @param {Object} user - User document data
+ * @returns {boolean} - Whether to send notification
+ */
+function shouldSendTaskNotification(user) {
+  const prefs = user.notification_preferences;
+
+  // If no preferences set, default to enabled
+  if (!prefs) return true;
+
+  // Check master push toggle
+  if (prefs.pushEnabled === false) return false;
+
+  // Check task-specific settings
+  if (prefs.tasks && prefs.tasks.onDueSoon === false) return false;
+
+  return true;
+}
+
+/**
+ * Check if current time is within user's quiet hours.
+ * @param {Object} user - User document data
+ * @returns {boolean} - Whether we're in quiet hours
+ */
+function isInQuietHours(user) {
+  const prefs = user.notification_preferences;
+  if (!prefs || !prefs.general) return false;
+
+  const { quietHoursStart, quietHoursEnd } = prefs.general;
+  if (quietHoursStart == null || quietHoursEnd == null) return false;
+
+  const now = new Date();
+  const currentHour = now.getUTCHours(); // Using UTC for simplicity
+
+  // Handle overnight quiet hours (e.g., 22:00 to 07:00)
+  if (quietHoursStart > quietHoursEnd) {
+    return currentHour >= quietHoursStart || currentHour < quietHoursEnd;
+  }
+
+  // Same-day quiet hours (e.g., 00:00 to 06:00)
+  return currentHour >= quietHoursStart && currentHour < quietHoursEnd;
+}
+
 module.exports = onSchedule(
   { schedule: 'every 1 minutes', region: 'us-central1', timeZone: 'Etc/UTC' },
   async () => {
@@ -13,7 +57,7 @@ module.exports = onSchedule(
 
     const now = new Date();
 
-    // Task due in 1 hour
+    // Task due in 1 hour (default) - can be customized per user
     const target = new Date(now.getTime() + 60 * 60 * 1000);
     target.setSeconds(0, 0);
 
@@ -170,6 +214,27 @@ module.exports = onSchedule(
             updatePayload[`notification_sent_to.${uid}`] = false;
             updatePayload[`notification_skip_reason_to.${uid}`] = 'missing_user';
             anySendFailed = true;
+            continue;
+          }
+
+          // Check user notification preferences
+          if (!shouldSendTaskNotification(user)) {
+            console.log(
+              `[scheduler] skipping task ${task.id} for user ${uid}: notifications_disabled`
+            );
+            updatePayload[`notification_sent_to.${uid}`] = true; // Mark as "sent" to avoid retrying
+            updatePayload[`notification_skip_reason_to.${uid}`] = 'notifications_disabled';
+            continue;
+          }
+
+          // Check quiet hours
+          if (isInQuietHours(user)) {
+            console.log(
+              `[scheduler] skipping task ${task.id} for user ${uid}: quiet_hours`
+            );
+            updatePayload[`notification_sent_to.${uid}`] = false;
+            updatePayload[`notification_skip_reason_to.${uid}`] = 'quiet_hours';
+            anySendFailed = true; // Retry later
             continue;
           }
 

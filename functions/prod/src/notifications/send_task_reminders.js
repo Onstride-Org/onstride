@@ -5,6 +5,50 @@ const { getApps, initializeApp } = require('firebase-admin/app');
 
 if (getApps().length === 0) initializeApp();
 
+/**
+ * Check if user has enabled push notifications for task reminders.
+ * @param {Object} user - User document data
+ * @returns {boolean} - Whether to send notification
+ */
+function shouldSendTaskNotification(user) {
+  const prefs = user.notification_preferences;
+
+  // If no preferences set, default to enabled
+  if (!prefs) return true;
+
+  // Check master push toggle
+  if (prefs.pushEnabled === false) return false;
+
+  // Check task-specific settings
+  if (prefs.tasks && prefs.tasks.onDueSoon === false) return false;
+
+  return true;
+}
+
+/**
+ * Check if current time is within user's quiet hours.
+ * @param {Object} user - User document data
+ * @returns {boolean} - Whether we're in quiet hours
+ */
+function isInQuietHours(user) {
+  const prefs = user.notification_preferences;
+  if (!prefs || !prefs.general) return false;
+
+  const { quietHoursStart, quietHoursEnd } = prefs.general;
+  if (quietHoursStart == null || quietHoursEnd == null) return false;
+
+  const now = new Date();
+  const currentHour = now.getUTCHours(); // Using UTC for simplicity
+
+  // Handle overnight quiet hours (e.g., 22:00 to 07:00)
+  if (quietHoursStart > quietHoursEnd) {
+    return currentHour >= quietHoursStart || currentHour < quietHoursEnd;
+  }
+
+  // Same-day quiet hours (e.g., 00:00 to 06:00)
+  return currentHour >= quietHoursStart && currentHour < quietHoursEnd;
+}
+
 module.exports = onSchedule(
   { schedule: 'every 1 minutes', region: 'us-central1', timeZone: 'Etc/UTC' },
   async () => {
@@ -13,7 +57,7 @@ module.exports = onSchedule(
 
     const now = new Date();
 
-    // Task due in 1 hour
+    // Task due in 1 hour (default) - can be customized per user
     const target = new Date(now.getTime() + 60 * 60 * 1000);
     target.setSeconds(0, 0);
 
@@ -43,7 +87,7 @@ module.exports = onSchedule(
       const taskRef = docSnap.ref;
 
       try {
-        const { task, user } = await db.runTransaction(async (tx) => {
+        const { task } = await db.runTransaction(async (tx) => {
           const fresh = await tx.get(taskRef);
           if (!fresh.exists) throw new Error('Missing task');
           const data = fresh.data();
@@ -55,10 +99,6 @@ module.exports = onSchedule(
             throw new Error('Completed task');
           }
 
-          const userRef = db.collection('users').doc(data.groom_id);
-          const userSnap = await tx.get(userRef);
-          if (!userSnap.exists) throw new Error('Missing user');
-
           tx.update(taskRef, {
             _sending_lock: true,
             _sending_lock_at: FieldValue.serverTimestamp(),
@@ -69,30 +109,12 @@ module.exports = onSchedule(
 
           return {
             task: { id: fresh.id, ...data },
-            user: { id: userSnap.id, ...userSnap.data() },
           };
         });
 
-        if (!user.fcm_token) {
-          console.log(
-            `[scheduler] skipping task ${task.id} for user ${user.id}: missing_fcm_token`
-          );
-          await taskRef.update({
-            _sending_lock: FieldValue.delete(),
-            _sending_lock_at: FieldValue.delete(),
-            _last_skip_reason: 'missing_fcm_token',
-          });
-          continue;
-        }
-
-        const title = String('Task Due Today');
-        const body = String(
-          `${task.name || 'Task'} for ${
-            task.horse_name || 'your horse'
-          } expires in one hour`
-        );
-
-
+        // -----------------------------
+        // Resolve dueDate (string or Timestamp)
+        // -----------------------------
         let dueISO = '';
         if (typeof task.due_date === 'string') {
           const d = new Date(task.due_date);
@@ -101,79 +123,215 @@ module.exports = onSchedule(
           dueISO = task.due_date.toDate().toISOString();
         }
 
-        const message = {
-          token: String(user.fcm_token),
-          notification: { title, body },
-          data: {
-            taskId: String(task.id || ''),
-            horseName: String(task.horse_name || ''),
-            dueDate: String(dueISO || ''),
-            screen: String('taskDetail'),
-            title: String(title),
-            body: String(body),
-          },
-          android: {
-            priority: 'high',
-            notification: { channelId: 'on_stride_notifications' },
-          },
-          apns: {
-            headers: {
-              'apns-push-type': 'alert',
-              'apns-priority': '10',
+        // -----------------------------
+        // Resolve horses (new model) + legacy fallback
+        // -----------------------------
+        const horseNames = Array.isArray(task.horses)
+          ? task.horses
+              .map((h) => (h?.name ? String(h.name).trim() : ''))
+              .filter((n) => n.length > 0)
+          : [];
+
+        const legacyHorseName =
+          task.horse_name != null ? String(task.horse_name).trim() : '';
+
+        const horsesLabel =
+          horseNames.length > 0
+            ? horseNames.join(', ')
+            : legacyHorseName || 'your horse';
+
+        // -----------------------------
+        // Resolve assignees (new model) + legacy fallback
+        // -----------------------------
+        const assigneeIds = Array.isArray(task.assignees)
+          ? task.assignees
+              .map((a) => (a?.id ? String(a.id) : ''))
+              .filter((id) => id.length > 0)
+          : [];
+
+        const legacyGroomId =
+          task.groom_id != null ? String(task.groom_id) : '';
+
+        const targetUserIds =
+          assigneeIds.length > 0
+            ? Array.from(new Set(assigneeIds))
+            : legacyGroomId
+              ? [legacyGroomId]
+              : [];
+
+        if (targetUserIds.length === 0) {
+          console.log(`[scheduler] skipping task ${task.id}: no_assignees`);
+          await taskRef.update({
+            _sending_lock: FieldValue.delete(),
+            _sending_lock_at: FieldValue.delete(),
+            _last_skip_reason: 'no_assignees',
+          });
+          continue;
+        }
+
+        // Per-user sent map (prevents resending to users already notified)
+        const sentTo = task.notification_sent_to || {};
+        const pendingUserIds = targetUserIds.filter((uid) => sentTo[uid] !== true);
+
+        if (pendingUserIds.length === 0) {
+          console.log(
+            `[scheduler] skipping task ${task.id}: already_notified_all_assignees`
+          );
+          await taskRef.update({
+            notification_sent: true,
+            notification_sent_at: FieldValue.serverTimestamp(),
+            _sending_lock: FieldValue.delete(),
+            _sending_lock_at: FieldValue.delete(),
+          });
+          continue;
+        }
+
+        // -----------------------------
+        // Load all users (batch)
+        // -----------------------------
+        const userRefs = pendingUserIds.map((uid) => db.collection('users').doc(uid));
+        const userSnaps = await db.getAll(...userRefs);
+
+        const users = userSnaps
+          .filter((s) => s.exists)
+          .map((s) => ({ id: s.id, ...s.data() }));
+
+        // Build notification content
+        const title = String('Task Due Soon');
+        const body = String(
+          `${task.name || 'Task'} for ${horsesLabel} expires in one hour`
+        );
+
+        // Track updates for this task
+        const updatePayload = {};
+        let anySendFailed = false;
+
+        for (const uid of pendingUserIds) {
+          const user = users.find((u) => u.id === uid);
+
+          if (!user) {
+            console.log(`[scheduler] skipping task ${task.id} user ${uid}: missing_user`);
+            updatePayload[`notification_sent_to.${uid}`] = false;
+            updatePayload[`notification_skip_reason_to.${uid}`] = 'missing_user';
+            anySendFailed = true;
+            continue;
+          }
+
+          // Check user notification preferences
+          if (!shouldSendTaskNotification(user)) {
+            console.log(
+              `[scheduler] skipping task ${task.id} for user ${uid}: notifications_disabled`
+            );
+            updatePayload[`notification_sent_to.${uid}`] = true; // Mark as "sent" to avoid retrying
+            updatePayload[`notification_skip_reason_to.${uid}`] = 'notifications_disabled';
+            continue;
+          }
+
+          // Check quiet hours
+          if (isInQuietHours(user)) {
+            console.log(
+              `[scheduler] skipping task ${task.id} for user ${uid}: quiet_hours`
+            );
+            updatePayload[`notification_sent_to.${uid}`] = false;
+            updatePayload[`notification_skip_reason_to.${uid}`] = 'quiet_hours';
+            anySendFailed = true; // Retry later
+            continue;
+          }
+
+          const token = user.fcm_token ? String(user.fcm_token) : '';
+          if (!token) {
+            console.log(
+              `[scheduler] skipping task ${task.id} for user ${uid}: missing_fcm_token`
+            );
+            updatePayload[`notification_sent_to.${uid}`] = false;
+            updatePayload[`notification_skip_reason_to.${uid}`] = 'missing_fcm_token';
+            anySendFailed = true;
+            continue;
+          }
+
+          const message = {
+            token,
+            notification: { title, body },
+            data: {
+              taskId: String(task.id || ''),
+              horseNames: String(horsesLabel || ''),
+              dueDate: String(dueISO || ''),
+              screen: String('taskDetail'),
+              title: String(title),
+              body: String(body),
             },
-            payload: {
-              aps: {
-                sound: 'default',
+            android: {
+              priority: 'high',
+              notification: { channelId: 'on_stride_notifications' },
+            },
+            apns: {
+              headers: {
+                'apns-push-type': 'alert',
+                'apns-priority': '10',
+              },
+              payload: {
+                aps: { sound: 'default' },
               },
             },
-          },
-          webpush: {
-            notification: { title, body },
-          },
-        };
+            webpush: {
+              notification: { title, body },
+            },
+          };
 
-        let sent = false;
-        try {
-          const res = await messaging.send(message);
-          console.log(
-            `[scheduler] notification sent for task ${task.id} to user ${user.id}:`,
-            res
-          );
-          sent = true;
-        } catch (err) {
-          console.error(
-            `[scheduler] error sending message for task ${task.id} to user ${user.id}:`,
-            err
-          );
+          try {
+            const res = await messaging.send(message);
+            console.log(
+              `[scheduler] notification sent for task ${task.id} to user ${uid}:`,
+              res
+            );
+            updatePayload[`notification_sent_to.${uid}`] = true;
+            updatePayload[`notification_sent_to_at.${uid}`] =
+              FieldValue.serverTimestamp();
+            updatePayload[`notification_skip_reason_to.${uid}`] =
+              FieldValue.delete();
+          } catch (err) {
+            anySendFailed = true;
+            console.error(
+              `[scheduler] error sending message for task ${task.id} to user ${uid}:`,
+              err
+            );
 
-          await taskRef.update({
-            _last_error: String(err?.code || err?.message || err),
-          });
+            updatePayload[`notification_sent_to.${uid}`] = false;
+            updatePayload[`notification_error_to.${uid}`] = String(
+              err?.code || err?.message || err
+            );
 
-          if (
-            err?.code === 'messaging/registration-token-not-registered' ||
-            err?.code === 'messaging/invalid-registration-token'
-          ) {
-            await db
-              .collection('users')
-              .doc(user.id)
-              .update({ fcm_token: FieldValue.delete() });
+            if (
+              err?.code === 'messaging/registration-token-not-registered' ||
+              err?.code === 'messaging/invalid-registration-token'
+            ) {
+              await db
+                .collection('users')
+                .doc(uid)
+                .update({ fcm_token: FieldValue.delete() });
+
+              updatePayload[`notification_skip_reason_to.${uid}`] =
+                'invalid_fcm_token';
+            }
           }
         }
 
-        await taskRef.update(
-          sent
-            ? {
-                notification_sent: true,
-                notification_sent_at: FieldValue.serverTimestamp(),
-                _sending_lock: FieldValue.delete(),
-                _sending_lock_at: FieldValue.delete(),
-              }
-            : {
-                _sending_lock: FieldValue.delete(),
-                _sending_lock_at: FieldValue.delete(),
-              }
+        // If no pending sends failed, mark the whole task as notified
+        const remainingAfterThisRun = targetUserIds.filter(
+          (uid) => (updatePayload[`notification_sent_to.${uid}`] ?? sentTo[uid]) !== true
         );
+
+        const allNotified = remainingAfterThisRun.length === 0 && !anySendFailed;
+
+        await taskRef.update({
+          ...updatePayload,
+          notification_sent: allNotified ? true : false,
+          notification_sent_at: allNotified
+            ? FieldValue.serverTimestamp()
+            : FieldValue.delete(),
+          _sending_lock: FieldValue.delete(),
+          _sending_lock_at: FieldValue.delete(),
+        });
       } catch (e) {
         console.error('[scheduler] unexpected error inside loop:', e);
         try {

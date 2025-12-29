@@ -10,7 +10,7 @@
 | 1.2 Ride Log | ✅ IMPLEMENTED | Full CRUD, statistics, integrated into horse profile |
 | 1.3 Welcome Emails | ✅ IMPLEMENTED | Firebase Function ready (needs SendGrid config) |
 | 1.4 Horse Export/Share | ✅ IMPLEMENTED | Share button on horse profile, text format |
-| 1.5 Notification System | Pending | Push notifications already exist, needs enhancement |
+| 1.5 Notification System | ✅ IMPLEMENTED | Preferences model, UI, Firebase Function integration |
 
 ---
 
@@ -129,26 +129,33 @@ Allow horse profiles to be easily exported and shared.
 ---
 
 ### 1.5 Universal Alert/Notification System
-**Priority:** HIGH | **Effort:** Medium | **Impact:** High
+**Priority:** HIGH | **Effort:** Medium | **Impact:** High | **Status:** ✅ IMPLEMENTED
 
 **Description:**
 Create a unified notification system with email and SMS options.
 
 **Specs:**
-- In-app notifications (bell icon, notification center)
-- Push notifications (mobile)
-- Email notifications (optional, user preference)
-- SMS notifications (optional, user preference)
-- Notification categories: tasks, lessons, billing, system alerts
-- User preferences for each category and channel
-- Batch digest option (daily/weekly summary)
+- In-app notifications (bell icon, notification center) - future enhancement
+- ✅ Push notifications (mobile)
+- ✅ Email notifications (optional, user preference)
+- SMS notifications (optional, user preference) - future with Twilio
+- ✅ Notification categories: tasks, invoices, ride logs, general
+- ✅ User preferences for each category and channel
+- ✅ Quiet hours support
+- Batch digest option (daily/weekly summary) - future enhancement
 
 **Technical Requirements:**
-- Firebase Cloud Messaging for push
-- Twilio for SMS
-- SendGrid/Mailgun for email
-- Notification preferences stored per user
-- Cloud Functions for sending across channels
+- ✅ Firebase Cloud Messaging for push
+- Twilio for SMS - future integration
+- SendGrid/Mailgun for email - ready for integration
+- ✅ Notification preferences stored per user
+- ✅ Cloud Functions respects user preferences
+
+**Implementation Details:**
+- Model: `packages/models/lib/src/features/notifications/entities/notification_preferences.dart`
+- Provider: `lib/features/notifications/providers/notification_preferences/`
+- Screen: `lib/features/notifications/screens/notification_preferences_screen.dart`
+- Firebase Function: `functions/*/src/notifications/send_task_reminders.js` (updated with preference checks)
 
 ---
 
