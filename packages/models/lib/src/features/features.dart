@@ -9,6 +9,7 @@ export 'invoices/invoices.dart';
 export 'lessons/lessons.dart';
 export 'multi_barn/multi_barn.dart';
 export 'notifications/notifications.dart';
+export 'platform/platform.dart';
 export 'ride_logs/ride_logs.dart';
 export 'tasks/tasks.dart';
 export 'users/users.dart';
