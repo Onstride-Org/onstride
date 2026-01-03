@@ -1,5 +1,5 @@
+import 'package:app_ui/app_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:gl_horses/core/core.dart';
 import 'package:models/models.dart';
 
 /// Displays genetic test results for a horse.

@@ -1,5 +1,5 @@
+import 'package:app_ui/app_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:gl_horses/core/core.dart';
 import 'package:models/models.dart';
 
 /// Displays pedigree (breeding) information for a horse.
@@ -78,9 +78,9 @@ class HorsePedigreeCard extends StatelessWidget {
                   if (horse.isStud) GLSpaces.px8,
                   Chip(
                     label: const Text('Broodmare'),
-                    backgroundColor: GLColors.accent100,
+                    backgroundColor: Colors.pink.shade100,
                     labelStyle: TextStyle(
-                      color: GLColors.accent700,
+                      color: Colors.pink.shade700,
                       fontSize: 12,
                     ),
                   ),
