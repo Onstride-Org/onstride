@@ -1,28 +1,27 @@
 {
-  "name": "gl-horses",
+  "name": "gl-horses-app",
   "version": "1.0.0",
-  "description": "A new Flutter project.",
-  "main": "index.js",
-  "directories": {
-    "lib": "lib",
-    "test": "test"
-  },
+  "description": "GL Horses - Comprehensive barn management platform",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:client": "npm run dev --workspace=client",
+    "dev:server": "npm run dev --workspace=server",
+    "build": "npm run build --workspace=client && npm run build --workspace=server",
+    "build:client": "npm run build --workspace=client",
+    "build:server": "npm run build --workspace=server",
+    "start": "npm run start --workspace=server",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/juandrets/gl-horses.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/juandrets/gl-horses/issues"
-  },
-  "homepage": "https://github.com/juandrets/gl-horses#readme",
   "devDependencies": {
-    "firebase-tools": "^15.1.0"
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

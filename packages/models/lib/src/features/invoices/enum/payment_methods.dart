@@ -1,1 +1,0 @@
-enum GLPaymentMethod { ach, card }

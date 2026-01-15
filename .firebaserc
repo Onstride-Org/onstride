@@ -1,7 +1,0 @@
-{
-  "projects": {
-    "dev": "gl-horses-develop",
-    "prod": "gl-horses-prod",
-    "default": "gl-horses-prod"
-  }
-}

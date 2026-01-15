@@ -1,7 +1,0 @@
-flutter_icons:
-  android: true
-  image_path_android: "assets/icons/gl_horses_icon.png"
-  ios: true
-  adaptive_icon_background: "#ffffff"
-  remove_alpha_ios: true
-  image_path_ios: "assets/icons/gl_horses_icon.png"
