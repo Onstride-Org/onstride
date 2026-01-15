@@ -40,7 +40,7 @@ router.get('/', requireBarn, async (req, res, next) => {
     const total = await Horse.countDocuments(filter);
 
     res.json({
-      horses,
+      data: horses,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
