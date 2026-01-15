@@ -66,7 +66,7 @@ export default function LessonsPage() {
   const handleReject = async (lessonId: string) => {
     if (!confirm('Reject this lesson request?')) return;
     try {
-      await lessonsApi.reject(lessonId, { reason: 'Unavailable' });
+      await lessonsApi.reject(lessonId, 'Unavailable');
       loadLessons();
     } catch (error) {
       console.error('Failed to reject lesson:', error);

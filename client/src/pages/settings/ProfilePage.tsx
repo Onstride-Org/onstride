@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { usersApi, authApi } from '../../services/api';
+import { usersApi } from '../../services/api';
 
 export default function ProfilePage() {
   const { user, loadUser } = useAuthStore();
@@ -229,7 +229,7 @@ function ChangePasswordForm({
     setIsLoading(true);
 
     try {
-      await authApi.changePassword(currentPassword, newPassword);
+      await usersApi.changePassword(currentPassword, newPassword);
       onSuccess();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to change password');

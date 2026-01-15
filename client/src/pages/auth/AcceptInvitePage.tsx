@@ -69,7 +69,7 @@ export default function AcceptInvitePage() {
     setIsSubmitting(true);
 
     try {
-      const response = await invitationsApi.accept(token, isAuthenticated ? undefined : { name, password });
+      const response = await invitationsApi.accept(token, { name, password });
 
       if (response.accessToken) {
         setTokens(response.accessToken, response.refreshToken);

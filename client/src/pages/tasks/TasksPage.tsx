@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { tasksApi, horsesApi, usersApi } from '../../services/api';
-import { Task, TaskStatus, Horse, User } from '../../types';
+import { tasksApi } from '../../services/api';
+import { Task, TaskStatus } from '../../types';
 import { format, isToday, isPast, parseISO } from 'date-fns';
 
 export default function TasksPage() {

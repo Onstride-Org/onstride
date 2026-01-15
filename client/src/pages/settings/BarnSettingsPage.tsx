@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { barnsApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
-import { Barn, BarnSetup } from '../../types';
+import { Barn } from '../../types';
 
 export default function BarnSettingsPage() {
   const { currentBarnId } = useAuthStore();

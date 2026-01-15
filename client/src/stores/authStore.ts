@@ -19,7 +19,7 @@ interface AuthState {
   clearError: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set, _get) => ({
   user: null,
   barns: [],
   currentBarnId: getCurrentBarn(),
@@ -67,7 +67,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({
         user: response.user,
-        barns: [{ id: response.user.barnId, name: `${data.name}'s Barn`, role: 'owner' as const, isPrimary: true }],
+        barns: [{ id: response.user.barnId, name: `${data.name}'s Barn`, ownerId: response.user.id, role: 'owner' as const, isPrimary: true }],
         currentBarnId: response.user.barnId,
         isAuthenticated: true,
         isLoading: false,

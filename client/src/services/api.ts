@@ -248,7 +248,7 @@ export const barnsApi = {
 
 // ============ Horses API ============
 export const horsesApi = {
-  getAll: async (params?: { status?: string; boarderId?: string; search?: string; page?: number }) => {
+  getAll: async (params?: { status?: string; boarderId?: string; search?: string; page?: number; limit?: number }) => {
     const response = await api.get('/horses', { params });
     return response.data;
   },
@@ -409,7 +409,7 @@ export const tasksApi = {
 
 // ============ Lessons API ============
 export const lessonsApi = {
-  getAll: async (params?: { status?: string; trainerId?: string; startDate?: string; endDate?: string }) => {
+  getAll: async (params?: { status?: string; trainerId?: string; startDate?: string; endDate?: string; limit?: number }) => {
     const response = await api.get('/lessons', { params });
     return response.data;
   },
@@ -515,7 +515,7 @@ export const invitationsApi = {
     return response.data;
   },
 
-  create: async (data: { email?: string; accountType: string; permissions?: string[] }) => {
+  create: async (data: { email?: string; accountType?: string; role?: string; permissions?: string[] }) => {
     const response = await api.post('/invitations', data);
     return response.data;
   },
@@ -666,7 +666,7 @@ export const vendorsApi = {
 };
 
 // ============ Auth API additional methods ============
-authApi.changePassword = async (currentPassword: string, newPassword: string) => {
+(authApi as any).changePassword = async (currentPassword: string, newPassword: string) => {
   const response = await api.post('/auth/change-password', { currentPassword, newPassword });
   return response.data;
 };

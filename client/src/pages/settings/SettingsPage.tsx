@@ -1,8 +1,6 @@
 import { Link } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
 
 export default function SettingsPage() {
-  const { user } = useAuthStore();
 
   const settingsGroups = [
     {

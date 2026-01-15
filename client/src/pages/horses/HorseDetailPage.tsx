@@ -405,7 +405,7 @@ function RideLogsTab({
   );
 }
 
-function DocumentsTab({ horse, onRefresh }: { horse: Horse; onRefresh: () => void }) {
+function DocumentsTab({ horse }: { horse: Horse }) {
   return (
     <div className="documents-tab">
       <div className="tab-header">
@@ -444,7 +444,7 @@ function DocumentsTab({ horse, onRefresh }: { horse: Horse; onRefresh: () => voi
   );
 }
 
-function GeneticsTab({ horse, onRefresh }: { horse: Horse; onRefresh: () => void }) {
+function GeneticsTab({ horse }: { horse: Horse }) {
   return (
     <div className="genetics-tab">
       <div className="tab-header">
