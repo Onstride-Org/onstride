@@ -154,10 +154,10 @@ export default function HorseDetailPage() {
           />
         )}
         {activeTab === 'documents' && (
-          <DocumentsTab horse={horse} onRefresh={loadHorse} />
+          <DocumentsTab horse={horse} />
         )}
         {activeTab === 'genetics' && (
-          <GeneticsTab horse={horse} onRefresh={loadHorse} />
+          <GeneticsTab horse={horse} />
         )}
       </div>
 
