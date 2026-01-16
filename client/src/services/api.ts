@@ -153,7 +153,7 @@ export const authApi = {
 
 // ============ Users API ============
 export const usersApi = {
-  getAll: async (params?: { role?: string; search?: string }) => {
+  getAll: async (params?: { role?: string; search?: string; limit?: number; page?: number }) => {
     const response = await api.get('/users', { params });
     return response.data;
   },

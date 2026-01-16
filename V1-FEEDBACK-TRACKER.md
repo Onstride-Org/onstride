@@ -150,6 +150,7 @@ Current implementation uses local disk storage which won't scale. Recommend:
 | 2026-01-16 | Added bulk invitation system with shareable links |
 | 2026-01-16 | Updated registration to require barn name and phone |
 | 2026-01-16 | Created super admin dashboard at /admin |
+| 2026-01-16 | Fixed TypeScript errors for production build |
 
 ---
 

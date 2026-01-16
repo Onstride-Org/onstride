@@ -4,7 +4,6 @@ import { horsesApi, usersApi } from '../../services/api';
 import { Horse, User } from '../../types';
 import { Plus, Search, X } from 'lucide-react';
 import { HorseIcon } from '../../components/icons/HorseIcon';
-import { format } from 'date-fns';
 
 export default function HorsesPage() {
   const [horses, setHorses] = useState<Horse[]>([]);

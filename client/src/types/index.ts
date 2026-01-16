@@ -50,10 +50,14 @@ export interface Horse {
   name: string;
   age?: number;
   birthday?: string;
+  calculatedAge?: number;
   breed?: LabelValue;
   sexStatus?: LabelValue;
   color?: string;
   status: 'active' | 'inactive';
+  notes?: string;
+  ownerId?: string;
+  owner?: { name: string; email: string };
   boarderId?: string;
   boarder?: { name: string; email: string };
   usefNumber?: string;
@@ -75,7 +79,8 @@ export interface LabelValue {
 }
 
 export interface GeneticTest {
-  id: string;
+  id?: string;
+  _id?: string;
   testName: string;
   result: string;
   testDate?: string;
@@ -84,12 +89,13 @@ export interface GeneticTest {
 }
 
 export interface HorseDocument {
-  id: string;
+  id?: string;
+  _id?: string;
   type: string;
   name: string;
   fileUrl: string;
   expirationDate?: string;
-  uploadedAt: string;
+  uploadedAt?: string;
 }
 
 export interface RideStats {

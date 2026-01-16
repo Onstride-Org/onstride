@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { api } from '../../services/api';
+import axios from 'axios';
+import { getTokens, getCurrentBarn } from '../../services/api';
 import {
   Users, Building2, CreditCard, Activity,
   AlertTriangle, TrendingUp, Shield, Database
@@ -35,10 +36,18 @@ export default function AdminDashboardPage() {
   const loadAdminData = async () => {
     try {
       setIsLoading(true);
+      const { accessToken } = getTokens();
+      const barnId = getCurrentBarn();
+      const headers: Record<string, string> = {};
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+      if (barnId) headers['X-Barn-Id'] = barnId;
+
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
       const [statsRes, usersRes, barnsRes] = await Promise.all([
-        api.get('/admin/stats').catch(() => ({ data: null })),
-        api.get('/admin/users/recent').catch(() => ({ data: [] })),
-        api.get('/admin/barns/recent').catch(() => ({ data: [] })),
+        axios.get(`${apiBase}/admin/stats`, { headers }).catch(() => ({ data: null })),
+        axios.get(`${apiBase}/admin/users/recent`, { headers }).catch(() => ({ data: [] })),
+        axios.get(`${apiBase}/admin/barns/recent`, { headers }).catch(() => ({ data: [] })),
       ]);
 
       setStats(statsRes.data || {
