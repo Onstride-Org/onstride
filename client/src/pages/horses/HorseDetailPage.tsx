@@ -406,21 +406,40 @@ function RideLogsTab({
 }
 
 function DocumentsTab({ horse }: { horse: Horse }) {
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [documents, setDocuments] = useState(horse.documents || []);
+
+  const handleUploadSuccess = (newDoc: any) => {
+    setDocuments([...documents, newDoc]);
+    setShowUploadModal(false);
+  };
+
   return (
     <div className="documents-tab">
       <div className="tab-header">
         <h3>Documents</h3>
-        <button className="btn btn-primary">Upload Document</button>
+        <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
+          Upload Document
+        </button>
       </div>
 
-      {(!horse.documents || horse.documents.length === 0) ? (
+      {documents.length === 0 ? (
         <div className="empty-state">
           <p>No documents uploaded for {horse.name}</p>
+          <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
+            Upload First Document
+          </button>
         </div>
       ) : (
         <div className="document-grid">
-          {horse.documents.map((doc) => (
-            <div key={doc.id} className="document-card">
+          {documents.map((doc) => (
+            <a
+              key={doc.id || doc._id}
+              href={doc.fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="document-card"
+            >
               <div className="document-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -436,25 +455,180 @@ function DocumentsTab({ horse }: { horse: Horse }) {
                   </span>
                 )}
               </div>
-            </div>
+            </a>
           ))}
         </div>
+      )}
+
+      {showUploadModal && (
+        <UploadDocumentModal
+          horseId={horse.id}
+          onClose={() => setShowUploadModal(false)}
+          onSuccess={handleUploadSuccess}
+        />
       )}
     </div>
   );
 }
 
+function UploadDocumentModal({
+  horseId,
+  onClose,
+  onSuccess,
+}: {
+  horseId: string;
+  onClose: () => void;
+  onSuccess: (doc: any) => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [docType, setDocType] = useState('other');
+  const [docName, setDocName] = useState('');
+  const [expirationDate, setExpirationDate] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const documentTypes = [
+    { value: 'coggins', label: 'Coggins' },
+    { value: 'healthCertificate', label: 'Health Certificate' },
+    { value: 'registration', label: 'Registration Papers' },
+    { value: 'vaccination', label: 'Vaccination Records' },
+    { value: 'importExport', label: 'Import/Export Documents' },
+    { value: 'brandInspection', label: 'Brand Inspection' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!file) {
+      setError('Please select a file');
+      return;
+    }
+
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const result = await horsesApi.uploadDocument(horseId, file, {
+        type: docType,
+        name: docName || file.name,
+        expirationDate: expirationDate || undefined,
+      });
+      onSuccess(result);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to upload document');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">Upload Document</h2>
+          <button className="btn btn-ghost modal-close" onClick={onClose}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body">
+            {error && (
+              <div className="alert alert-error mb-4">
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label className="form-label">File *</label>
+              <input
+                type="file"
+                className="form-input"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              />
+              <p className="form-hint">Accepted: PDF, Word documents, Images (max 20MB)</p>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Document Type</label>
+              <select
+                className="form-select"
+                value={docType}
+                onChange={(e) => setDocType(e.target.value)}
+              >
+                {documentTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Document Name</label>
+              <input
+                type="text"
+                className="form-input"
+                value={docName}
+                onChange={(e) => setDocName(e.target.value)}
+                placeholder="Optional - defaults to filename"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Expiration Date</label>
+              <input
+                type="date"
+                className="form-input"
+                value={expirationDate}
+                onChange={(e) => setExpirationDate(e.target.value)}
+              />
+              <p className="form-hint">Optional - for documents that expire (like Coggins)</p>
+            </div>
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={isLoading || !file}>
+              {isLoading ? 'Uploading...' : 'Upload'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function GeneticsTab({ horse }: { horse: Horse }) {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [geneticTests, setGeneticTests] = useState(horse.geneticTests || []);
+
+  const handleAddSuccess = (newTest: any) => {
+    setGeneticTests([...geneticTests, newTest]);
+    setShowAddModal(false);
+  };
+
   return (
     <div className="genetics-tab">
       <div className="tab-header">
         <h3>Genetic Tests</h3>
-        <button className="btn btn-primary">Add Test Result</button>
+        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+          Add Test Result
+        </button>
       </div>
 
-      {(!horse.geneticTests || horse.geneticTests.length === 0) ? (
+      {geneticTests.length === 0 ? (
         <div className="empty-state">
           <p>No genetic tests recorded for {horse.name}</p>
+          <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+            Add First Test
+          </button>
         </div>
       ) : (
         <div className="table-container">
@@ -469,8 +643,8 @@ function GeneticsTab({ horse }: { horse: Horse }) {
               </tr>
             </thead>
             <tbody>
-              {horse.geneticTests.map((test) => (
-                <tr key={test.id}>
+              {geneticTests.map((test) => (
+                <tr key={test.id || test._id}>
                   <td>{test.testName}</td>
                   <td>
                     <span className="badge badge-outline">{test.result}</span>
@@ -484,6 +658,175 @@ function GeneticsTab({ horse }: { horse: Horse }) {
           </table>
         </div>
       )}
+
+      {showAddModal && (
+        <AddGeneticTestModal
+          horseId={horse.id}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={handleAddSuccess}
+        />
+      )}
+    </div>
+  );
+}
+
+function AddGeneticTestModal({
+  horseId,
+  onClose,
+  onSuccess,
+}: {
+  horseId: string;
+  onClose: () => void;
+  onSuccess: (test: any) => void;
+}) {
+  const [testName, setTestName] = useState('');
+  const [result, setResult] = useState('');
+  const [testDate, setTestDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [laboratory, setLaboratory] = useState('');
+  const [notes, setNotes] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const commonTests = [
+    'GBED (Glycogen Branching Enzyme Deficiency)',
+    'HERDA (Hereditary Equine Regional Dermal Asthenia)',
+    'HYPP (Hyperkalemic Periodic Paralysis)',
+    'IMM (Immune-Mediated Myositis)',
+    'LWOS (Lethal White Overo Syndrome)',
+    'MH (Malignant Hyperthermia)',
+    'MYHM (Myosin Heavy Chain Myopathy)',
+    'PSSM1 (Polysaccharide Storage Myopathy Type 1)',
+    'PSSM2 (Polysaccharide Storage Myopathy Type 2)',
+    'Color Testing',
+    'Parentage Verification',
+    'Other',
+  ];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const testData = await horsesApi.addGeneticTest(horseId, {
+        testName,
+        result,
+        testDate: testDate ? new Date(testDate).toISOString() : undefined,
+        laboratory: laboratory || undefined,
+        notes: notes || undefined,
+      });
+      // The API returns the array of all tests, get the last one
+      const newTest = Array.isArray(testData) ? testData[testData.length - 1] : testData;
+      onSuccess(newTest);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to add genetic test');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">Add Genetic Test</h2>
+          <button className="btn btn-ghost modal-close" onClick={onClose}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body">
+            {error && (
+              <div className="alert alert-error mb-4">
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label className="form-label">Test Name *</label>
+              <select
+                className="form-select"
+                value={testName}
+                onChange={(e) => setTestName(e.target.value)}
+                required
+              >
+                <option value="">Select a test...</option>
+                {commonTests.map((test) => (
+                  <option key={test} value={test}>
+                    {test}
+                  </option>
+                ))}
+              </select>
+              {testName === 'Other' && (
+                <input
+                  type="text"
+                  className="form-input mt-2"
+                  placeholder="Enter custom test name"
+                  onChange={(e) => setTestName(e.target.value)}
+                />
+              )}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Result *</label>
+              <input
+                type="text"
+                className="form-input"
+                value={result}
+                onChange={(e) => setResult(e.target.value)}
+                placeholder="e.g., N/N, N/PSSM1, Negative, Carrier"
+                required
+              />
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Test Date</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={testDate}
+                  onChange={(e) => setTestDate(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Laboratory</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={laboratory}
+                  onChange={(e) => setLaboratory(e.target.value)}
+                  placeholder="e.g., UC Davis, Animal Genetics"
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Notes</label>
+              <textarea
+                className="form-textarea"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                placeholder="Additional notes..."
+              />
+            </div>
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={isLoading}>
+              {isLoading ? 'Adding...' : 'Add Test'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

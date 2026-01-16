@@ -119,7 +119,7 @@ export const authApi = {
     return response.data;
   },
 
-  register: async (data: { email: string; password: string; name: string; phoneNumber?: string }) => {
+  register: async (data: { email: string; password: string; name: string; phoneNumber: string; barnName?: string }) => {
     const response = await api.post('/auth/register', data);
     return response.data;
   },
@@ -517,6 +517,11 @@ export const invitationsApi = {
 
   create: async (data: { email?: string; accountType?: string; role?: string; permissions?: string[] }) => {
     const response = await api.post('/invitations', data);
+    return response.data;
+  },
+
+  createBulk: async (data: { accountType: string; expiresInHours?: number; maxUses?: number; permissions?: string[] }) => {
+    const response = await api.post('/invitations/bulk', data);
     return response.data;
   },
 

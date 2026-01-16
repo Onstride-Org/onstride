@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { tasksApi } from '../../services/api';
-import { Task, TaskStatus } from '../../types';
+import { tasksApi, usersApi, horsesApi } from '../../services/api';
+import { Task, TaskStatus, User as UserType, Horse } from '../../types';
 import { format, isToday, isPast, parseISO } from 'date-fns';
-import { Plus, CheckSquare, Calendar, User, Trash2, X, Check } from 'lucide-react';
+import { Plus, CheckSquare, Calendar, User, Trash2, X, Check, Bell } from 'lucide-react';
 import { HorseIcon } from '../../components/icons/HorseIcon';
 
 export default function TasksPage() {
@@ -214,9 +214,34 @@ function AddTaskModal({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [dueTime, setDueTime] = useState('12:00');
   const [sendReminder, setSendReminder] = useState(false);
+  const [reminderMinutes, setReminderMinutes] = useState('60');
+  const [selectedAssignees, setSelectedAssignees] = useState<{id: string, name: string, accountType: string}[]>([]);
+  const [selectedHorses, setSelectedHorses] = useState<{id: string, name: string}[]>([]);
+  const [users, setUsers] = useState<UserType[]>([]);
+  const [horses, setHorses] = useState<Horse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [usersRes, horsesRes] = await Promise.all([
+          usersApi.getAll({ limit: 100 }),
+          horsesApi.getAll({ limit: 100 })
+        ]);
+        setUsers(usersRes.data || []);
+        setHorses(horsesRes.data || []);
+      } catch (err) {
+        console.error('Failed to load users/horses:', err);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    loadData();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,13 +249,17 @@ function AddTaskModal({
     setIsLoading(true);
 
     try {
+      // Combine date and time for the due date
+      const dueDateTimeISO = new Date(`${dueDate}T${dueTime}`).toISOString();
+
       await tasksApi.create({
         name,
         description: description || undefined,
-        dueDate,
+        dueDate: dueDateTimeISO,
         sendReminder,
-        horseIds: [],
-        assigneeIds: [],
+        reminderMinutesBefore: parseInt(reminderMinutes),
+        horses: selectedHorses,
+        assignees: selectedAssignees,
       });
       onSuccess();
     } catch (err: any) {
@@ -240,9 +269,27 @@ function AddTaskModal({
     }
   };
 
+  const toggleAssignee = (user: UserType) => {
+    const exists = selectedAssignees.find(a => a.id === user.id);
+    if (exists) {
+      setSelectedAssignees(selectedAssignees.filter(a => a.id !== user.id));
+    } else {
+      setSelectedAssignees([...selectedAssignees, { id: user.id, name: user.name, accountType: user.accountType }]);
+    }
+  };
+
+  const toggleHorse = (horse: Horse) => {
+    const exists = selectedHorses.find(h => h.id === horse.id);
+    if (exists) {
+      setSelectedHorses(selectedHorses.filter(h => h.id !== horse.id));
+    } else {
+      setSelectedHorses([...selectedHorses, { id: horse.id, name: horse.name }]);
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">Add Task</h2>
           <button className="btn btn-ghost modal-close" onClick={onClose}>
@@ -281,15 +328,73 @@ function AddTaskModal({
               />
             </div>
 
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Due Date *</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Due Time *</label>
+                <input
+                  type="time"
+                  className="form-input"
+                  value={dueTime}
+                  onChange={(e) => setDueTime(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
             <div className="form-group">
-              <label className="form-label">Due Date *</label>
-              <input
-                type="date"
-                className="form-input"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                required
-              />
+              <label className="form-label">Assign to Users</label>
+              {isLoadingData ? (
+                <div className="spinner spinner-sm"></div>
+              ) : (
+                <div className="checkbox-grid">
+                  {users.map(user => (
+                    <label key={user.id} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={selectedAssignees.some(a => a.id === user.id)}
+                        onChange={() => toggleAssignee(user)}
+                      />
+                      <span>{user.name} ({user.accountType})</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {selectedAssignees.length > 0 && (
+                <p className="form-hint">{selectedAssignees.length} user(s) selected</p>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Assign to Horses</label>
+              {isLoadingData ? (
+                <div className="spinner spinner-sm"></div>
+              ) : (
+                <div className="checkbox-grid">
+                  {horses.map(horse => (
+                    <label key={horse.id} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={selectedHorses.some(h => h.id === horse.id)}
+                        onChange={() => toggleHorse(horse)}
+                      />
+                      <span>{horse.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {selectedHorses.length > 0 && (
+                <p className="form-hint">{selectedHorses.length} horse(s) selected</p>
+              )}
             </div>
 
             <div className="form-group">
@@ -299,8 +404,24 @@ function AddTaskModal({
                   checked={sendReminder}
                   onChange={(e) => setSendReminder(e.target.checked)}
                 />
-                <span>Send reminder notification</span>
+                <span><Bell size={16} /> Send reminder notification</span>
               </label>
+              {sendReminder && (
+                <div className="form-group mt-2">
+                  <label className="form-label">Remind before</label>
+                  <select
+                    className="form-select"
+                    value={reminderMinutes}
+                    onChange={(e) => setReminderMinutes(e.target.value)}
+                  >
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="60">1 hour</option>
+                    <option value="120">2 hours</option>
+                    <option value="1440">1 day</option>
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { usersApi, invitationsApi } from '../../services/api';
 import { User, AccountType } from '../../types';
-import { UserPlus, Search, Users, MoreHorizontal, X, CheckCircle } from 'lucide-react';
+import { UserPlus, Search, Users, MoreHorizontal, X, CheckCircle, Link2, Copy } from 'lucide-react';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -9,6 +9,7 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<AccountType | 'all'>('all');
   const [search, setSearch] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showBulkInviteModal, setShowBulkInviteModal] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
 
   const loadUsers = async () => {
@@ -73,10 +74,16 @@ export default function UsersPage() {
           <h1 className="page-title">Users</h1>
           <p className="page-subtitle">{pagination.total} members in your barn</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowInviteModal(true)}>
-          <UserPlus size={20} />
-          Invite User
-        </button>
+        <div className="btn-group">
+          <button className="btn btn-outline" onClick={() => setShowBulkInviteModal(true)}>
+            <Link2 size={20} />
+            Generate Invite Link
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowInviteModal(true)}>
+            <UserPlus size={20} />
+            Invite by Email
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -217,6 +224,12 @@ export default function UsersPage() {
           }}
         />
       )}
+
+      {showBulkInviteModal && (
+        <BulkInviteModal
+          onClose={() => setShowBulkInviteModal(false)}
+        />
+      )}
     </div>
   );
 }
@@ -247,7 +260,7 @@ function InviteUserModal({
     setIsLoading(true);
 
     try {
-      await invitationsApi.create({ email, role });
+      await invitationsApi.create({ email, accountType: role });
       setSuccess(true);
       setTimeout(() => onSuccess(), 2000);
     } catch (err: any) {
@@ -330,6 +343,202 @@ function InviteUserModal({
             </button>
             <button type="submit" className="btn btn-primary" disabled={isLoading}>
               {isLoading ? 'Sending...' : 'Send Invitation'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function BulkInviteModal({
+  onClose,
+}: {
+  onClose: () => void;
+}) {
+  const [role, setRole] = useState<AccountType>('boarder');
+  const [expiresInHours, setExpiresInHours] = useState('24');
+  const [maxUses, setMaxUses] = useState('');
+  const [inviteUrl, setInviteUrl] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const roles: { value: AccountType; label: string }[] = [
+    { value: 'manager', label: 'Manager' },
+    { value: 'trainer', label: 'Trainer' },
+    { value: 'boarder', label: 'Boarder' },
+    { value: 'groomer', label: 'Groomer' },
+  ];
+
+  const handleGenerate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const result = await invitationsApi.createBulk({
+        accountType: role,
+        expiresInHours: parseInt(expiresInHours),
+        maxUses: maxUses ? parseInt(maxUses) : undefined,
+      });
+      const fullUrl = `${window.location.origin}${result.inviteUrl}`;
+      setInviteUrl(fullUrl);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to generate invite link');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for older browsers
+      const input = document.createElement('input');
+      input.value = inviteUrl;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  if (inviteUrl) {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2 className="modal-title">Invite Link Generated</h2>
+            <button className="btn btn-ghost modal-close" onClick={onClose}>
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="modal-body">
+            <div className="success-state mb-4">
+              <div className="success-icon">
+                <CheckCircle size={48} />
+              </div>
+              <h3>Link Ready to Share!</h3>
+              <p>Anyone with this link can join your barn as a {role}</p>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Invitation Link</label>
+              <div className="input-group">
+                <input
+                  type="text"
+                  className="form-input"
+                  value={inviteUrl}
+                  readOnly
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary input-addon"
+                  onClick={copyToClipboard}
+                >
+                  {copied ? <CheckCircle size={16} /> : <Copy size={16} />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              <p className="form-hint">
+                Link expires in {expiresInHours} hours
+                {maxUses && ` or after ${maxUses} uses`}
+              </p>
+            </div>
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" className="btn btn-primary" onClick={onClose}>
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">Generate Invite Link</h2>
+          <button className="btn btn-ghost modal-close" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={handleGenerate}>
+          <div className="modal-body">
+            {error && (
+              <div className="alert alert-error mb-4">
+                <span>{error}</span>
+              </div>
+            )}
+
+            <p className="mb-4 text-muted">
+              Create a shareable link that anyone can use to join your barn.
+              Perfect for group chats or posting in client communities.
+            </p>
+
+            <div className="form-group">
+              <label className="form-label">Role for New Users *</label>
+              <select
+                className="form-select"
+                value={role}
+                onChange={(e) => setRole(e.target.value as AccountType)}
+              >
+                {roles.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Expires In</label>
+                <select
+                  className="form-select"
+                  value={expiresInHours}
+                  onChange={(e) => setExpiresInHours(e.target.value)}
+                >
+                  <option value="1">1 hour</option>
+                  <option value="6">6 hours</option>
+                  <option value="12">12 hours</option>
+                  <option value="24">24 hours</option>
+                  <option value="48">48 hours</option>
+                  <option value="168">7 days</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Max Uses (Optional)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={maxUses}
+                  onChange={(e) => setMaxUses(e.target.value)}
+                  placeholder="Unlimited"
+                  min="1"
+                />
+                <p className="form-hint">Leave empty for unlimited uses</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={isLoading}>
+              {isLoading ? 'Generating...' : 'Generate Link'}
             </button>
           </div>
         </form>

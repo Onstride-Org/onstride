@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { invoicesApi } from '../../services/api';
-import { Invoice, InvoiceStatus } from '../../types';
+import { invoicesApi, usersApi, horsesApi } from '../../services/api';
+import { Invoice, InvoiceStatus, User, Horse } from '../../types';
 import { format } from 'date-fns';
 import { Plus, FileText, X } from 'lucide-react';
 
@@ -177,10 +177,32 @@ function CreateInvoiceModal({
   onSuccess: () => void;
 }) {
   const [boarderId, setBoarderId] = useState('');
+  const [horseId, setHorseId] = useState('');
   const [dueDate, setDueDate] = useState(format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'));
   const [charges, setCharges] = useState([{ description: '', amount: '', quantity: '1', type: 'board' as const }]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [horses, setHorses] = useState<Horse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [usersRes, horsesRes] = await Promise.all([
+          usersApi.getAll({ limit: 100 }),
+          horsesApi.getAll({ limit: 100 })
+        ]);
+        setUsers(usersRes.data || []);
+        setHorses(horsesRes.data || []);
+      } catch (err) {
+        console.error('Failed to load data:', err);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    loadData();
+  }, []);
 
   const addCharge = () => {
     setCharges([...charges, { description: '', amount: '', quantity: '1', type: 'board' }]);
@@ -199,11 +221,18 @@ function CreateInvoiceModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!boarderId) {
+      setError('Please select a user');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       await invoicesApi.create({
         boarderId,
+        horseId: horseId || undefined,
         dueDate,
         charges: charges.map((c) => ({
           description: c.description,
@@ -238,98 +267,127 @@ function CreateInvoiceModal({
               </div>
             )}
 
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Boarder ID *</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={boarderId}
-                  onChange={(e) => setBoarderId(e.target.value)}
-                  placeholder="Enter boarder ID"
-                  required
-                />
+            {isLoadingData ? (
+              <div className="page-loading">
+                <div className="spinner spinner-lg"></div>
               </div>
-              <div className="form-group">
-                <label className="form-label">Due Date *</label>
-                <input
-                  type="date"
-                  className="form-input"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Bill To *</label>
+                    <select
+                      className="form-select"
+                      value={boarderId}
+                      onChange={(e) => setBoarderId(e.target.value)}
+                      required
+                    >
+                      <option value="">Select a user...</option>
+                      {users.map(user => (
+                        <option key={user.id} value={user.id}>
+                          {user.name} ({user.accountType}) - {user.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Due Date *</label>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
 
-            <div className="form-group">
-              <label className="form-label">Charges</label>
-              {charges.map((charge, index) => (
-                <div key={index} className="charge-row">
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={charge.description}
-                    onChange={(e) => updateCharge(index, 'description', e.target.value)}
-                    placeholder="Description"
-                    required
-                  />
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={charge.amount}
-                    onChange={(e) => updateCharge(index, 'amount', e.target.value)}
-                    placeholder="Amount"
-                    min="0"
-                    step="0.01"
-                    required
-                  />
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={charge.quantity}
-                    onChange={(e) => updateCharge(index, 'quantity', e.target.value)}
-                    placeholder="Qty"
-                    min="1"
-                    required
-                  />
+                <div className="form-group">
+                  <label className="form-label">Related Horse (Optional)</label>
                   <select
                     className="form-select"
-                    value={charge.type}
-                    onChange={(e) => updateCharge(index, 'type', e.target.value)}
+                    value={horseId}
+                    onChange={(e) => setHorseId(e.target.value)}
                   >
-                    <option value="board">Board</option>
-                    <option value="lesson">Lesson</option>
-                    <option value="training">Training</option>
-                    <option value="farrier">Farrier</option>
-                    <option value="vet">Vet</option>
-                    <option value="feed">Feed</option>
-                    <option value="supplies">Supplies</option>
-                    <option value="service">Service</option>
-                    <option value="other">Other</option>
+                    <option value="">No specific horse</option>
+                    {horses.map(horse => (
+                      <option key={horse.id} value={horse.id}>
+                        {horse.name} {horse.breed?.label ? `(${horse.breed.label})` : ''}
+                      </option>
+                    ))}
                   </select>
-                  {charges.length > 1 && (
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-danger"
-                      onClick={() => removeCharge(index)}
-                    >
-                      Remove
-                    </button>
-                  )}
                 </div>
-              ))}
-              <button type="button" className="btn btn-outline btn-sm" onClick={addCharge}>
-                Add Charge
-              </button>
-            </div>
+
+                <div className="form-group">
+                  <label className="form-label">Charges</label>
+                  {charges.map((charge, index) => (
+                    <div key={index} className="charge-row">
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={charge.description}
+                        onChange={(e) => updateCharge(index, 'description', e.target.value)}
+                        placeholder="Description"
+                        required
+                      />
+                      <input
+                        type="number"
+                        className="form-input"
+                        value={charge.amount}
+                        onChange={(e) => updateCharge(index, 'amount', e.target.value)}
+                        placeholder="Amount"
+                        min="0"
+                        step="0.01"
+                        required
+                      />
+                      <input
+                        type="number"
+                        className="form-input"
+                        value={charge.quantity}
+                        onChange={(e) => updateCharge(index, 'quantity', e.target.value)}
+                        placeholder="Qty"
+                        min="1"
+                        required
+                      />
+                      <select
+                        className="form-select"
+                        value={charge.type}
+                        onChange={(e) => updateCharge(index, 'type', e.target.value)}
+                      >
+                        <option value="board">Board</option>
+                        <option value="lesson">Lesson</option>
+                        <option value="training">Training</option>
+                        <option value="farrier">Farrier</option>
+                        <option value="vet">Vet</option>
+                        <option value="feed">Feed</option>
+                        <option value="supplies">Supplies</option>
+                        <option value="service">Service</option>
+                        <option value="other">Other</option>
+                      </select>
+                      {charges.length > 1 && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-danger"
+                          onClick={() => removeCharge(index)}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button" className="btn btn-outline btn-sm" onClick={addCharge}>
+                    Add Charge
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="modal-footer">
             <button type="button" className="btn btn-outline" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={isLoading}>
+            <button type="submit" className="btn btn-primary" disabled={isLoading || isLoadingData}>
               {isLoading ? 'Creating...' : 'Create Invoice'}
             </button>
           </div>

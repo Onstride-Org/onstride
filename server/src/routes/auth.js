@@ -33,10 +33,11 @@ router.post('/register', [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('name').trim().notEmpty(),
+  body('phoneNumber').trim().notEmpty().withMessage('Phone number is required'),
   validate
 ], async (req, res, next) => {
   try {
-    const { email, password, name, phoneNumber } = req.body;
+    const { email, password, name, phoneNumber, barnName } = req.body;
 
     // Check if user exists
     const existingUser = await User.findOne({ email });
@@ -54,9 +55,9 @@ router.post('/register', [
       registrationMethod: 'email'
     });
 
-    // Create default barn for owner
+    // Create default barn for owner with provided name or default
     const barn = await Barn.create({
-      name: `${name}'s Barn`,
+      name: barnName || `${name}'s Barn`,
       ownerId: user._id
     });
 

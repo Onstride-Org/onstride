@@ -41,7 +41,9 @@ router.get('/validate/:token', async (req, res, next) => {
 // Accept invitation (public route)
 router.post('/accept/:token', [
   body('name').trim().notEmpty(),
+  body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 8 }),
+  body('phoneNumber').trim().notEmpty().withMessage('Phone number is required'),
   validate
 ], async (req, res, next) => {
   try {
@@ -54,8 +56,18 @@ router.post('/accept/:token', [
       return res.status(400).json({ error: 'Invalid or expired invitation' });
     }
 
+    // For bulk invites, check if max uses reached
+    if (invitation.isBulkInvite && invitation.maxUses !== null && invitation.useCount >= invitation.maxUses) {
+      return res.status(400).json({ error: 'This invitation link has reached its maximum uses' });
+    }
+
     const { email, name, password, phoneNumber } = req.body;
-    const userEmail = email || invitation.email;
+    // For individual invites, use invitation email. For bulk, use provided email
+    const userEmail = invitation.isBulkInvite ? email : (email || invitation.email);
+
+    if (!userEmail) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
 
     // Check if user exists
     let user = await User.findOne({ email: userEmail });
@@ -105,8 +117,17 @@ router.post('/accept/:token', [
       invitedBy: invitation.createdById
     });
 
-    // Mark invitation as used
-    invitation.active = false;
+    // For bulk invites, increment use count instead of deactivating
+    if (invitation.isBulkInvite) {
+      invitation.useCount += 1;
+      // If max uses is set and reached, deactivate
+      if (invitation.maxUses !== null && invitation.useCount >= invitation.maxUses) {
+        invitation.active = false;
+      }
+    } else {
+      // For individual invites, mark as used
+      invitation.active = false;
+    }
     invitation.acceptedAt = new Date();
     invitation.acceptedById = user._id;
     await invitation.save();
@@ -201,6 +222,41 @@ router.post('/', [
     res.status(201).json({
       ...invitation.toObject(),
       inviteUrl: `/invite/${invitation.token}`
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Create bulk/shareable invitation link (24hr expiry by default)
+router.post('/bulk', [
+  requireBarn,
+  hasPermission('userManagement'),
+  body('accountType').isIn(['owner', 'manager', 'boarder', 'groomer', 'admin', 'trainer', 'vendor']),
+  validate
+], async (req, res, next) => {
+  try {
+    const { accountType, permissions, expiresInHours = 24, maxUses } = req.body;
+
+    // Get barn name
+    const barn = await Barn.findById(req.barnId);
+
+    const invitation = await Invitation.create({
+      barnId: req.barnId,
+      barnName: barn.name,
+      accountType,
+      permissions: permissions || [],
+      isBulkInvite: true,
+      maxUses: maxUses || null,
+      expiresAt: new Date(Date.now() + expiresInHours * 60 * 60 * 1000),
+      createdById: req.userId
+    });
+
+    const inviteUrl = `${process.env.CLIENT_URL || ''}/invite/${invitation.token}`;
+
+    res.status(201).json({
+      ...invitation.toObject(),
+      inviteUrl
     });
   } catch (error) {
     next(error);

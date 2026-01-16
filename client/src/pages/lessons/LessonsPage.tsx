@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { lessonsApi } from '../../services/api';
-import { Lesson, LessonStatus, LessonType } from '../../types';
+import { lessonsApi, usersApi, horsesApi } from '../../services/api';
+import { Lesson, LessonStatus, LessonType, User, Horse } from '../../types';
 import { format, parseISO } from 'date-fns';
 import { Calendar, MapPin, X, Plus } from 'lucide-react';
 import { HorseIcon } from '../../components/icons/HorseIcon';
@@ -261,13 +261,42 @@ function AddLessonModal({
 }) {
   const [clientId, setClientId] = useState('');
   const [trainerId, setTrainerId] = useState('');
+  const [horseId, setHorseId] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('60');
   const [price, setPrice] = useState('');
   const [type, setType] = useState<LessonType>('privateSingle');
   const [location, setLocation] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [horses, setHorses] = useState<Horse[]>([]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [usersRes, horsesRes] = await Promise.all([
+          usersApi.getAll({ limit: 100 }),
+          horsesApi.getAll({ limit: 100 })
+        ]);
+        setUsers(usersRes.data || []);
+        setHorses(horsesRes.data || []);
+      } catch (err) {
+        console.error('Failed to load data:', err);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const trainers = users.filter(u =>
+    u.accountType === 'trainer' || u.accountType === 'owner' || u.accountType === 'manager'
+  );
+  const clients = users.filter(u =>
+    u.accountType === 'boarder' || u.accountType === 'owner'
+  );
 
   const lessonTypes: { value: LessonType; label: string }[] = [
     { value: 'privateSingle', label: 'Private (Single)' },
@@ -281,15 +310,28 @@ function AddLessonModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!clientId) {
+      setError('Please select a client');
+      return;
+    }
+    if (!trainerId) {
+      setError('Please select a trainer');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      const selectedHorse = horses.find(h => h.id === horseId);
       await lessonsApi.create({
         clientId,
         trainerId,
+        horseId: horseId || undefined,
+        horseName: selectedHorse?.name,
         scheduledDate: new Date(scheduledDate).toISOString(),
         durationMinutes: parseInt(durationMinutes),
-        price: parseFloat(price),
+        price: parseFloat(price) || 0,
         type,
         location: location || undefined,
         recurrenceType: 'none',
@@ -304,7 +346,7 @@ function AddLessonModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">Schedule Lesson</h2>
           <button className="btn btn-ghost modal-close" onClick={onClose}>
@@ -320,105 +362,138 @@ function AddLessonModal({
               </div>
             )}
 
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Client ID *</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  placeholder="Client ID"
-                  required
-                />
+            {isLoadingData ? (
+              <div className="page-loading">
+                <div className="spinner spinner-lg"></div>
               </div>
-              <div className="form-group">
-                <label className="form-label">Trainer ID *</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={trainerId}
-                  onChange={(e) => setTrainerId(e.target.value)}
-                  placeholder="Trainer ID"
-                  required
-                />
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Client *</label>
+                    <select
+                      className="form-select"
+                      value={clientId}
+                      onChange={(e) => setClientId(e.target.value)}
+                      required
+                    >
+                      <option value="">Select a client...</option>
+                      {clients.map(user => (
+                        <option key={user.id} value={user.id}>
+                          {user.name} ({user.accountType})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Trainer *</label>
+                    <select
+                      className="form-select"
+                      value={trainerId}
+                      onChange={(e) => setTrainerId(e.target.value)}
+                      required
+                    >
+                      <option value="">Select a trainer...</option>
+                      {trainers.map(user => (
+                        <option key={user.id} value={user.id}>
+                          {user.name} ({user.accountType})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Date & Time *</label>
-                <input
-                  type="datetime-local"
-                  className="form-input"
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Duration *</label>
-                <select
-                  className="form-select"
-                  value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(e.target.value)}
-                >
-                  <option value="30">30 minutes</option>
-                  <option value="45">45 minutes</option>
-                  <option value="60">60 minutes</option>
-                  <option value="90">90 minutes</option>
-                  <option value="120">2 hours</option>
-                </select>
-              </div>
-            </div>
+                <div className="form-group">
+                  <label className="form-label">Horse</label>
+                  <select
+                    className="form-select"
+                    value={horseId}
+                    onChange={(e) => setHorseId(e.target.value)}
+                  >
+                    <option value="">Select a horse (optional)...</option>
+                    {horses.map(horse => (
+                      <option key={horse.id} value={horse.id}>
+                        {horse.name} {horse.breed?.label ? `(${horse.breed.label})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Lesson Type *</label>
-                <select
-                  className="form-select"
-                  value={type}
-                  onChange={(e) => setType(e.target.value as LessonType)}
-                >
-                  {lessonTypes.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Price *</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="0.00"
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </div>
-            </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Date & Time *</label>
+                    <input
+                      type="datetime-local"
+                      className="form-input"
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Duration *</label>
+                    <select
+                      className="form-select"
+                      value={durationMinutes}
+                      onChange={(e) => setDurationMinutes(e.target.value)}
+                    >
+                      <option value="30">30 minutes</option>
+                      <option value="45">45 minutes</option>
+                      <option value="60">60 minutes</option>
+                      <option value="90">90 minutes</option>
+                      <option value="120">2 hours</option>
+                    </select>
+                  </div>
+                </div>
 
-            <div className="form-group">
-              <label className="form-label">Location</label>
-              <input
-                type="text"
-                className="form-input"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g., Indoor Arena"
-              />
-            </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Lesson Type *</label>
+                    <select
+                      className="form-select"
+                      value={type}
+                      onChange={(e) => setType(e.target.value as LessonType)}
+                    >
+                      {lessonTypes.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Price</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Location</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="e.g., Indoor Arena"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <div className="modal-footer">
             <button type="button" className="btn btn-outline" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={isLoading}>
+            <button type="submit" className="btn btn-primary" disabled={isLoading || isLoadingData}>
               {isLoading ? 'Creating...' : 'Schedule Lesson'}
             </button>
           </div>

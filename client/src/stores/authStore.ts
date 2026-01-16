@@ -12,7 +12,7 @@ interface AuthState {
 
   // Actions
   login: (email: string, password: string) => Promise<void>;
-  register: (data: { email: string; password: string; name: string; phoneNumber?: string }) => Promise<void>;
+  register: (data: { email: string; password: string; name: string; phoneNumber: string; barnName?: string }) => Promise<void>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
   switchBarn: (barnId: string) => void;
@@ -67,7 +67,7 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
 
       set({
         user: response.user,
-        barns: [{ id: response.user.barnId, name: `${data.name}'s Barn`, ownerId: response.user.id, role: 'owner' as const, isPrimary: true }],
+        barns: [{ id: response.user.barnId, name: data.barnName || `${data.name}'s Barn`, ownerId: response.user.id, role: 'owner' as const, isPrimary: true }],
         currentBarnId: response.user.barnId,
         isAuthenticated: true,
         isLoading: false,

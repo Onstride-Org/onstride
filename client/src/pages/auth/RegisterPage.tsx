@@ -8,6 +8,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [barnName, setBarnName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState('');
   const { register, isLoading, error, clearError } = useAuthStore();
@@ -28,8 +29,18 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!phoneNumber) {
+      setValidationError('Phone number is required');
+      return;
+    }
+
+    if (!barnName.trim()) {
+      setValidationError('Barn name is required');
+      return;
+    }
+
     try {
-      await register({ email, password, name, phoneNumber: phoneNumber || undefined });
+      await register({ email, password, name, phoneNumber, barnName: barnName.trim() });
       navigate('/dashboard');
     } catch {
       // Error is handled by the store
@@ -84,9 +95,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="form-group">
-          <label htmlFor="phone" className="form-label">
-            Phone Number <span className="text-muted">(optional)</span>
-          </label>
+          <label htmlFor="phone" className="form-label">Phone Number *</label>
           <input
             type="tel"
             id="phone"
@@ -95,7 +104,22 @@ export default function RegisterPage() {
             onChange={(e) => setPhoneNumber(e.target.value)}
             placeholder="(555) 123-4567"
             autoComplete="tel"
+            required
           />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="barnName" className="form-label">Barn Name *</label>
+          <input
+            type="text"
+            id="barnName"
+            className="form-input"
+            value={barnName}
+            onChange={(e) => setBarnName(e.target.value)}
+            placeholder="Your barn or stable name"
+            required
+          />
+          <p className="form-hint">This will be the name displayed to your clients and staff</p>
         </div>
 
         <div className="form-group">

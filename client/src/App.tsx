@@ -28,6 +28,7 @@ import ProfilePage from './pages/settings/ProfilePage';
 import BarnSettingsPage from './pages/settings/BarnSettingsPage';
 import BrandingPage from './pages/settings/BrandingPage';
 import SubscriptionPage from './pages/settings/SubscriptionPage';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -164,6 +165,9 @@ function App() {
         <Route path="settings/barn" element={<BarnSettingsPage />} />
         <Route path="settings/branding" element={<BrandingPage />} />
         <Route path="settings/subscription" element={<SubscriptionPage />} />
+
+        {/* Admin */}
+        <Route path="admin" element={<AdminDashboardPage />} />
       </Route>
 
       {/* Catch all */}

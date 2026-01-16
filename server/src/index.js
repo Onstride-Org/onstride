@@ -20,6 +20,7 @@ const notificationRoutes = require('./routes/notifications');
 const subscriptionRoutes = require('./routes/subscriptions');
 const aiRoutes = require('./routes/ai');
 const documentRoutes = require('./routes/documents');
+const adminRoutes = require('./routes/admin');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -73,6 +74,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -24,6 +24,7 @@ router.get('/', requireBarn, async (req, res, next) => {
 
     let horses = await Horse.find(filter)
       .populate('boarderId', 'name email')
+      .populate('ownerId', 'name email')
       .sort({ name: 1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
@@ -57,7 +58,8 @@ router.get('/', requireBarn, async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const horse = await Horse.findById(req.params.id)
-      .populate('boarderId', 'name email avatarUrl');
+      .populate('boarderId', 'name email avatarUrl')
+      .populate('ownerId', 'name email avatarUrl');
 
     if (!horse) {
       return res.status(404).json({ error: 'Horse not found' });
@@ -103,7 +105,7 @@ router.put('/:id', [
 ], async (req, res, next) => {
   try {
     const {
-      name, age, birthday, breed, sexStatus, color, status, boarderId,
+      name, age, birthday, breed, sexStatus, color, status, boarderId, ownerId, notes,
       usefNumber, feiNumber, registeredName,
       sireName, sireId, damName, damId,
       paternalGrandsireName, paternalGranddamName,
@@ -122,6 +124,8 @@ router.put('/:id', [
         ...(color !== undefined && { color }),
         ...(status && { status }),
         ...(boarderId !== undefined && { boarderId }),
+        ...(ownerId !== undefined && { ownerId }),
+        ...(notes !== undefined && { notes }),
         ...(usefNumber !== undefined && { usefNumber }),
         ...(feiNumber !== undefined && { feiNumber }),
         ...(registeredName !== undefined && { registeredName }),

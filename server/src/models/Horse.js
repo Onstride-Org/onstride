@@ -39,7 +39,14 @@ const horseSchema = new mongoose.Schema({
     trim: true
   },
   age: Number,
-  birthday: Date,
+  birthday: {
+    type: Date,
+    default: () => {
+      // Default to January 1st of current year
+      const now = new Date();
+      return new Date(now.getFullYear(), 0, 1);
+    }
+  },
   breed: {
     value: String,
     label: String
@@ -53,6 +60,16 @@ const horseSchema = new mongoose.Schema({
     type: String,
     enum: ['active', 'inactive'],
     default: 'active'
+  },
+  // Notes/details about the horse
+  notes: {
+    type: String,
+    default: ''
+  },
+  // Owner/responsible user for the horse (who pays/is responsible)
+  ownerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   },
   boarderId: {
     type: mongoose.Schema.Types.ObjectId,

@@ -35,6 +35,21 @@ const invitationSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Bulk/shareable link invitation (no email required)
+  isBulkInvite: {
+    type: Boolean,
+    default: false
+  },
+  // Max number of uses for bulk invite (null = unlimited)
+  maxUses: {
+    type: Number,
+    default: null
+  },
+  // Number of times this invite has been used
+  useCount: {
+    type: Number,
+    default: 0
+  },
   createdById: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
