@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { invoicesApi } from '../../services/api';
 import { Invoice, InvoiceStatus } from '../../types';
 import { format } from 'date-fns';
+import { Plus, FileText, X } from 'lucide-react';
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -50,10 +51,7 @@ export default function InvoicesPage() {
           <p className="page-subtitle">{pagination.total} total invoices</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
+          <Plus size={20} />
           Create Invoice
         </button>
       </div>
@@ -84,10 +82,7 @@ export default function InvoicesPage() {
       ) : invoices.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14,2 14,8 20,8" />
-            </svg>
+            <FileText size={64} strokeWidth={1.5} />
           </div>
           <h3>No invoices found</h3>
           <p>
@@ -231,10 +226,7 @@ function CreateInvoiceModal({
         <div className="modal-header">
           <h2 className="modal-title">Create Invoice</h2>
           <button className="btn btn-ghost modal-close" onClick={onClose}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X size={20} />
           </button>
         </div>
 

@@ -1,5 +1,5 @@
 /* ============================================
-   GL Horses Component Styles
+   OnStride Component Styles
    ============================================ */
 
 /* ============ Buttons ============ */
@@ -8,8 +8,9 @@
   align-items: center;
   justify-content: center;
   gap: var(--spacing-2);
-  padding: var(--spacing-2) var(--spacing-4);
-  font-size: var(--font-size-sm);
+  padding: var(--spacing-3) var(--spacing-4);
+  min-height: 44px;
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-medium);
   line-height: 1.5;
   border-radius: var(--radius-lg);
@@ -18,6 +19,8 @@
   border: none;
   text-decoration: none;
   white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn:disabled {
@@ -101,7 +104,7 @@
 
 .form-label {
   display: block;
-  margin-bottom: var(--spacing-1);
+  margin-bottom: var(--spacing-2);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
@@ -117,13 +120,16 @@
 .form-select,
 .form-textarea {
   width: 100%;
-  padding: var(--spacing-2) var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-4);
+  min-height: 44px;
   font-size: var(--font-size-base);
   color: var(--color-text-primary);
   background-color: var(--color-background);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .form-input:hover,
@@ -839,26 +845,33 @@
 /* ============ Stats ============ */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--spacing-4);
-  margin-bottom: var(--spacing-6);
+  grid-template-columns: 1fr;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-5);
 }
 
 .stat-card {
   display: flex;
   align-items: center;
   gap: var(--spacing-4);
-  padding: var(--spacing-5);
+  padding: var(--spacing-4);
   background-color: var(--color-surface-elevated);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-xl);
   text-decoration: none;
   transition: all var(--transition-fast);
+  min-height: 80px;
 }
 
-.stat-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+.stat-card:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .stat-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
 }
 
 .stat-icon {
@@ -868,6 +881,7 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-lg);
+  flex-shrink: 0;
 }
 
 .stat-icon svg {
@@ -914,7 +928,7 @@
 /* ============ Dashboard Grid ============ */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
   gap: var(--spacing-4);
 }
 
@@ -922,12 +936,6 @@
   background-color: var(--color-surface-elevated);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-xl);
-}
-
-@media (max-width: 1024px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* ============ Lists ============ */
@@ -1116,14 +1124,14 @@
 /* ============ Horse Grid ============ */
 .horse-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--spacing-4);
+  grid-template-columns: 1fr;
+  gap: var(--spacing-3);
 }
 
 .horse-card {
   display: flex;
   flex-direction: column;
-  padding: var(--spacing-5);
+  padding: var(--spacing-4);
   background-color: var(--color-surface-elevated);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-xl);
@@ -1133,9 +1141,15 @@
   position: relative;
 }
 
-.horse-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+.horse-card:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .horse-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
 }
 
 .horse-card .badge {
@@ -1627,3 +1641,50 @@
 .mt-4 { margin-top: var(--spacing-4); }
 .mt-6 { margin-top: var(--spacing-6); }
 .mb-4 { margin-bottom: var(--spacing-4); }
+
+/* ============ Responsive - Tablet and Up ============ */
+@media (min-width: 768px) {
+  .btn {
+    padding: var(--spacing-2) var(--spacing-4);
+    min-height: 40px;
+    font-size: var(--font-size-sm);
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-4);
+    margin-bottom: var(--spacing-6);
+  }
+
+  .stat-card {
+    padding: var(--spacing-5);
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .horse-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-4);
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    padding: var(--spacing-2) var(--spacing-3);
+    min-height: 40px;
+    font-size: var(--font-size-base);
+  }
+}
+
+/* ============ Responsive - Desktop ============ */
+@media (min-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .horse-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}

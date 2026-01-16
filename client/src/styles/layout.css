@@ -1,5 +1,5 @@
 /* ============================================
-   GL Horses Layout Styles
+   OnStride Layout Styles
    ============================================ */
 
 /* ============ App Layout ============ */
@@ -54,8 +54,8 @@
   height: 32px;
   flex-shrink: 0;
   object-fit: contain;
-  /* CSS filter to apply primary green color (#16a34a) */
-  filter: brightness(0) saturate(100%) invert(42%) sepia(93%) saturate(401%) hue-rotate(100deg) brightness(96%) contrast(94%);
+  /* CSS filter to apply brand color (#405D4B) */
+  filter: brightness(0) saturate(100%) invert(33%) sepia(15%) saturate(749%) hue-rotate(93deg) brightness(97%) contrast(89%);
 }
 
 .logo-img-lg {
@@ -222,9 +222,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--spacing-4);
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: var(--z-sticky);
+  left: 0;
+  right: 0;
+  z-index: calc(var(--z-fixed) - 1);
 }
 
 .sidebar-toggle {
@@ -256,7 +258,7 @@
 /* ============ Main Content ============ */
 .app-main {
   flex: 1;
-  margin-left: var(--sidebar-width);
+  margin-left: 0;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -264,20 +266,32 @@
 
 /* ============ Page Layout ============ */
 .page {
-  padding: var(--spacing-6);
+  padding: var(--spacing-4);
   flex: 1;
 }
 
 .page-header {
   display: flex;
-  align-items: flex-start;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--spacing-6);
-  gap: var(--spacing-4);
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-5);
+}
+
+.page-header > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.page-header .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .page-title {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   margin: 0;
@@ -299,17 +313,14 @@
 /* ============ Page Filters ============ */
 .page-filters {
   display: flex;
-  align-items: center;
-  gap: var(--spacing-4);
-  margin-bottom: var(--spacing-6);
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-5);
 }
 
 .search-input {
   position: relative;
-  flex: 1;
-  min-width: 200px;
-  max-width: 400px;
+  width: 100%;
 }
 
 .search-input svg {
@@ -333,10 +344,19 @@
   background-color: var(--color-surface);
   padding: var(--spacing-1);
   border-radius: var(--radius-lg);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.filter-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .filter-tab {
   padding: var(--spacing-2) var(--spacing-4);
+  min-height: 44px;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   background: none;
@@ -345,6 +365,8 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .filter-tab:hover {
@@ -586,10 +608,72 @@
   color: var(--color-text-secondary);
 }
 
-/* ============ Responsive ============ */
-@media (max-width: 1024px) {
+/* ============ Sidebar Mobile Default ============ */
+.sidebar {
+  transform: translateX(-100%);
+}
+
+.sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-close {
+  display: flex;
+}
+
+.sidebar-overlay {
+  display: block;
+}
+
+.app-header {
+  display: flex;
+}
+
+/* ============ Responsive - Tablet and Up ============ */
+@media (min-width: 768px) {
+  .page {
+    padding: var(--spacing-5);
+  }
+
+  .page-header {
+    margin-bottom: var(--spacing-6);
+    align-items: flex-start;
+  }
+
+  .page-title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .page-filters {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: var(--spacing-6);
+  }
+
+  .search-input {
+    flex: 1;
+    min-width: 200px;
+    max-width: 400px;
+  }
+
+  .detail-header-content {
+    flex-direction: row;
+  }
+
+  .detail-actions {
+    width: auto;
+  }
+
+  .detail-actions .btn {
+    flex: none;
+  }
+}
+
+/* ============ Responsive - Desktop ============ */
+@media (min-width: 1024px) {
   .sidebar {
-    transform: translateX(-100%);
+    transform: translateX(0);
+    width: var(--sidebar-width);
   }
 
   .sidebar.open {
@@ -597,64 +681,23 @@
   }
 
   .sidebar-close {
-    display: flex;
+    display: none;
   }
 
   .sidebar-overlay {
-    display: block;
+    display: none;
   }
 
   .app-header {
-    display: flex;
+    display: none;
   }
 
   .app-main {
-    margin-left: 0;
+    margin-left: var(--sidebar-width);
+    padding-top: 0;
   }
-}
 
-@media (max-width: 640px) {
   .page {
-    padding: var(--spacing-4);
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .page-filters {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .search-input {
-    max-width: none;
-  }
-
-  .filter-tabs {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .detail-header-content {
-    flex-direction: column;
-  }
-
-  .detail-actions {
-    width: 100%;
-  }
-
-  .detail-actions .btn {
-    flex: 1;
-  }
-
-  .auth-form-container {
     padding: var(--spacing-6);
-  }
-
-  .tabs {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
   }
 }

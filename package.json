@@ -1,7 +1,7 @@
 {
-  "name": "gl-horses-app",
+  "name": "onstride-app",
   "version": "1.0.0",
-  "description": "GL Horses - Comprehensive barn management platform",
+  "description": "OnStride - Comprehensive barn management platform",
   "private": true,
   "workspaces": [
     "client",

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { horsesApi } from '../../services/api';
 import { Horse } from '../../types';
+import { Plus, Search, X } from 'lucide-react';
+import { HorseIcon } from '../../components/icons/HorseIcon';
 
 export default function HorsesPage() {
   const [horses, setHorses] = useState<Horse[]>([]);
@@ -51,10 +53,7 @@ export default function HorsesPage() {
           <p className="page-subtitle">{pagination.total} horses in your barn</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
+          <Plus size={20} />
           Add Horse
         </button>
       </div>
@@ -62,10 +61,7 @@ export default function HorsesPage() {
       {/* Filters */}
       <div className="page-filters">
         <div className="search-input">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+          <Search size={20} />
           <input
             type="text"
             placeholder="Search horses..."
@@ -104,9 +100,7 @@ export default function HorsesPage() {
       ) : horses.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M22 9s-2-2-4-2c-1 0-2 1-3 2l-2 2-4-1-5 5v5h4l2-3 4-1 3 4h3v-4l2-4z" />
-            </svg>
+            <HorseIcon size={64} strokeWidth={1.5} />
           </div>
           <h3>No horses found</h3>
           <p>
@@ -229,10 +223,7 @@ function AddHorseModal({ onClose, onSuccess }: AddHorseModalProps) {
         <div className="modal-header">
           <h2 className="modal-title">Add Horse</h2>
           <button className="btn btn-ghost modal-close" onClick={onClose}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X size={20} />
           </button>
         </div>
 

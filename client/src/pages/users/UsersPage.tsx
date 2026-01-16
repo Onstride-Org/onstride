@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { usersApi, invitationsApi } from '../../services/api';
 import { User, AccountType } from '../../types';
+import { UserPlus, Search, Users, MoreHorizontal, X, CheckCircle } from 'lucide-react';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -73,12 +74,7 @@ export default function UsersPage() {
           <p className="page-subtitle">{pagination.total} members in your barn</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowInviteModal(true)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-            <circle cx="8.5" cy="7" r="4" />
-            <line x1="20" y1="8" x2="20" y2="14" />
-            <line x1="23" y1="11" x2="17" y2="11" />
-          </svg>
+          <UserPlus size={20} />
           Invite User
         </button>
       </div>
@@ -86,10 +82,7 @@ export default function UsersPage() {
       {/* Filters */}
       <div className="page-filters">
         <div className="search-input">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+          <Search size={20} />
           <input
             type="text"
             placeholder="Search users..."
@@ -128,12 +121,7 @@ export default function UsersPage() {
       ) : users.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
+            <Users size={64} strokeWidth={1.5} />
           </div>
           <h3>No users found</h3>
           <p>
@@ -187,11 +175,7 @@ export default function UsersPage() {
                     </td>
                     <td>
                       <button className="btn btn-ghost btn-sm">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                          <circle cx="12" cy="12" r="1" />
-                          <circle cx="19" cy="12" r="1" />
-                          <circle cx="5" cy="12" r="1" />
-                        </svg>
+                        <MoreHorizontal size={16} />
                       </button>
                     </td>
                   </tr>
@@ -280,10 +264,7 @@ function InviteUserModal({
           <div className="modal-body">
             <div className="success-state">
               <div className="success-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="48" height="48">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                  <polyline points="22,4 12,14.01 9,11.01" />
-                </svg>
+                <CheckCircle size={48} />
               </div>
               <h3>Invitation Sent!</h3>
               <p>An invitation has been sent to {email}</p>
@@ -300,10 +281,7 @@ function InviteUserModal({
         <div className="modal-header">
           <h2 className="modal-title">Invite User</h2>
           <button className="btn btn-ghost modal-close" onClick={onClose}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X size={20} />
           </button>
         </div>
 

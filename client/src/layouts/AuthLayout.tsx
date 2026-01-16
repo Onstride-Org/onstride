@@ -10,9 +10,9 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
       <div className="auth-container">
         <div className="auth-header">
           <div className="auth-logo">
-            <img src="/gl-logo.png" alt="GL Horses" className="logo-img logo-img-lg" />
+            <img src="/gl-logo.png" alt="OnStride" className="logo-img logo-img-lg" />
           </div>
-          <h1 className="auth-title">GL Horses</h1>
+          <h1 className="auth-title">OnStride</h1>
           <p className="auth-subtitle">Barn Management Made Simple</p>
         </div>
         {children}

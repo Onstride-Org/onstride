@@ -4,6 +4,8 @@ import { useAuthStore } from '../stores/authStore';
 import { horsesApi, tasksApi, invoicesApi, lessonsApi } from '../services/api';
 import { Horse, Task, Invoice, Lesson } from '../types';
 import { format } from 'date-fns';
+import { CheckSquare, FileText, Calendar } from 'lucide-react';
+import { HorseIcon } from '../components/icons/HorseIcon';
 
 export default function DashboardPage() {
   const { user, currentBarnId } = useAuthStore();
@@ -81,31 +83,10 @@ export default function DashboardPage() {
         {statCards.map((stat) => (
           <Link key={stat.label} to={stat.path} className={`stat-card stat-card-${stat.color}`}>
             <div className="stat-icon">
-              {stat.icon === 'horse' && (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 9s-2-2-4-2c-1 0-2 1-3 2l-2 2-4-1-5 5v5h4l2-3 4-1 3 4h3v-4l2-4z" />
-                </svg>
-              )}
-              {stat.icon === 'tasks' && (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 11l3 3L22 4" />
-                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                </svg>
-              )}
-              {stat.icon === 'invoice' && (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14,2 14,8 20,8" />
-                </svg>
-              )}
-              {stat.icon === 'calendar' && (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
-              )}
+              {stat.icon === 'horse' && <HorseIcon size={24} />}
+              {stat.icon === 'tasks' && <CheckSquare size={24} />}
+              {stat.icon === 'invoice' && <FileText size={24} />}
+              {stat.icon === 'calendar' && <Calendar size={24} />}
             </div>
             <div className="stat-content">
               <span className="stat-value">{stat.value}</span>
