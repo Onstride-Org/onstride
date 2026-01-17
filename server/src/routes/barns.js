@@ -8,7 +8,7 @@ const Horse = require('../models/Horse');
 const { BarnSubscription } = require('../models/Subscription');
 const { authenticate, loadBarnContext, requireBarn, hasPermission, hasRole } = require('../middleware/auth');
 const validate = require('../middleware/validate');
-const { uploadImage } = require('../middleware/upload');
+const { uploadImage, uploadToCloud } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -298,14 +298,16 @@ router.put('/:id/branding', [
 // Upload branding logo
 router.post('/:id/branding/logo', [
   hasPermission('barnManagement'),
-  uploadImage.single('logo')
+  uploadImage.single('logo'),
+  uploadToCloud('logos')
 ], async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const logoUrl = `/uploads/${req.file.filename}`;
+    // Use cloud URL if available, otherwise fallback to local path
+    const logoUrl = req.file.cloudUrl || `/uploads/${req.file.filename}`;
     const branding = await BarnBranding.findOneAndUpdate(
       { barnId: req.params.id },
       { logoUrl, updatedBy: req.userId },

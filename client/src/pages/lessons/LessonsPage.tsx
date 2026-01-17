@@ -4,6 +4,7 @@ import { Lesson, LessonStatus, LessonType, User, Horse } from '../../types';
 import { format, parseISO } from 'date-fns';
 import { Calendar, MapPin, X, Plus } from 'lucide-react';
 import { HorseIcon } from '../../components/icons/HorseIcon';
+import FilterTabs from '../../components/FilterTabs';
 
 export default function LessonsPage() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -100,20 +101,21 @@ export default function LessonsPage() {
 
       {/* Filters */}
       <div className="page-filters">
-        <div className="filter-tabs">
-          {(['all', 'requested', 'approved', 'completed', 'cancelled'] as const).map((status) => (
-            <button
-              key={status}
-              className={`filter-tab ${statusFilter === status ? 'active' : ''}`}
-              onClick={() => {
-                setStatusFilter(status);
-                setPagination(prev => ({ ...prev, page: 1 }));
-              }}
-            >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </button>
-          ))}
-        </div>
+        <FilterTabs
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'requested', label: 'Requested' },
+            { value: 'approved', label: 'Approved' },
+            { value: 'completed', label: 'Completed' },
+            { value: 'cancelled', label: 'Cancelled' },
+          ]}
+          value={statusFilter}
+          onChange={(value) => {
+            setStatusFilter(value as LessonStatus | 'all');
+            setPagination(prev => ({ ...prev, page: 1 }));
+          }}
+          label="Filter by status"
+        />
       </div>
 
       {/* Content */}

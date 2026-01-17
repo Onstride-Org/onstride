@@ -8,6 +8,7 @@ const UserBarnRole = require('../models/UserBarnRole');
 const { BarnSubscription } = require('../models/Subscription');
 const { authenticate } = require('../middleware/auth');
 const validate = require('../middleware/validate');
+const twilio = require('../services/twilio');
 
 const router = express.Router();
 
@@ -126,6 +127,98 @@ router.post('/login', [
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Check if 2FA is enabled
+    if (user.twoFactorEnabled && user.phoneNumber) {
+      // Send verification code
+      try {
+        const formattedPhone = twilio.formatPhoneNumber(user.phoneNumber);
+        await twilio.sendVerificationCode(formattedPhone, user.twoFactorMethod || 'sms');
+
+        // Return partial response indicating 2FA is required
+        return res.json({
+          requiresTwoFactor: true,
+          userId: user._id,
+          twoFactorMethod: user.twoFactorMethod || 'sms',
+          phoneLastFour: user.phoneNumber.slice(-4),
+        });
+      } catch (twilioError) {
+        console.error('Failed to send 2FA code:', twilioError.message);
+        // Fall through to regular login if Twilio fails
+      }
+    }
+
+    // Generate tokens (no 2FA or 2FA service unavailable)
+    const { accessToken, refreshToken } = generateTokens(user._id);
+
+    // Update user
+    user.refreshToken = refreshToken;
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    // Get user's barns
+    const barnRoles = await UserBarnRole.find({
+      userId: user._id,
+      status: 'active'
+    }).populate('barnId');
+
+    res.json({
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+        accountType: user.accountType,
+        permissions: user.permissions,
+        barnId: user.barnId,
+        finishedRegistration: user.finishedRegistration,
+        twoFactorEnabled: user.twoFactorEnabled,
+        phoneVerified: user.phoneVerified,
+      },
+      barns: barnRoles.map(r => ({
+        id: r.barnId._id,
+        name: r.barnId.name,
+        role: r.role,
+        isPrimary: r.isPrimary
+      })),
+      accessToken,
+      refreshToken
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Verify 2FA code and complete login
+router.post('/verify-2fa', [
+  body('userId').isMongoId(),
+  body('code').isLength({ min: 4, max: 8 }),
+  validate
+], async (req, res, next) => {
+  try {
+    const { userId, code } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid request' });
+    }
+
+    if (!user.phoneNumber) {
+      return res.status(400).json({ error: 'No phone number on file' });
+    }
+
+    // Verify the code with Twilio
+    const formattedPhone = twilio.formatPhoneNumber(user.phoneNumber);
+    const verification = await twilio.verifyCode(formattedPhone, code);
+
+    if (!verification.valid) {
+      return res.status(401).json({ error: 'Invalid verification code' });
+    }
+
+    // Mark phone as verified if not already
+    if (!user.phoneVerified) {
+      user.phoneVerified = true;
+    }
+
     // Generate tokens
     const { accessToken, refreshToken } = generateTokens(user._id);
 
@@ -149,7 +242,9 @@ router.post('/login', [
         accountType: user.accountType,
         permissions: user.permissions,
         barnId: user.barnId,
-        finishedRegistration: user.finishedRegistration
+        finishedRegistration: user.finishedRegistration,
+        twoFactorEnabled: user.twoFactorEnabled,
+        phoneVerified: user.phoneVerified,
       },
       barns: barnRoles.map(r => ({
         id: r.barnId._id,
@@ -159,6 +254,31 @@ router.post('/login', [
       })),
       accessToken,
       refreshToken
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Resend 2FA code
+router.post('/resend-2fa', [
+  body('userId').isMongoId(),
+  validate
+], async (req, res, next) => {
+  try {
+    const { userId } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user || !user.phoneNumber) {
+      return res.status(400).json({ error: 'Invalid request' });
+    }
+
+    const formattedPhone = twilio.formatPhoneNumber(user.phoneNumber);
+    await twilio.sendVerificationCode(formattedPhone, user.twoFactorMethod || 'sms');
+
+    res.json({
+      message: 'Verification code sent',
+      phoneLastFour: user.phoneNumber.slice(-4),
     });
   } catch (error) {
     next(error);
@@ -333,6 +453,124 @@ router.post('/verify-email', [
     await user.save();
 
     res.json({ message: 'Email verified successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============ 2FA Management ============
+
+// Send verification code to verify phone (before enabling 2FA)
+router.post('/2fa/send-code', authenticate, async (req, res, next) => {
+  try {
+    const user = req.user;
+
+    if (!user.phoneNumber) {
+      return res.status(400).json({ error: 'Please add a phone number first' });
+    }
+
+    if (!twilio.isConfigured()) {
+      return res.status(503).json({ error: '2FA service is not configured' });
+    }
+
+    const formattedPhone = twilio.formatPhoneNumber(user.phoneNumber);
+
+    if (!twilio.isValidPhoneNumber(formattedPhone)) {
+      return res.status(400).json({ error: 'Invalid phone number format' });
+    }
+
+    await twilio.sendVerificationCode(formattedPhone, 'sms');
+
+    res.json({
+      message: 'Verification code sent',
+      phoneLastFour: user.phoneNumber.slice(-4),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Verify phone and enable 2FA
+router.post('/2fa/enable', [
+  authenticate,
+  body('code').isLength({ min: 4, max: 8 }),
+  validate
+], async (req, res, next) => {
+  try {
+    const user = req.user;
+    const { code } = req.body;
+
+    if (!user.phoneNumber) {
+      return res.status(400).json({ error: 'Please add a phone number first' });
+    }
+
+    const formattedPhone = twilio.formatPhoneNumber(user.phoneNumber);
+    const verification = await twilio.verifyCode(formattedPhone, code);
+
+    if (!verification.valid) {
+      return res.status(401).json({ error: 'Invalid verification code' });
+    }
+
+    // Enable 2FA
+    user.phoneVerified = true;
+    user.twoFactorEnabled = true;
+    user.twoFactorMethod = 'sms';
+    await user.save();
+
+    res.json({
+      message: '2FA enabled successfully',
+      twoFactorEnabled: true,
+      phoneVerified: true,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Disable 2FA
+router.post('/2fa/disable', [
+  authenticate,
+  body('password').notEmpty(),
+  validate
+], async (req, res, next) => {
+  try {
+    const { password } = req.body;
+
+    // Get user with password for verification
+    const user = await User.findById(req.userId).select('+password');
+
+    // Verify password before disabling 2FA
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+
+    // Disable 2FA
+    user.twoFactorEnabled = false;
+    user.twoFactorMethod = null;
+    await user.save();
+
+    res.json({
+      message: '2FA disabled successfully',
+      twoFactorEnabled: false,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get 2FA status
+router.get('/2fa/status', authenticate, async (req, res, next) => {
+  try {
+    const user = req.user;
+
+    res.json({
+      twoFactorEnabled: user.twoFactorEnabled || false,
+      twoFactorMethod: user.twoFactorMethod || null,
+      phoneVerified: user.phoneVerified || false,
+      phoneNumber: user.phoneNumber ? `***${user.phoneNumber.slice(-4)}` : null,
+      isConfigured: twilio.isConfigured(),
+    });
   } catch (error) {
     next(error);
   }

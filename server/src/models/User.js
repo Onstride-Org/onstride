@@ -21,6 +21,19 @@ const userSchema = new mongoose.Schema({
   },
   avatarUrl: String,
   phoneNumber: String,
+  phoneVerified: {
+    type: Boolean,
+    default: false
+  },
+  twoFactorEnabled: {
+    type: Boolean,
+    default: false
+  },
+  twoFactorMethod: {
+    type: String,
+    enum: ['sms', 'email', null],
+    default: null
+  },
   accountType: {
     type: String,
     enum: ['owner', 'manager', 'boarder', 'groomer', 'admin', 'trainer', 'vendor'],

@@ -25,10 +25,12 @@ import VendorsPage from './pages/vendors/VendorsPage';
 import UsersPage from './pages/users/UsersPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import ProfilePage from './pages/settings/ProfilePage';
+import SecurityPage from './pages/settings/SecurityPage';
 import BarnSettingsPage from './pages/settings/BarnSettingsPage';
 import BrandingPage from './pages/settings/BrandingPage';
 import SubscriptionPage from './pages/settings/SubscriptionPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import BillingTemplatesPage from './pages/billing/BillingTemplatesPage';
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -162,9 +164,11 @@ function App() {
         {/* Settings */}
         <Route path="settings" element={<SettingsPage />} />
         <Route path="settings/profile" element={<ProfilePage />} />
+        <Route path="settings/security" element={<SecurityPage />} />
         <Route path="settings/barn" element={<BarnSettingsPage />} />
         <Route path="settings/branding" element={<BrandingPage />} />
         <Route path="settings/subscription" element={<SubscriptionPage />} />
+        <Route path="settings/billing-templates" element={<BillingTemplatesPage />} />
 
         {/* Admin */}
         <Route path="admin" element={<AdminDashboardPage />} />

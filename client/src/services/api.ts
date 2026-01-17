@@ -119,6 +119,18 @@ export const authApi = {
     return response.data;
   },
 
+  // Verify 2FA code and complete login
+  verify2FA: async (userId: string, code: string) => {
+    const response = await api.post('/auth/verify-2fa', { userId, code });
+    return response.data;
+  },
+
+  // Resend 2FA code
+  resend2FA: async (userId: string) => {
+    const response = await api.post('/auth/resend-2fa', { userId });
+    return response.data;
+  },
+
   register: async (data: { email: string; password: string; name: string; phoneNumber: string; barnName?: string }) => {
     const response = await api.post('/auth/register', data);
     return response.data;
@@ -147,6 +159,27 @@ export const authApi = {
 
   verifyEmail: async (token: string) => {
     const response = await api.post('/auth/verify-email', { token });
+    return response.data;
+  },
+
+  // 2FA Management
+  get2FAStatus: async () => {
+    const response = await api.get('/auth/2fa/status');
+    return response.data;
+  },
+
+  send2FACode: async () => {
+    const response = await api.post('/auth/2fa/send-code');
+    return response.data;
+  },
+
+  enable2FA: async (code: string) => {
+    const response = await api.post('/auth/2fa/enable', { code });
+    return response.data;
+  },
+
+  disable2FA: async (password: string) => {
+    const response = await api.post('/auth/2fa/disable', { password });
     return response.data;
   },
 };
@@ -333,8 +366,21 @@ export const invoicesApi = {
     return response.data;
   },
 
-  processPayment: async (id: string, data: { method: string; paymentMethodId?: string }) => {
+  // Initiate payment - returns redirect URL for card payments
+  processPayment: async (id: string, data: { method: string; returnUrl?: string }) => {
     const response = await api.post(`/invoices/${id}/payment`, data);
+    return response.data;
+  },
+
+  // Check payment status (polls Windcave for latest status)
+  getPaymentStatus: async (id: string) => {
+    const response = await api.get(`/invoices/${id}/payment-status`);
+    return response.data;
+  },
+
+  // Process refund for paid invoice
+  refund: async (id: string, data?: { amount?: number; reason?: string }) => {
+    const response = await api.post(`/invoices/${id}/refund`, data);
     return response.data;
   },
 
@@ -625,7 +671,7 @@ export const subscriptionsApi = {
 // ============ Vendors API ============
 export const vendorsApi = {
   search: async (params?: { type?: string; search?: string; city?: string; state?: string }) => {
-    const response = await api.get('/vendors', { params });
+    const response = await api.get('/vendors/search', { params });
     return response.data;
   },
 
@@ -635,7 +681,12 @@ export const vendorsApi = {
   },
 
   getProfile: async () => {
-    const response = await api.get('/vendors/profile');
+    const response = await api.get('/vendors/profile/me');
+    return response.data;
+  },
+
+  createProfile: async (data: object) => {
+    const response = await api.post('/vendors/profile', data);
     return response.data;
   },
 
@@ -644,13 +695,13 @@ export const vendorsApi = {
     return response.data;
   },
 
-  connectToBarn: async (barnId: string) => {
-    const response = await api.post(`/vendors/connect/${barnId}`);
+  connectToBarn: async (vendorId: string) => {
+    const response = await api.post(`/vendors/${vendorId}/connect`);
     return response.data;
   },
 
   getBarnConnections: async () => {
-    const response = await api.get('/vendors/barns');
+    const response = await api.get('/vendors/barn/connections');
     return response.data;
   },
 
@@ -666,6 +717,91 @@ export const vendorsApi = {
 
   updateAppointment: async (id: string, data: object) => {
     const response = await api.put(`/vendors/appointments/${id}`, data);
+    return response.data;
+  },
+
+  updateAppointmentStatus: async (id: string, status: string, completionNotes?: string) => {
+    const response = await api.put(`/vendors/appointments/${id}/status`, { status, completionNotes });
+    return response.data;
+  },
+
+  deleteAppointment: async (id: string) => {
+    const response = await api.delete(`/vendors/appointments/${id}`);
+    return response.data;
+  },
+};
+
+// ============ Billing API ============
+export const billingApi = {
+  // Templates
+  getTemplates: async () => {
+    const response = await api.get('/billing/templates');
+    return response.data;
+  },
+
+  getTemplateById: async (id: string) => {
+    const response = await api.get(`/billing/templates/${id}`);
+    return response.data;
+  },
+
+  createTemplate: async (data: { name: string; description?: string; charges: object[] }) => {
+    const response = await api.post('/billing/templates', data);
+    return response.data;
+  },
+
+  updateTemplate: async (id: string, data: object) => {
+    const response = await api.put(`/billing/templates/${id}`, data);
+    return response.data;
+  },
+
+  deleteTemplate: async (id: string) => {
+    const response = await api.delete(`/billing/templates/${id}`);
+    return response.data;
+  },
+
+  // Billing Periods
+  getPeriods: async (params?: { clientId?: string; status?: string; page?: number }) => {
+    const response = await api.get('/billing/periods', { params });
+    return response.data;
+  },
+
+  getPeriodById: async (id: string) => {
+    const response = await api.get(`/billing/periods/${id}`);
+    return response.data;
+  },
+
+  createPeriod: async (data: object) => {
+    const response = await api.post('/billing/periods', data);
+    return response.data;
+  },
+
+  updatePeriod: async (id: string, data: object) => {
+    const response = await api.put(`/billing/periods/${id}`, data);
+    return response.data;
+  },
+
+  addCharge: async (periodId: string, data: object) => {
+    const response = await api.post(`/billing/periods/${periodId}/charges`, data);
+    return response.data;
+  },
+
+  updateCharge: async (periodId: string, chargeId: string, data: object) => {
+    const response = await api.put(`/billing/periods/${periodId}/charges/${chargeId}`, data);
+    return response.data;
+  },
+
+  deleteCharge: async (periodId: string, chargeId: string) => {
+    const response = await api.delete(`/billing/periods/${periodId}/charges/${chargeId}`);
+    return response.data;
+  },
+
+  applyTemplate: async (periodId: string, templateId: string) => {
+    const response = await api.post(`/billing/periods/${periodId}/apply-template`, { templateId });
+    return response.data;
+  },
+
+  generateInvoice: async (periodId: string) => {
+    const response = await api.post(`/billing/periods/${periodId}/generate-invoice`);
     return response.data;
   },
 };

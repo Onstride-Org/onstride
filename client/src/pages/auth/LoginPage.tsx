@@ -6,7 +6,19 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isLoading, error, clearError } = useAuthStore();
+  const [verificationCode, setVerificationCode] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const {
+    login,
+    verify2FA,
+    resend2FA,
+    clearTwoFactor,
+    isLoading,
+    error,
+    clearError,
+    twoFactor,
+  } = useAuthStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -14,13 +26,130 @@ export default function LoginPage() {
     clearError();
 
     try {
-      await login(email, password);
+      const result = await login(email, password);
+      if (!result?.requiresTwoFactor) {
+        navigate('/dashboard');
+      }
+    } catch {
+      // Error is handled by the store
+    }
+  };
+
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearError();
+
+    try {
+      await verify2FA(verificationCode);
       navigate('/dashboard');
     } catch {
       // Error is handled by the store
     }
   };
 
+  const handleResend = async () => {
+    if (resendCooldown > 0) return;
+
+    try {
+      await resend2FA();
+      // Start cooldown
+      setResendCooldown(30);
+      const interval = setInterval(() => {
+        setResendCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch {
+      // Error is handled by the store
+    }
+  };
+
+  const handleBackToLogin = () => {
+    clearTwoFactor();
+    setVerificationCode('');
+  };
+
+  // Show 2FA verification form
+  if (twoFactor.required) {
+    return (
+      <div className="auth-form-container">
+        <h2 className="auth-form-title">Verify Your Identity</h2>
+        <p className="auth-form-subtitle">
+          We sent a verification code to your phone ending in {twoFactor.phoneLastFour}
+        </p>
+
+        <form onSubmit={handleVerify2FA} className="auth-form">
+          {error && (
+            <div className="alert alert-error">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="form-group">
+            <label htmlFor="code" className="form-label">Verification Code</label>
+            <input
+              type="text"
+              id="code"
+              className="form-input text-center"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="Enter 6-digit code"
+              required
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              maxLength={6}
+              style={{ fontSize: '1.5rem', letterSpacing: '0.5em' }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="btn btn-primary btn-block"
+            disabled={isLoading || verificationCode.length < 4}
+          >
+            {isLoading ? (
+              <>
+                <span className="spinner spinner-sm"></span>
+                Verifying...
+              </>
+            ) : (
+              'Verify'
+            )}
+          </button>
+
+          <div className="form-row justify-center mt-4">
+            <button
+              type="button"
+              className="btn btn-link"
+              onClick={handleResend}
+              disabled={resendCooldown > 0 || isLoading}
+            >
+              {resendCooldown > 0
+                ? `Resend code in ${resendCooldown}s`
+                : "Didn't receive code? Resend"}
+            </button>
+          </div>
+        </form>
+
+        <div className="auth-footer">
+          <button onClick={handleBackToLogin} className="link">
+            Back to login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show regular login form
   return (
     <div className="auth-form-container">
       <h2 className="auth-form-title">Welcome Back</h2>

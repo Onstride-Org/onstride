@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { usersApi, invitationsApi } from '../../services/api';
 import { User, AccountType } from '../../types';
 import { UserPlus, Search, Users, MoreHorizontal, X, CheckCircle, Link2, Copy } from 'lucide-react';
+import FilterTabs from '../../components/FilterTabs';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -98,26 +99,22 @@ export default function UsersPage() {
             className="form-input"
           />
         </div>
-        <div className="filter-tabs">
-          <button
-            className={`filter-tab ${roleFilter === 'all' ? 'active' : ''}`}
-            onClick={() => setRoleFilter('all')}
-          >
-            All
-          </button>
-          {(['owner', 'manager', 'trainer', 'boarder', 'groomer'] as AccountType[]).map((role) => (
-            <button
-              key={role}
-              className={`filter-tab ${roleFilter === role ? 'active' : ''}`}
-              onClick={() => {
-                setRoleFilter(role);
-                setPagination(prev => ({ ...prev, page: 1 }));
-              }}
-            >
-              {roleLabels[role]}s
-            </button>
-          ))}
-        </div>
+        <FilterTabs
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'owner', label: 'Owners' },
+            { value: 'manager', label: 'Managers' },
+            { value: 'trainer', label: 'Trainers' },
+            { value: 'boarder', label: 'Boarders' },
+            { value: 'groomer', label: 'Groomers' },
+          ]}
+          value={roleFilter}
+          onChange={(value) => {
+            setRoleFilter(value as AccountType | 'all');
+            setPagination(prev => ({ ...prev, page: 1 }));
+          }}
+          label="Filter by role"
+        />
       </div>
 
       {/* Content */}

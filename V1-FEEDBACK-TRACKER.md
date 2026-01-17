@@ -12,7 +12,7 @@ This document tracks all feedback items from V1 testing and their implementation
 | **Twilio** | 2FA via SMS/Phone verification | Needed - User to provide |
 | **Google Cloud Storage** | Document/file uploads (recommended over local storage) | Recommended - User to provide |
 | **SendGrid** | Already configured for emails | Existing |
-| **Stripe** | Already configured for payments | Existing |
+| **Windcave** | Payment processing (replaced Stripe) | ✅ Implemented - User to provide API keys |
 
 ---
 
@@ -35,7 +35,7 @@ This document tracks all feedback items from V1 testing and their implementation
 | # | Issue | Priority | Status | Notes |
 |---|-------|----------|--------|-------|
 | 2.1 | User dropdown instead of User ID input | High | ✅ DONE | Added user dropdown in create invoice modal |
-| 2.2 | Missing billing template creation | High | ⬜ TODO | Create billing templates UI/API |
+| 2.2 | Missing billing template creation | High | ✅ DONE | Full billing templates UI at /settings/billing-templates |
 
 ### 3. Task System
 
@@ -58,7 +58,7 @@ This document tracks all feedback items from V1 testing and their implementation
 
 | # | Issue | Priority | Status | Notes |
 |---|-------|----------|--------|-------|
-| 5.1 | Vendor portal doesn't work at all | Critical | ⬜ TODO | Backend exists, need full UI implementation |
+| 5.1 | Vendor portal doesn't work at all | Critical | ✅ DONE | Full UI: directory, connections, appointments, booking |
 
 ### 6. User Management
 
@@ -66,7 +66,7 @@ This document tracks all feedback items from V1 testing and their implementation
 |---|-------|----------|--------|-------|
 | 6.1 | Adding new user says "validation failed" | Critical | ✅ DONE | Fixed - was sending `role` instead of `accountType` |
 | 6.2 | Bulk user invitation system missing | High | ✅ DONE | Added bulk invite with shareable links and 24hr expiry |
-| 6.3 | No 2FA for email or phone | High | ⚠️ BLOCKED | Waiting for Twilio API key from user |
+| 6.3 | No 2FA for email or phone | High | ✅ DONE | Implemented with Twilio Verify + Settings UI + Registration option |
 | 6.4 | Phone number should be required in account creation | Medium | ✅ DONE | Made phone required in registration |
 
 ### 7. Barn/Account Setup
@@ -151,6 +151,64 @@ Current implementation uses local disk storage which won't scale. Recommend:
 | 2026-01-16 | Updated registration to require barn name and phone |
 | 2026-01-16 | Created super admin dashboard at /admin |
 | 2026-01-16 | Fixed TypeScript errors for production build |
+| 2026-01-16 | Implemented Windcave payment gateway integration |
+| 2026-01-16 | Implemented Twilio Verify 2FA for SMS verification |
+| 2026-01-17 | Added 2FA settings UI (/settings/security) and 2FA option during registration |
+| 2026-01-17 | Implemented full vendor portal UI (directory, connections, appointments, booking) |
+| 2026-01-17 | Implemented billing templates UI at /settings/billing-templates |
+
+---
+
+## Twilio Verify 2FA Integration
+
+### Environment Variables Required
+```
+TWILIO_ACCOUNT_SID=your_account_sid
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_VERIFY_SERVICE_SID=your_verify_service_sid
+```
+
+### Features Implemented
+- **SMS Verification** - OTP codes sent via Twilio Verify
+- **Login with 2FA** - After password, user enters SMS code
+- **Enable/Disable 2FA** - Users can manage in settings
+- **Phone Verification** - Phone verified during 2FA setup
+- **Resend Code** - With cooldown to prevent abuse
+
+### API Endpoints
+- `POST /auth/verify-2fa` - Verify code during login
+- `POST /auth/resend-2fa` - Resend verification code
+- `GET /auth/2fa/status` - Get 2FA status
+- `POST /auth/2fa/send-code` - Send code to enable 2FA
+- `POST /auth/2fa/enable` - Verify and enable 2FA
+- `POST /auth/2fa/disable` - Disable 2FA (requires password)
+
+---
+
+## Windcave Payment Integration
+
+### Environment Variables Required
+```
+WINDCAVE_API_URL=https://sec.windcave.com/api/v1
+WINDCAVE_API_USER=your_api_username
+WINDCAVE_API_KEY=your_api_key
+WINDCAVE_WEBHOOK_SECRET=your_webhook_secret (optional)
+```
+
+### Features Implemented
+- **Hosted Payment Page (HPP)** - Secure redirect to Windcave for card payments
+- **Payment Session Management** - Create and query payment sessions
+- **Webhook/Callback Support** - Automatic invoice status updates
+- **Refund Processing** - Full refund support for paid invoices
+- **Manual Payment Recording** - Staff can record cash/check payments
+
+### Payment Flow
+1. User clicks "Pay with Card" on invoice
+2. Backend creates Windcave session via `/invoices/:id/payment`
+3. User redirected to Windcave HPP
+4. After payment, user returns to invoice page
+5. Frontend polls `/invoices/:id/payment-status` to get result
+6. Windcave sends callback to `/api/invoices/windcave-callback`
 
 ---
 
@@ -159,3 +217,13 @@ Current implementation uses local disk storage which won't scale. Recommend:
 - 🔄 IN PROGRESS - Currently being worked on
 - ✅ DONE - Completed
 - ⚠️ BLOCKED - Waiting on external dependency (API key, etc.)
+
+
+# KEYS NEEDED (some already added)
+See .env.example for required environment variables. Do not commit actual secrets to this file.
+
+Required services:
+- Google Cloud Storage (GCS_PROJECT_ID, GCS_CLIENT_EMAIL, GCS_PRIVATE_KEY, GCS_BUCKET_NAME)
+- Twilio (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_VERIFY_SERVICE_SID, TWILIO_PHONE_NUMBER)
+- Windcave (WINDCAVE_API_URL, WINDCAVE_API_USER, WINDCAVE_API_KEY, WINDCAVE_WEBHOOK_SECRET)
+- Frontend/API URLs (FRONTEND_URL, API_URL)

@@ -4,6 +4,7 @@ import { invoicesApi, usersApi, horsesApi } from '../../services/api';
 import { Invoice, InvoiceStatus, User, Horse } from '../../types';
 import { format } from 'date-fns';
 import { Plus, FileText, X } from 'lucide-react';
+import FilterTabs from '../../components/FilterTabs';
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -39,6 +40,7 @@ export default function InvoicesPage() {
       paid: 'success',
       failed: 'error',
       cancelled: 'neutral',
+      refunded: 'neutral',
     };
     return styles[status] || 'neutral';
   };
@@ -58,20 +60,22 @@ export default function InvoicesPage() {
 
       {/* Filters */}
       <div className="page-filters">
-        <div className="filter-tabs">
-          {(['all', 'pending', 'processing', 'paid', 'failed', 'cancelled'] as const).map((status) => (
-            <button
-              key={status}
-              className={`filter-tab ${statusFilter === status ? 'active' : ''}`}
-              onClick={() => {
-                setStatusFilter(status);
-                setPagination(prev => ({ ...prev, page: 1 }));
-              }}
-            >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </button>
-          ))}
-        </div>
+        <FilterTabs
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'pending', label: 'Pending' },
+            { value: 'processing', label: 'Processing' },
+            { value: 'paid', label: 'Paid' },
+            { value: 'failed', label: 'Failed' },
+            { value: 'cancelled', label: 'Cancelled' },
+          ]}
+          value={statusFilter}
+          onChange={(value) => {
+            setStatusFilter(value as InvoiceStatus | 'all');
+            setPagination(prev => ({ ...prev, page: 1 }));
+          }}
+          label="Filter by status"
+        />
       </div>
 
       {/* Content */}

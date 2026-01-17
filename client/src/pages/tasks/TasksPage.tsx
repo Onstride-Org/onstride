@@ -4,6 +4,7 @@ import { Task, TaskStatus, User as UserType, Horse } from '../../types';
 import { format, isToday, isPast, parseISO } from 'date-fns';
 import { Plus, CheckSquare, Calendar, User, Trash2, X, Check, Bell } from 'lucide-react';
 import { HorseIcon } from '../../components/icons/HorseIcon';
+import FilterTabs from '../../components/FilterTabs';
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -74,20 +75,20 @@ export default function TasksPage() {
 
       {/* Filters */}
       <div className="page-filters">
-        <div className="filter-tabs">
-          {(['all', 'notStarted', 'completed', 'overdue'] as const).map((status) => (
-            <button
-              key={status}
-              className={`filter-tab ${statusFilter === status ? 'active' : ''}`}
-              onClick={() => {
-                setStatusFilter(status);
-                setPagination(prev => ({ ...prev, page: 1 }));
-              }}
-            >
-              {status === 'notStarted' ? 'Not Started' : status.charAt(0).toUpperCase() + status.slice(1)}
-            </button>
-          ))}
-        </div>
+        <FilterTabs
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'notStarted', label: 'Not Started' },
+            { value: 'completed', label: 'Completed' },
+            { value: 'overdue', label: 'Overdue' },
+          ]}
+          value={statusFilter}
+          onChange={(value) => {
+            setStatusFilter(value as TaskStatus | 'all');
+            setPagination(prev => ({ ...prev, page: 1 }));
+          }}
+          label="Filter by status"
+        />
       </div>
 
       {/* Content */}

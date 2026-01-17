@@ -108,7 +108,7 @@ export interface RideStats {
 }
 
 // Invoice types
-export type InvoiceStatus = 'pending' | 'processing' | 'paid' | 'failed' | 'cancelled';
+export type InvoiceStatus = 'pending' | 'processing' | 'paid' | 'failed' | 'cancelled' | 'refunded';
 export type PaymentMethod = 'card' | 'ach' | 'cash' | 'check' | 'other';
 export type ChargeType = 'board' | 'lesson' | 'training' | 'farrier' | 'vet' | 'feed' | 'supplies' | 'service' | 'other';
 
@@ -124,7 +124,11 @@ export interface Invoice {
   status: InvoiceStatus;
   method?: PaymentMethod;
   paymentBreakdown?: PaymentBreakdown;
+  windcavePaymentInfo?: WindcavePaymentInfo;
+  refundInfo?: RefundInfo;
   subtotal: number;
+  paidAt?: string;
+  failureReason?: string;
   createdAt: string;
 }
 
@@ -138,9 +142,28 @@ export interface InvoiceCharge {
 
 export interface PaymentBreakdown {
   subtotal: number;
-  stripeFee: number;
+  stripeFee?: number;       // Legacy - kept for backward compatibility
+  processingFee?: number;   // Windcave processing fee
   platformFee: number;
   total: number;
+}
+
+export interface WindcavePaymentInfo {
+  sessionId?: string;
+  transactionId?: string;
+  rrn?: string;
+  cardNumber?: string;
+  cardType?: string;
+  responseCode?: string;
+  responseText?: string;
+}
+
+export interface RefundInfo {
+  transactionId?: string;
+  amount?: number;
+  reason?: string;
+  refundedAt?: string;
+  refundedBy?: string;
 }
 
 // Task types
@@ -234,6 +257,59 @@ export interface VendorAppointment {
   type: string;
   price?: number;
   notes?: string;
+}
+
+// Billing Template types
+export interface BillingTemplate {
+  id: string;
+  _id?: string;
+  barnId: string;
+  name: string;
+  description?: string;
+  charges: TemplateCharge[];
+  isActive: boolean;
+  total: number;
+  createdAt: string;
+}
+
+export interface TemplateCharge {
+  id?: string;
+  _id?: string;
+  type: ChargeType;
+  description: string;
+  amount: number;
+  quantity: number;
+}
+
+export interface BillingPeriod {
+  id: string;
+  _id?: string;
+  barnId: string;
+  clientId: string;
+  client?: { name: string; email: string };
+  startDate: string;
+  endDate: string;
+  dueDate?: string;
+  status: 'open' | 'closed' | 'invoiced' | 'paid' | 'partiallyPaid' | 'overdue';
+  charges: PeriodCharge[];
+  totalCharges: number;
+  amountPaid: number;
+  previousBalance: number;
+  balanceDue: number;
+  invoiceId?: string;
+}
+
+export interface PeriodCharge {
+  id?: string;
+  _id?: string;
+  type: ChargeType;
+  description: string;
+  amount: number;
+  quantity: number;
+  date: string;
+  status: 'pending' | 'billed' | 'paid' | 'cancelled' | 'refunded';
+  horseId?: string;
+  horseName?: string;
 }
 
 // Subscription types

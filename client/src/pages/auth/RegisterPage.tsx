@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import { authApi } from '../../services/api';
+import { Shield } from 'lucide-react';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -9,8 +11,16 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [barnName, setBarnName] = useState('');
+  const [enable2FA, setEnable2FA] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState('');
+
+  // 2FA setup state
+  const [show2FASetup, setShow2FASetup] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
   const { register, isLoading, error, clearError } = useAuthStore();
   const navigate = useNavigate();
 
@@ -41,13 +51,150 @@ export default function RegisterPage() {
 
     try {
       await register({ email, password, name, phoneNumber, barnName: barnName.trim() });
-      navigate('/dashboard');
+
+      // If user wants 2FA, show setup screen
+      if (enable2FA) {
+        setShow2FASetup(true);
+        // Send verification code
+        try {
+          await authApi.send2FACode();
+          startResendCooldown();
+        } catch (err) {
+          console.error('Failed to send 2FA code:', err);
+        }
+      } else {
+        navigate('/dashboard');
+      }
     } catch {
       // Error is handled by the store
     }
   };
 
+  const startResendCooldown = () => {
+    setResendCooldown(30);
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifying(true);
+    setValidationError('');
+
+    try {
+      await authApi.enable2FA(verificationCode);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setValidationError(err.response?.data?.error || 'Invalid verification code');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (resendCooldown > 0) return;
+    try {
+      await authApi.send2FACode();
+      startResendCooldown();
+    } catch (err: any) {
+      setValidationError(err.response?.data?.error || 'Failed to resend code');
+    }
+  };
+
+  const handleSkip2FA = () => {
+    navigate('/dashboard');
+  };
+
   const displayError = validationError || error;
+
+  // Show 2FA setup screen after registration
+  if (show2FASetup) {
+    const maskedPhone = phoneNumber.slice(-4);
+
+    return (
+      <div className="auth-form-container">
+        <div className="flex justify-center mb-4">
+          <div className="icon-box icon-box-lg">
+            <Shield size={32} />
+          </div>
+        </div>
+        <h2 className="auth-form-title">Set Up Two-Factor Authentication</h2>
+        <p className="auth-form-subtitle">
+          We sent a verification code to your phone ending in ***{maskedPhone}
+        </p>
+
+        <form onSubmit={handleVerify2FA} className="auth-form">
+          {validationError && (
+            <div className="alert alert-error">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
+              <span>{validationError}</span>
+            </div>
+          )}
+
+          <div className="form-group">
+            <label htmlFor="code" className="form-label">Verification Code</label>
+            <input
+              type="text"
+              id="code"
+              className="form-input text-center"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="Enter 6-digit code"
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              maxLength={6}
+              style={{ fontSize: '1.5rem', letterSpacing: '0.5em' }}
+              autoFocus
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="btn btn-primary btn-block"
+            disabled={isVerifying || verificationCode.length < 4}
+          >
+            {isVerifying ? (
+              <>
+                <span className="spinner spinner-sm"></span>
+                Verifying...
+              </>
+            ) : (
+              'Enable 2FA & Continue'
+            )}
+          </button>
+
+          <div className="flex justify-between items-center mt-4">
+            <button
+              type="button"
+              className="btn btn-link text-sm"
+              onClick={handleResendCode}
+              disabled={resendCooldown > 0 || isVerifying}
+            >
+              {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-link text-sm"
+              onClick={handleSkip2FA}
+            >
+              Skip for now
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-form-container">
@@ -167,6 +314,25 @@ export default function RegisterPage() {
             required
             autoComplete="new-password"
           />
+        </div>
+
+        {/* 2FA Option */}
+        <div className="form-group">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={enable2FA}
+              onChange={(e) => setEnable2FA(e.target.checked)}
+              className="checkbox"
+            />
+            <span className="checkbox-text">
+              <Shield size={16} className="inline mr-1" />
+              Enable two-factor authentication
+            </span>
+          </label>
+          <p className="form-hint">
+            Add extra security by requiring a code sent to your phone when signing in
+          </p>
         </div>
 
         <button

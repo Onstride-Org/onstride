@@ -4,7 +4,8 @@ const Horse = require('../models/Horse');
 const RideLog = require('../models/RideLog');
 const { authenticate, loadBarnContext, requireBarn, hasPermission, ownsResourceOrStaff } = require('../middleware/auth');
 const validate = require('../middleware/validate');
-const { uploadDocument } = require('../middleware/upload');
+const { uploadDocument, uploadToCloud } = require('../middleware/upload');
+const storageService = require('../services/storage');
 
 const router = express.Router();
 
@@ -237,7 +238,8 @@ router.get('/:id/documents', async (req, res, next) => {
 // Upload document
 router.post('/:id/documents', [
   hasPermission('horseManagement'),
-  uploadDocument.single('file')
+  uploadDocument.single('file'),
+  uploadToCloud('documents')
 ], async (req, res, next) => {
   try {
     const horse = await Horse.findById(req.params.id);
@@ -249,10 +251,13 @@ router.post('/:id/documents', [
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    // Use cloud URL if available, otherwise fallback to local path
+    const fileUrl = req.file.cloudUrl || `/uploads/${req.file.filename}`;
+
     const document = {
       type: req.body.type || 'other',
       name: req.body.name || req.file.originalname,
-      fileUrl: `/uploads/${req.file.filename}`,
+      fileUrl: fileUrl,
       expirationDate: req.body.expirationDate,
       uploadedBy: req.userId
     };
@@ -274,6 +279,15 @@ router.delete('/:id/documents/:docId', [
     const horse = await Horse.findById(req.params.id);
     if (!horse) {
       return res.status(404).json({ error: 'Horse not found' });
+    }
+
+    // Find the document to get the URL before removing
+    const doc = horse.documents.id(req.params.docId);
+    if (doc && doc.fileUrl) {
+      // Delete from cloud storage if it's a GCS URL
+      if (doc.fileUrl.includes('storage.googleapis.com')) {
+        await storageService.deleteFile(doc.fileUrl);
+      }
     }
 
     horse.documents.pull(req.params.docId);

@@ -4,7 +4,7 @@ const User = require('../models/User');
 const UserBarnRole = require('../models/UserBarnRole');
 const { authenticate, loadBarnContext, requireBarn, hasPermission } = require('../middleware/auth');
 const validate = require('../middleware/validate');
-const { uploadImage } = require('../middleware/upload');
+const { uploadImage, uploadToCloud } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -130,7 +130,10 @@ router.put('/:id', [
 });
 
 // Upload avatar
-router.post('/:id/avatar', uploadImage.single('avatar'), async (req, res, next) => {
+router.post('/:id/avatar', [
+  uploadImage.single('avatar'),
+  uploadToCloud('avatars')
+], async (req, res, next) => {
   try {
     if (req.params.id !== req.userId.toString() && req.user.accountType !== 'admin') {
       return res.status(403).json({ error: 'Cannot update other users' });
@@ -140,7 +143,8 @@ router.post('/:id/avatar', uploadImage.single('avatar'), async (req, res, next) 
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const avatarUrl = `/uploads/${req.file.filename}`;
+    // Use cloud URL if available, otherwise fallback to local path
+    const avatarUrl = req.file.cloudUrl || `/uploads/${req.file.filename}`;
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { avatarUrl },

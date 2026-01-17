@@ -22,7 +22,8 @@ const invoiceChargeSchema = new mongoose.Schema({
 
 const paymentBreakdownSchema = new mongoose.Schema({
   subtotal: Number,
-  stripeFee: Number,
+  stripeFee: Number,       // Legacy - kept for backward compatibility
+  processingFee: Number,   // Windcave processing fee
   platformFee: Number,
   total: Number
 }, { _id: false });
@@ -32,6 +33,27 @@ const stripePaymentInfoSchema = new mongoose.Schema({
   last4Digits: String,
   paymentIntentId: String,
   chargeId: String
+}, { _id: false });
+
+const windcavePaymentInfoSchema = new mongoose.Schema({
+  sessionId: String,
+  transactionId: String,
+  rrn: String,  // Retrieval Reference Number
+  cardNumber: String,  // Masked
+  cardType: String,
+  responseCode: String,
+  responseText: String
+}, { _id: false });
+
+const refundInfoSchema = new mongoose.Schema({
+  transactionId: String,
+  amount: Number,
+  reason: String,
+  refundedAt: Date,
+  refundedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }
 }, { _id: false });
 
 const invoiceSchema = new mongoose.Schema({
@@ -61,7 +83,7 @@ const invoiceSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'processing', 'paid', 'failed', 'cancelled'],
+    enum: ['pending', 'processing', 'paid', 'failed', 'cancelled', 'refunded'],
     default: 'pending'
   },
   method: {
@@ -70,6 +92,8 @@ const invoiceSchema = new mongoose.Schema({
   },
   paymentBreakdown: paymentBreakdownSchema,
   stripePaymentInfo: stripePaymentInfoSchema,
+  windcavePaymentInfo: windcavePaymentInfoSchema,
+  refundInfo: refundInfoSchema,
   platformFeePercent: {
     type: Number,
     default: 2.5

@@ -4,6 +4,7 @@ import { horsesApi, usersApi } from '../../services/api';
 import { Horse, User } from '../../types';
 import { Plus, Search, X } from 'lucide-react';
 import { HorseIcon } from '../../components/icons/HorseIcon';
+import FilterTabs from '../../components/FilterTabs';
 
 export default function HorsesPage() {
   const [horses, setHorses] = useState<Horse[]>([]);
@@ -70,26 +71,16 @@ export default function HorsesPage() {
             className="form-input"
           />
         </div>
-        <div className="filter-tabs">
-          <button
-            className={`filter-tab ${statusFilter === 'all' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('all')}
-          >
-            All
-          </button>
-          <button
-            className={`filter-tab ${statusFilter === 'active' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('active')}
-          >
-            Active
-          </button>
-          <button
-            className={`filter-tab ${statusFilter === 'inactive' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('inactive')}
-          >
-            Inactive
-          </button>
-        </div>
+        <FilterTabs
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'active', label: 'Active' },
+            { value: 'inactive', label: 'Inactive' },
+          ]}
+          value={statusFilter}
+          onChange={(value) => setStatusFilter(value as 'all' | 'active' | 'inactive')}
+          label="Filter by status"
+        />
       </div>
 
       {/* Content */}

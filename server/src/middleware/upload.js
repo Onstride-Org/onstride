@@ -1,9 +1,16 @@
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const storageService = require('../services/storage');
 
-// Configure storage
-const storage = multer.diskStorage({
+// Use memory storage for GCS uploads, disk storage as fallback
+const useCloudStorage = storageService.isConfigured();
+
+// Memory storage for cloud uploads
+const memoryStorage = multer.memoryStorage();
+
+// Disk storage for local fallback
+const diskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, path.join(__dirname, '../../uploads'));
   },
@@ -13,6 +20,9 @@ const storage = multer.diskStorage({
     cb(null, filename);
   }
 });
+
+// Select storage based on configuration
+const storage = useCloudStorage ? memoryStorage : diskStorage;
 
 // File filter
 const fileFilter = (req, file, cb) => {
@@ -85,8 +95,79 @@ const uploadDocument = multer({
   }
 });
 
+/**
+ * Middleware to handle file upload to GCS after multer processes the file
+ * Use this after multer's single/array middleware
+ * @param {string} folder - Folder in GCS bucket
+ */
+const uploadToCloud = (folder = 'uploads') => {
+  return async (req, res, next) => {
+    try {
+      // If GCS is not configured, use local path
+      if (!storageService.isConfigured()) {
+        if (req.file) {
+          req.file.cloudUrl = `/uploads/${req.file.filename}`;
+        }
+        if (req.files && Array.isArray(req.files)) {
+          req.files.forEach(file => {
+            file.cloudUrl = `/uploads/${file.filename}`;
+          });
+        }
+        return next();
+      }
+
+      // Upload single file
+      if (req.file && req.file.buffer) {
+        const result = await storageService.uploadFromMulter(req.file, folder);
+        req.file.cloudUrl = result.url;
+        req.file.cloudFilename = result.filename;
+      }
+
+      // Upload multiple files
+      if (req.files && Array.isArray(req.files)) {
+        for (const file of req.files) {
+          if (file.buffer) {
+            const result = await storageService.uploadFromMulter(file, folder);
+            file.cloudUrl = result.url;
+            file.cloudFilename = result.filename;
+          }
+        }
+      }
+
+      next();
+    } catch (error) {
+      console.error('Cloud upload error:', error);
+      next(error);
+    }
+  };
+};
+
+/**
+ * Combined middleware for document upload with automatic GCS upload
+ */
+const uploadDocumentToCloud = (folder = 'documents') => {
+  return [
+    uploadDocument.single('file'),
+    uploadToCloud(folder)
+  ];
+};
+
+/**
+ * Combined middleware for image upload with automatic GCS upload
+ */
+const uploadImageToCloud = (folder = 'images') => {
+  return [
+    uploadImage.single('file'),
+    uploadToCloud(folder)
+  ];
+};
+
 module.exports = {
   upload,
   uploadImage,
-  uploadDocument
+  uploadDocument,
+  uploadToCloud,
+  uploadDocumentToCloud,
+  uploadImageToCloud,
+  useCloudStorage
 };

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { User, Home, Palette, CreditCard, ChevronRight } from 'lucide-react';
+import { User, Home, Palette, CreditCard, ChevronRight, Shield, FileText } from 'lucide-react';
 
 export default function SettingsPage() {
   const settingsGroups = [
@@ -11,6 +11,12 @@ export default function SettingsPage() {
           icon: 'user',
           title: 'Profile',
           description: 'Update your personal information and password',
+        },
+        {
+          path: '/settings/security',
+          icon: 'shield',
+          title: 'Security',
+          description: 'Manage two-factor authentication and security settings',
         },
       ],
     },
@@ -40,6 +46,12 @@ export default function SettingsPage() {
           title: 'Subscription',
           description: 'Manage your plan and billing information',
         },
+        {
+          path: '/settings/billing-templates',
+          icon: 'file-text',
+          title: 'Billing Templates',
+          description: 'Create reusable templates for recurring charges',
+        },
       ],
     },
   ];
@@ -49,12 +61,16 @@ export default function SettingsPage() {
     switch (icon) {
       case 'user':
         return <User {...iconProps} />;
+      case 'shield':
+        return <Shield {...iconProps} />;
       case 'barn':
         return <Home {...iconProps} />;
       case 'palette':
         return <Palette {...iconProps} />;
       case 'credit-card':
         return <CreditCard {...iconProps} />;
+      case 'file-text':
+        return <FileText {...iconProps} />;
       default:
         return null;
     }
