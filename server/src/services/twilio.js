@@ -59,6 +59,8 @@ const sendVerificationCode = async (phoneNumber, channel = 'sms') => {
     };
   } catch (error) {
     console.error('Twilio send verification error:', error.message);
+    console.error('Twilio error code:', error.code);
+    console.error('Twilio full error:', JSON.stringify(error, null, 2));
 
     // Handle specific Twilio errors
     if (error.code === 60200) {
@@ -69,6 +71,12 @@ const sendVerificationCode = async (phoneNumber, channel = 'sms') => {
     }
     if (error.code === 60212) {
       throw new Error('Too many requests. Please wait before trying again.');
+    }
+    if (error.code === 21608 || error.message?.includes('unverified')) {
+      throw new Error('Phone number not verified. For Twilio trial accounts, verify this number at console.twilio.com → Phone Numbers → Verified Caller IDs');
+    }
+    if (error.message?.includes('blocked')) {
+      throw new Error('Twilio trial account restriction: Please verify this phone number in your Twilio console under "Verified Caller IDs", or upgrade to a paid Twilio account.');
     }
 
     throw new Error(error.message || 'Failed to send verification code');
