@@ -85,6 +85,9 @@ taskSchema.pre(/^find/, function(next) {
   next();
 });
 
+taskSchema.set('toJSON', { virtuals: true });
+taskSchema.set('toObject', { virtuals: true });
+
 const Task = mongoose.model('Task', taskSchema);
 
 module.exports = Task;

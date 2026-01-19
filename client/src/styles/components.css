@@ -2095,3 +2095,98 @@
   grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: var(--spacing-6);
 }
+
+/* ============ Invitation Cards (Mobile-Friendly) ============ */
+.invitation-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4) !important;
+}
+
+.invitation-card {
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3);
+}
+
+.invitation-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacing-3);
+  flex-wrap: wrap;
+}
+
+.invitation-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.invitation-type {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  color: var(--color-text-secondary);
+}
+
+.invitation-type svg {
+  flex-shrink: 0;
+}
+
+.invitation-email {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  word-break: break-all;
+}
+
+.invitation-actions {
+  display: flex;
+  gap: var(--spacing-1);
+  flex-shrink: 0;
+}
+
+.invitation-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-3);
+  padding-top: var(--spacing-3);
+  border-top: 1px solid var(--color-border-light);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.invitation-meta-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+.invitation-meta-item svg {
+  flex-shrink: 0;
+}
+
+/* Mobile responsive for invitation cards */
+@media (max-width: 480px) {
+  .invitation-card-header {
+    flex-direction: column;
+  }
+
+  .invitation-actions {
+    width: 100%;
+    justify-content: flex-end;
+    padding-top: var(--spacing-2);
+    border-top: 1px solid var(--color-border-light);
+    margin-top: var(--spacing-2);
+  }
+
+  .invitation-info {
+    width: 100%;
+  }
+}

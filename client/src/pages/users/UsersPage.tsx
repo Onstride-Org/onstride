@@ -195,119 +195,105 @@ export default function UsersPage() {
             {showInvitations ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
           </div>
           {showInvitations && (
-            <div className="card-body" style={{ padding: 0 }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Email / Type</th>
-                    <th>Role</th>
-                    <th>Expires</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingInvitations.map((invitation) => {
-                    const isExpired = new Date(invitation.expiresAt) < new Date();
-                    const expiresIn = getTimeUntil(invitation.expiresAt);
+            <div className="card-body invitation-list">
+              {pendingInvitations.map((invitation) => {
+                const isExpired = new Date(invitation.expiresAt) < new Date();
+                const expiresIn = getTimeUntil(invitation.expiresAt);
 
-                    return (
-                      <tr key={invitation._id}>
-                        <td>
-                          {invitation.isBulkInvite ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <Link2 size={16} className="text-muted" />
-                              <span className="text-muted">Shareable Link</span>
-                            </div>
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <Mail size={16} className="text-muted" />
-                              <span>{invitation.email}</span>
-                            </div>
-                          )}
-                        </td>
-                        <td>
-                          <span className={`badge badge-${getRoleBadge(invitation.accountType)}`}>
-                            {roleLabels[invitation.accountType]}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Clock size={14} className="text-muted" />
-                            <span className={isExpired ? 'text-error' : ''}>
-                              {isExpired ? 'Expired' : expiresIn}
-                            </span>
+                return (
+                  <div key={invitation._id} className="invitation-card">
+                    <div className="invitation-card-header">
+                      <div className="invitation-info">
+                        {invitation.isBulkInvite ? (
+                          <div className="invitation-type">
+                            <Link2 size={18} />
+                            <span>Shareable Link</span>
                           </div>
-                        </td>
-                        <td>
-                          {invitation.isBulkInvite ? (
-                            <span className="text-muted">
-                              {invitation.useCount} uses
-                              {invitation.maxUses && ` / ${invitation.maxUses} max`}
-                            </span>
-                          ) : (
-                            <span className="badge badge-warning">Pending</span>
-                          )}
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '4px' }}>
-                            {!invitation.isBulkInvite && (
+                        ) : (
+                          <div className="invitation-type">
+                            <Mail size={18} />
+                            <span className="invitation-email">{invitation.email}</span>
+                          </div>
+                        )}
+                        <span className={`badge badge-${getRoleBadge(invitation.accountType)}`}>
+                          {roleLabels[invitation.accountType]}
+                        </span>
+                      </div>
+                      <div className="invitation-actions">
+                        {!invitation.isBulkInvite && (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleResendInvitation(invitation._id)}
+                            title="Resend invitation"
+                          >
+                            <RefreshCw size={16} />
+                          </button>
+                        )}
+                        {invitation.isBulkInvite && (
+                          <>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => {
+                                const url = `${window.location.origin}/invite/${invitation.token}`;
+                                navigator.clipboard.writeText(url);
+                              }}
+                              title="Copy link"
+                            >
+                              <Copy size={16} />
+                            </button>
+                            {navigator.share && (
                               <button
                                 className="btn btn-ghost btn-sm"
-                                onClick={() => handleResendInvitation(invitation._id)}
-                                title="Resend invitation"
+                                onClick={async () => {
+                                  const url = `${window.location.origin}/invite/${invitation.token}`;
+                                  try {
+                                    await navigator.share({
+                                      title: 'Join my barn on OnStride',
+                                      text: `You've been invited to join as a ${invitation.accountType}. Click the link to get started!`,
+                                      url,
+                                    });
+                                  } catch (err) {
+                                    // User cancelled or error - ignore
+                                  }
+                                }}
+                                title="Share link"
                               >
-                                <RefreshCw size={16} />
+                                <Share2 size={16} />
                               </button>
                             )}
-                            {invitation.isBulkInvite && (
-                              <>
-                                <button
-                                  className="btn btn-ghost btn-sm"
-                                  onClick={() => {
-                                    const url = `${window.location.origin}/invite/${invitation.token}`;
-                                    navigator.clipboard.writeText(url);
-                                  }}
-                                  title="Copy link"
-                                >
-                                  <Copy size={16} />
-                                </button>
-                                {navigator.share && (
-                                  <button
-                                    className="btn btn-ghost btn-sm"
-                                    onClick={async () => {
-                                      const url = `${window.location.origin}/invite/${invitation.token}`;
-                                      try {
-                                        await navigator.share({
-                                          title: 'Join my barn on OnStride',
-                                          text: `You've been invited to join as a ${invitation.accountType}. Click the link to get started!`,
-                                          url,
-                                        });
-                                      } catch (err) {
-                                        // User cancelled or error - ignore
-                                      }
-                                    }}
-                                    title="Share link"
-                                  >
-                                    <Share2 size={16} />
-                                  </button>
-                                )}
-                              </>
-                            )}
-                            <button
-                              className="btn btn-ghost btn-sm text-error"
-                              onClick={() => handleDeleteInvitation(invitation._id)}
-                              title="Delete invitation"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          </>
+                        )}
+                        <button
+                          className="btn btn-ghost btn-sm text-error"
+                          onClick={() => handleDeleteInvitation(invitation._id)}
+                          title="Delete invitation"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="invitation-card-meta">
+                      <div className="invitation-meta-item">
+                        <Clock size={14} />
+                        <span className={isExpired ? 'text-error' : ''}>
+                          {isExpired ? 'Expired' : `Expires in ${expiresIn}`}
+                        </span>
+                      </div>
+                      {invitation.isBulkInvite ? (
+                        <div className="invitation-meta-item">
+                          <Users size={14} />
+                          <span>
+                            {invitation.useCount} uses
+                            {invitation.maxUses && ` / ${invitation.maxUses} max`}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="badge badge-warning">Pending</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
