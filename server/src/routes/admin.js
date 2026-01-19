@@ -2,6 +2,7 @@ const express = require('express');
 const User = require('../models/User');
 const Barn = require('../models/Barn');
 const Horse = require('../models/Horse');
+const UserBarnRole = require('../models/UserBarnRole');
 const { BarnSubscription } = require('../models/Subscription');
 const Invoice = require('../models/Invoice');
 const { authenticate, hasRole } = require('../middleware/auth');
@@ -25,7 +26,9 @@ router.get('/stats', async (req, res, next) => {
       totalHorses,
       activeSubscriptions,
       newUsersThisWeek,
-      revenueThisMonth
+      revenueThisMonth,
+      totalTransactionFees,
+      totalSubscriptionRevenue
     ] = await Promise.all([
       User.countDocuments({ deletedAt: null }),
       Barn.countDocuments({ deletedAt: null }),
@@ -48,8 +51,55 @@ router.get('/stats', async (req, res, next) => {
             total: { $sum: '$subtotal' }
           }
         }
+      ]).then(result => result[0]?.total || 0),
+      // Total transaction fees collected (platform fees from invoices)
+      Invoice.aggregate([
+        {
+          $match: {
+            status: 'paid',
+            'paymentBreakdown.platformFee': { $exists: true }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$paymentBreakdown.platformFee' }
+          }
+        }
+      ]).then(result => result[0]?.total || 0),
+      // Total subscription revenue (monthly)
+      BarnSubscription.aggregate([
+        {
+          $match: {
+            status: 'active'
+          }
+        },
+        {
+          $lookup: {
+            from: 'subscriptionplans',
+            localField: 'planId',
+            foreignField: '_id',
+            as: 'plan'
+          }
+        },
+        {
+          $unwind: { path: '$plan', preserveNullAndEmptyArrays: true }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $ifNull: ['$plan.price', 0] } }
+          }
+        }
       ]).then(result => result[0]?.total || 0)
     ]);
+
+    // Calculate averages
+    const avgHorsesPerBarn = totalBarns > 0 ? (totalHorses / totalBarns).toFixed(1) : 0;
+    const avgUsersPerBarn = totalBarns > 0 ? (totalUsers / totalBarns).toFixed(1) : 0;
+    const avgRevenuePerBarn = totalBarns > 0
+      ? ((totalTransactionFees + totalSubscriptionRevenue) / totalBarns).toFixed(2)
+      : 0;
 
     res.json({
       totalUsers,
@@ -57,7 +107,13 @@ router.get('/stats', async (req, res, next) => {
       totalHorses,
       activeSubscriptions,
       newUsersThisWeek,
-      revenueThisMonth
+      revenueThisMonth,
+      // New average stats
+      avgHorsesPerBarn: parseFloat(avgHorsesPerBarn),
+      avgUsersPerBarn: parseFloat(avgUsersPerBarn),
+      avgRevenuePerBarn: parseFloat(avgRevenuePerBarn),
+      totalTransactionFees,
+      totalSubscriptionRevenue
     });
   } catch (error) {
     next(error);
@@ -146,13 +202,84 @@ router.get('/barns', async (req, res, next) => {
 
     const total = await Barn.countDocuments(filter);
 
+    // Get counts for each barn
+    const barnsWithCounts = await Promise.all(barns.map(async (barn) => {
+      const [horseCount, userCount] = await Promise.all([
+        Horse.countDocuments({ barnId: barn._id, deletedAt: null }),
+        UserBarnRole.countDocuments({ barnId: barn._id, status: 'active' })
+      ]);
+      return {
+        ...barn.toObject(),
+        horseCount,
+        userCount
+      };
+    }));
+
     res.json({
-      data: barns,
+      data: barnsWithCounts,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
         pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get single barn detail
+router.get('/barns/:id', async (req, res, next) => {
+  try {
+    const barn = await Barn.findById(req.params.id)
+      .populate('ownerId', 'name email phoneNumber');
+
+    if (!barn) {
+      return res.status(404).json({ error: 'Barn not found' });
+    }
+
+    // Get related data
+    const [
+      horses,
+      users,
+      subscription,
+      recentInvoices,
+      totalRevenue
+    ] = await Promise.all([
+      Horse.find({ barnId: barn._id, deletedAt: null })
+        .select('name breed color status createdAt')
+        .sort({ createdAt: -1 })
+        .limit(20),
+      UserBarnRole.find({ barnId: barn._id, status: 'active' })
+        .populate('userId', 'name email phoneNumber accountType')
+        .sort({ role: 1, joinedAt: 1 }),
+      BarnSubscription.findOne({ barnId: barn._id })
+        .populate('planId'),
+      Invoice.find({ barnId: barn._id })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .select('subtotal status createdAt paidAt'),
+      Invoice.aggregate([
+        { $match: { barnId: barn._id, status: 'paid' } },
+        { $group: { _id: null, total: { $sum: '$subtotal' }, platformFees: { $sum: '$paymentBreakdown.platformFee' } } }
+      ]).then(result => result[0] || { total: 0, platformFees: 0 })
+    ]);
+
+    res.json({
+      barn,
+      horses,
+      users: users.map(u => ({
+        ...u.toObject(),
+        user: u.userId
+      })),
+      subscription,
+      recentInvoices,
+      stats: {
+        horseCount: horses.length,
+        userCount: users.length,
+        totalRevenue: totalRevenue.total,
+        platformFeesCollected: totalRevenue.platformFees
       }
     });
   } catch (error) {
@@ -184,6 +311,66 @@ router.get('/subscriptions', async (req, res, next) => {
         limit: parseInt(limit),
         total,
         pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get single user detail
+router.get('/users/:id', async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .select('-password -refreshToken');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get user's barn memberships
+    const barnRoles = await UserBarnRole.find({ userId: user._id, status: 'active' })
+      .populate('barnId', 'name');
+
+    // Get horses owned/associated with this user
+    const horses = await Horse.find({
+      $or: [
+        { boarderId: user._id },
+        { ownerId: user._id },
+        { createdById: user._id }
+      ],
+      deletedAt: null
+    }).select('name breed color barnId status')
+      .populate('barnId', 'name');
+
+    // Get recent invoices for this user
+    const invoices = await Invoice.find({ boarderId: user._id })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select('subtotal status createdAt barnId')
+      .populate('barnId', 'name');
+
+    // Calculate total spent
+    const totalSpent = await Invoice.aggregate([
+      { $match: { boarderId: user._id, status: 'paid' } },
+      { $group: { _id: null, total: { $sum: '$subtotal' } } }
+    ]).then(result => result[0]?.total || 0);
+
+    res.json({
+      user,
+      barnRoles: barnRoles.map(r => ({
+        barn: r.barnId,
+        role: r.role,
+        status: r.status,
+        joinedAt: r.joinedAt,
+        isPrimary: r.isPrimary
+      })),
+      horses,
+      recentInvoices: invoices,
+      stats: {
+        barnCount: barnRoles.length,
+        horseCount: horses.length,
+        totalSpent
       }
     });
   } catch (error) {

@@ -30,6 +30,8 @@ import BarnSettingsPage from './pages/settings/BarnSettingsPage';
 import BrandingPage from './pages/settings/BrandingPage';
 import SubscriptionPage from './pages/settings/SubscriptionPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AdminBarnDetailPage from './pages/admin/AdminBarnDetailPage';
+import AdminUserDetailPage from './pages/admin/AdminUserDetailPage';
 import BillingTemplatesPage from './pages/billing/BillingTemplatesPage';
 
 // Protected Route Component
@@ -172,6 +174,8 @@ function App() {
 
         {/* Admin */}
         <Route path="admin" element={<AdminDashboardPage />} />
+        <Route path="admin/barns/:id" element={<AdminBarnDetailPage />} />
+        <Route path="admin/users/:id" element={<AdminUserDetailPage />} />
       </Route>
 
       {/* Catch all */}

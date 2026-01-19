@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { invoicesApi, usersApi, horsesApi, billingApi } from '../../services/api';
-import { Invoice, InvoiceStatus, User, Horse, BillingTemplate } from '../../types';
+import { Invoice, InvoiceStatus, User, Horse, BillingTemplate, ChargeType } from '../../types';
 import { format } from 'date-fns';
 import { Plus, FileText, X } from 'lucide-react';
 import FilterTabs from '../../components/FilterTabs';
@@ -183,7 +183,7 @@ function CreateInvoiceModal({
   const [boarderId, setBoarderId] = useState('');
   const [horseId, setHorseId] = useState('');
   const [dueDate, setDueDate] = useState(format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'));
-  const [charges, setCharges] = useState([{ description: '', amount: '', quantity: '1', type: 'board' as const }]);
+  const [charges, setCharges] = useState<Array<{ description: string; amount: string; quantity: string; type: ChargeType }>>([{ description: '', amount: '', quantity: '1', type: 'board' }]);
   const [users, setUsers] = useState<User[]>([]);
   const [horses, setHorses] = useState<Horse[]>([]);
   const [templates, setTemplates] = useState<BillingTemplate[]>([]);
@@ -228,7 +228,7 @@ function CreateInvoiceModal({
   };
 
   const addCharge = () => {
-    setCharges([...charges, { description: '', amount: '', quantity: '1', type: 'board' }]);
+    setCharges([...charges, { description: '', amount: '', quantity: '1', type: 'board' as ChargeType }]);
   };
 
   const removeCharge = (index: number) => {

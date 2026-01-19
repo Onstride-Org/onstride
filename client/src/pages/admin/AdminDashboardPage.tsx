@@ -5,7 +5,8 @@ import axios from 'axios';
 import { getTokens, getCurrentBarn } from '../../services/api';
 import {
   Users, Building2, CreditCard, Activity,
-  AlertTriangle, TrendingUp, Shield, Database
+  AlertTriangle, TrendingUp, Shield, Database,
+  BarChart3, DollarSign, ChevronRight
 } from 'lucide-react';
 
 interface AdminStats {
@@ -15,6 +16,12 @@ interface AdminStats {
   activeSubscriptions: number;
   revenueThisMonth: number;
   newUsersThisWeek: number;
+  // New average stats
+  avgHorsesPerBarn: number;
+  avgUsersPerBarn: number;
+  avgRevenuePerBarn: number;
+  totalTransactionFees: number;
+  totalSubscriptionRevenue: number;
 }
 
 export default function AdminDashboardPage() {
@@ -87,7 +94,8 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid - Totals */}
+      <h3 style={{ marginBottom: '1rem', color: 'var(--color-text-secondary)' }}>Platform Totals</h3>
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon stat-icon-primary">
@@ -150,6 +158,60 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
+      {/* Stats Grid - Averages */}
+      <h3 style={{ marginTop: '2rem', marginBottom: '1rem', color: 'var(--color-text-secondary)' }}>Averages Per Barn</h3>
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-icon stat-icon-info">
+            <Database size={24} />
+          </div>
+          <div className="stat-content">
+            <span className="stat-value">{stats?.avgHorsesPerBarn || 0}</span>
+            <span className="stat-label">Avg Horses / Barn</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon stat-icon-primary">
+            <Users size={24} />
+          </div>
+          <div className="stat-content">
+            <span className="stat-value">{stats?.avgUsersPerBarn || 0}</span>
+            <span className="stat-label">Avg Users / Barn</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon stat-icon-success">
+            <DollarSign size={24} />
+          </div>
+          <div className="stat-content">
+            <span className="stat-value">${stats?.avgRevenuePerBarn?.toFixed(2) || '0.00'}</span>
+            <span className="stat-label">Avg Revenue / Barn</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon stat-icon-warning">
+            <BarChart3 size={24} />
+          </div>
+          <div className="stat-content">
+            <span className="stat-value">${stats?.totalSubscriptionRevenue?.toFixed(2) || '0.00'}</span>
+            <span className="stat-label">Monthly Subscription Revenue</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon stat-icon-success">
+            <CreditCard size={24} />
+          </div>
+          <div className="stat-content">
+            <span className="stat-value">${stats?.totalTransactionFees?.toFixed(2) || '0.00'}</span>
+            <span className="stat-label">Total Transaction Fees</span>
+          </div>
+        </div>
+      </div>
+
       {/* Admin Navigation */}
       <div className="admin-nav-grid">
         <Link to="/admin/users" className="admin-nav-card">
@@ -191,17 +253,20 @@ export default function AdminDashboardPage() {
             ) : (
               <ul className="activity-list">
                 {recentUsers.slice(0, 5).map((user: any) => (
-                  <li key={user._id} className="activity-item">
-                    <span className="user-avatar">
-                      {user.name?.charAt(0).toUpperCase() || 'U'}
-                    </span>
-                    <div className="activity-info">
-                      <span className="activity-title">{user.name}</span>
-                      <span className="activity-meta">{user.email}</span>
-                    </div>
-                    <span className={`badge badge-${user.accountType === 'owner' ? 'brand' : 'neutral'}`}>
-                      {user.accountType}
-                    </span>
+                  <li key={user._id} className="activity-item clickable">
+                    <Link to={`/admin/users/${user._id}`} className="activity-link">
+                      <span className="user-avatar">
+                        {user.name?.charAt(0).toUpperCase() || 'U'}
+                      </span>
+                      <div className="activity-info">
+                        <span className="activity-title">{user.name}</span>
+                        <span className="activity-meta">{user.email}</span>
+                      </div>
+                      <span className={`badge badge-${user.accountType === 'owner' ? 'brand' : 'neutral'}`}>
+                        {user.accountType}
+                      </span>
+                      <ChevronRight size={16} className="activity-arrow" />
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -221,16 +286,19 @@ export default function AdminDashboardPage() {
             ) : (
               <ul className="activity-list">
                 {recentBarns.slice(0, 5).map((barn: any) => (
-                  <li key={barn._id} className="activity-item">
-                    <span className="barn-avatar">
-                      <Building2 size={20} />
-                    </span>
-                    <div className="activity-info">
-                      <span className="activity-title">{barn.name}</span>
-                      <span className="activity-meta">
-                        Owner: {barn.ownerId?.name || 'Unknown'}
+                  <li key={barn._id} className="activity-item clickable">
+                    <Link to={`/admin/barns/${barn._id}`} className="activity-link">
+                      <span className="barn-avatar">
+                        <Building2 size={20} />
                       </span>
-                    </div>
+                      <div className="activity-info">
+                        <span className="activity-title">{barn.name}</span>
+                        <span className="activity-meta">
+                          Owner: {barn.ownerId?.name || 'Unknown'}
+                        </span>
+                      </div>
+                      <ChevronRight size={16} className="activity-arrow" />
+                    </Link>
                   </li>
                 ))}
               </ul>
