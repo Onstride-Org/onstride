@@ -1823,6 +1823,42 @@
   display: flex;
   gap: var(--spacing-2);
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.charge-row .charge-type {
+  flex: 0 0 120px;
+  min-width: 120px;
+}
+
+.charge-row .charge-description {
+  flex: 1;
+  min-width: 150px;
+}
+
+.charge-row .charge-amount-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 0 100px;
+}
+
+.charge-row .charge-amount-prefix {
+  position: absolute;
+  left: 10px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+  font-size: var(--font-size-sm);
+}
+
+.charge-row .charge-amount {
+  padding-left: 22px;
+  text-align: right;
+}
+
+.charge-row .charge-quantity {
+  flex: 0 0 60px;
+  text-align: center;
 }
 
 .template-summary {

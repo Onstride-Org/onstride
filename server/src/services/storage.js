@@ -56,7 +56,7 @@ const uploadFile = async (fileBuffer, originalFilename, mimetype, folder = 'uplo
   initStorage();
 
   if (!bucket) {
-    throw new Error('Google Cloud Storage not configured');
+    throw new Error('Google Cloud Storage not configured. Check GCS_PROJECT_ID, GCS_CLIENT_EMAIL, GCS_PRIVATE_KEY, and GCS_BUCKET_NAME environment variables.');
   }
 
   const ext = path.extname(originalFilename);
@@ -64,24 +64,31 @@ const uploadFile = async (fileBuffer, originalFilename, mimetype, folder = 'uplo
 
   const file = bucket.file(filename);
 
-  await file.save(fileBuffer, {
-    metadata: {
-      contentType: mimetype,
-      cacheControl: 'public, max-age=31536000', // 1 year cache
-    },
-    resumable: false,
-  });
+  try {
+    await file.save(fileBuffer, {
+      metadata: {
+        contentType: mimetype,
+        cacheControl: 'public, max-age=31536000', // 1 year cache
+      },
+      resumable: false,
+    });
 
-  // Make file publicly readable
-  await file.makePublic();
+    // Make file publicly readable
+    await file.makePublic();
 
-  const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${filename}`;
+    const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${filename}`;
 
-  return {
-    url: publicUrl,
-    filename: filename,
-    bucket: BUCKET_NAME,
-  };
+    return {
+      url: publicUrl,
+      filename: filename,
+      bucket: BUCKET_NAME,
+    };
+  } catch (error) {
+    console.error('GCS upload error:', error.message);
+    console.error('Bucket:', BUCKET_NAME);
+    console.error('Filename:', filename);
+    throw new Error(`Failed to upload file to cloud storage: ${error.message}`);
+  }
 };
 
 /**

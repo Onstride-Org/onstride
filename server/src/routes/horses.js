@@ -155,7 +155,108 @@ router.put('/:id', [
   }
 });
 
-// Add genetic test
+// Add health record
+router.post('/:id/health', [
+  hasPermission('horseManagement'),
+  body('type').isIn(['temperature', 'weight', 'vaccination', 'deworming', 'dental', 'farrier', 'veterinary', 'medication', 'injury', 'geneticTest', 'other']),
+  validate
+], async (req, res, next) => {
+  try {
+    const horse = await Horse.findById(req.params.id);
+    if (!horse) {
+      return res.status(404).json({ error: 'Horse not found' });
+    }
+
+    if (!horse.healthRecords) {
+      horse.healthRecords = [];
+    }
+
+    const record = {
+      ...req.body,
+      recordedBy: req.userId,
+      date: req.body.date || new Date()
+    };
+
+    horse.healthRecords.push(record);
+    await horse.save();
+
+    res.status(201).json(horse.healthRecords);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get health records
+router.get('/:id/health', async (req, res, next) => {
+  try {
+    const horse = await Horse.findById(req.params.id);
+    if (!horse) {
+      return res.status(404).json({ error: 'Horse not found' });
+    }
+
+    // Combine healthRecords and legacy geneticTests
+    const allRecords = [
+      ...(horse.healthRecords || []),
+      ...(horse.geneticTests || []).map(t => ({
+        ...t.toObject(),
+        type: 'geneticTest',
+        title: t.testName,
+        value: t.result,
+        date: t.testDate
+      }))
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json(allRecords);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update health record
+router.put('/:id/health/:recordId', [
+  hasPermission('horseManagement'),
+  validate
+], async (req, res, next) => {
+  try {
+    const horse = await Horse.findById(req.params.id);
+    if (!horse) {
+      return res.status(404).json({ error: 'Horse not found' });
+    }
+
+    const record = horse.healthRecords?.id(req.params.recordId);
+    if (!record) {
+      return res.status(404).json({ error: 'Health record not found' });
+    }
+
+    Object.assign(record, req.body);
+    await horse.save();
+
+    res.json(record);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete health record
+router.delete('/:id/health/:recordId', [
+  hasPermission('horseManagement')
+], async (req, res, next) => {
+  try {
+    const horse = await Horse.findById(req.params.id);
+    if (!horse) {
+      return res.status(404).json({ error: 'Horse not found' });
+    }
+
+    horse.healthRecords.pull(req.params.recordId);
+    await horse.save();
+
+    res.json({ message: 'Health record deleted' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Legacy: Add genetic test (for backward compatibility)
 router.post('/:id/genetics', [
   hasPermission('horseManagement'),
   body('testName').notEmpty(),
@@ -168,16 +269,32 @@ router.post('/:id/genetics', [
       return res.status(404).json({ error: 'Horse not found' });
     }
 
-    horse.geneticTests.push(req.body);
+    // Add to healthRecords with type geneticTest
+    if (!horse.healthRecords) {
+      horse.healthRecords = [];
+    }
+
+    horse.healthRecords.push({
+      type: 'geneticTest',
+      title: req.body.testName,
+      value: req.body.result,
+      date: req.body.testDate || new Date(),
+      notes: req.body.notes,
+      // Keep legacy fields too
+      testName: req.body.testName,
+      result: req.body.result,
+      testDate: req.body.testDate,
+      laboratory: req.body.laboratory
+    });
     await horse.save();
 
-    res.json(horse.geneticTests);
+    res.json(horse.healthRecords);
   } catch (error) {
     next(error);
   }
 });
 
-// Update genetic test
+// Legacy: Update genetic test
 router.put('/:id/genetics/:testId', [
   hasPermission('horseManagement'),
   validate
@@ -188,7 +305,7 @@ router.put('/:id/genetics/:testId', [
       return res.status(404).json({ error: 'Horse not found' });
     }
 
-    const test = horse.geneticTests.id(req.params.testId);
+    const test = horse.healthRecords?.id(req.params.testId) || horse.geneticTests?.id(req.params.testId);
     if (!test) {
       return res.status(404).json({ error: 'Test not found' });
     }
@@ -202,7 +319,7 @@ router.put('/:id/genetics/:testId', [
   }
 });
 
-// Delete genetic test
+// Legacy: Delete genetic test
 router.delete('/:id/genetics/:testId', [
   hasPermission('horseManagement')
 ], async (req, res, next) => {
@@ -212,7 +329,12 @@ router.delete('/:id/genetics/:testId', [
       return res.status(404).json({ error: 'Horse not found' });
     }
 
-    horse.geneticTests.pull(req.params.testId);
+    if (horse.healthRecords) {
+      horse.healthRecords.pull(req.params.testId);
+    }
+    if (horse.geneticTests) {
+      horse.geneticTests.pull(req.params.testId);
+    }
     await horse.save();
 
     res.json({ message: 'Test deleted' });

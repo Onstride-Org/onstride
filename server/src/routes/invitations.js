@@ -6,6 +6,7 @@ const Barn = require('../models/Barn');
 const UserBarnRole = require('../models/UserBarnRole');
 const { authenticate, loadBarnContext, requireBarn, hasPermission } = require('../middleware/auth');
 const validate = require('../middleware/validate');
+const emailService = require('../services/email');
 
 const router = express.Router();
 
@@ -31,19 +32,20 @@ router.get('/validate/:token', async (req, res, next) => {
       accountType: invitation.accountType,
       permissions: invitation.permissions,
       email: invitation.email,
-      expiresAt: invitation.expiresAt
+      expiresAt: invitation.expiresAt,
+      isBulkInvite: invitation.isBulkInvite || false
     });
   } catch (error) {
     next(error);
   }
 });
 
-// Accept invitation (public route)
+// Accept invitation (public route - for new users)
 router.post('/accept/:token', [
-  body('name').trim().notEmpty(),
-  body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 8 }),
-  body('phoneNumber').trim().notEmpty().withMessage('Phone number is required'),
+  body('name').trim().notEmpty().withMessage('Name is required'),
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  body('phoneNumber').optional().trim(),
   validate
 ], async (req, res, next) => {
   try {
@@ -84,18 +86,21 @@ router.post('/accept/:token', [
       }
     } else {
       // Create new user
-      user = await User.create({
+      const userData = {
         email: userEmail,
         password,
         name,
-        phoneNumber,
         accountType: invitation.accountType,
         permissions: invitation.permissions,
         barnId: invitation.barnId,
         registrationMethod: 'invitation',
         emailVerified: true,
         finishedRegistration: true
-      });
+      };
+      if (phoneNumber) {
+        userData.phoneNumber = phoneNumber;
+      }
+      user = await User.create(userData);
     }
 
     // Check if user already has a primary barn
@@ -168,6 +173,83 @@ router.post('/accept/:token', [
 router.use(authenticate);
 router.use(loadBarnContext);
 
+// Accept invitation as authenticated user (add to existing account)
+router.post('/accept-authenticated/:token', async (req, res, next) => {
+  try {
+    const invitation = await Invitation.findOne({
+      token: req.params.token,
+      active: true
+    });
+
+    if (!invitation || !invitation.isValid()) {
+      return res.status(400).json({ error: 'Invalid or expired invitation' });
+    }
+
+    // For bulk invites, check if max uses reached
+    if (invitation.isBulkInvite && invitation.maxUses !== null && invitation.useCount >= invitation.maxUses) {
+      return res.status(400).json({ error: 'This invitation link has reached its maximum uses' });
+    }
+
+    // Get the authenticated user
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if user is already in this barn
+    const existingRole = await UserBarnRole.findOne({
+      userId: user._id,
+      barnId: invitation.barnId
+    });
+
+    if (existingRole) {
+      return res.status(400).json({ error: 'You are already a member of this barn' });
+    }
+
+    // Check if user already has a primary barn
+    const hasPrimary = await UserBarnRole.findOne({
+      userId: user._id,
+      isPrimary: true,
+      status: 'active'
+    });
+
+    // Create barn role
+    await UserBarnRole.create({
+      userId: user._id,
+      barnId: invitation.barnId,
+      role: invitation.accountType,
+      permissions: invitation.permissions,
+      isPrimary: !hasPrimary,
+      barnName: invitation.barnName,
+      userName: user.name,
+      invitedBy: invitation.createdById
+    });
+
+    // Update invitation
+    if (invitation.isBulkInvite) {
+      invitation.useCount += 1;
+      if (invitation.maxUses !== null && invitation.useCount >= invitation.maxUses) {
+        invitation.active = false;
+      }
+    } else {
+      invitation.active = false;
+    }
+    invitation.acceptedAt = new Date();
+    invitation.acceptedById = user._id;
+    await invitation.save();
+
+    res.json({
+      success: true,
+      message: `You have joined ${invitation.barnName}`,
+      barnId: invitation.barnId,
+      barnName: invitation.barnName,
+      role: invitation.accountType
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get all invitations for barn
 router.get('/', [
   requireBarn,
@@ -204,6 +286,9 @@ router.post('/', [
     // Get barn name
     const barn = await Barn.findById(req.barnId);
 
+    // Get inviter's name
+    const inviter = await User.findById(req.userId);
+
     const invitation = await Invitation.create({
       barnId: req.barnId,
       barnName: barn.name,
@@ -216,12 +301,28 @@ router.post('/', [
       createdById: req.userId
     });
 
-    // TODO: Send invitation email
-    // const inviteUrl = `${process.env.CLIENT_URL}/invite/${invitation.token}`;
+    // Send invitation email
+    let emailSent = false;
+    if (email) {
+      try {
+        await emailService.sendInvitationEmail({
+          to: email,
+          barnName: barn.name,
+          inviterName: inviter?.name || 'A barn administrator',
+          role: accountType,
+          token: invitation.token
+        });
+        emailSent = true;
+      } catch (emailError) {
+        console.error('Failed to send invitation email:', emailError.message);
+        // Don't fail the request if email fails - invitation is still created
+      }
+    }
 
     res.status(201).json({
       ...invitation.toObject(),
-      inviteUrl: `/invite/${invitation.token}`
+      inviteUrl: `/invite/${invitation.token}`,
+      emailSent
     });
   } catch (error) {
     next(error);
@@ -278,9 +379,28 @@ router.post('/:id/resend', [
     invitation.active = true;
     await invitation.save();
 
-    // TODO: Resend email
+    // Resend email if this is an individual invite with email
+    let emailSent = false;
+    if (invitation.email && !invitation.isBulkInvite) {
+      try {
+        const inviter = await User.findById(req.userId);
+        await emailService.sendInvitationEmail({
+          to: invitation.email,
+          barnName: invitation.barnName,
+          inviterName: inviter?.name || 'A barn administrator',
+          role: invitation.accountType,
+          token: invitation.token
+        });
+        emailSent = true;
+      } catch (emailError) {
+        console.error('Failed to resend invitation email:', emailError.message);
+      }
+    }
 
-    res.json(invitation);
+    res.json({
+      ...invitation.toObject(),
+      emailSent
+    });
   } catch (error) {
     next(error);
   }

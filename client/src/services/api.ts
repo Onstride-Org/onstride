@@ -182,6 +182,13 @@ export const authApi = {
     const response = await api.post('/auth/2fa/disable', { password });
     return response.data;
   },
+
+  deleteAccount: async (password: string) => {
+    const response = await api.delete('/auth/account', { data: { password } });
+    clearTokens();
+    clearCurrentBarn();
+    return response.data;
+  },
 };
 
 // ============ Users API ============
@@ -308,6 +315,27 @@ export const horsesApi = {
 
   addGeneticTest: async (id: string, data: object) => {
     const response = await api.post(`/horses/${id}/genetics`, data);
+    return response.data;
+  },
+
+  // New health record methods
+  getHealthRecords: async (id: string) => {
+    const response = await api.get(`/horses/${id}/health`);
+    return response.data;
+  },
+
+  addHealthRecord: async (id: string, data: object) => {
+    const response = await api.post(`/horses/${id}/health`, data);
+    return response.data;
+  },
+
+  updateHealthRecord: async (horseId: string, recordId: string, data: object) => {
+    const response = await api.put(`/horses/${horseId}/health/${recordId}`, data);
+    return response.data;
+  },
+
+  deleteHealthRecord: async (horseId: string, recordId: string) => {
+    const response = await api.delete(`/horses/${horseId}/health/${recordId}`);
     return response.data;
   },
 
@@ -578,6 +606,11 @@ export const invitationsApi = {
 
   accept: async (token: string, data: { email?: string; name: string; password: string; phoneNumber?: string }) => {
     const response = await api.post(`/invitations/accept/${token}`, data);
+    return response.data;
+  },
+
+  acceptAuthenticated: async (token: string) => {
+    const response = await api.post(`/invitations/accept-authenticated/${token}`);
     return response.data;
   },
 

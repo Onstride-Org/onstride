@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { horsesApi, rideLogsApi } from '../../services/api';
-import { Horse, RideLog, RideType } from '../../types';
+import { horsesApi, rideLogsApi, usersApi } from '../../services/api';
+import { Horse, RideLog, RideType, HealthRecord, HealthRecordType } from '../../types';
 import { format } from 'date-fns';
 
-type Tab = 'overview' | 'rideLogs' | 'documents' | 'genetics';
+type Tab = 'overview' | 'rideLogs' | 'documents' | 'health';
 
 export default function HorseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -33,7 +33,7 @@ export default function HorseDetailPage() {
     if (!id) return;
     try {
       const response = await rideLogsApi.getByHorse(id);
-      setRideLogs(response.data || []);
+      setRideLogs(response.rideLogs || []);
     } catch (error) {
       console.error('Failed to load ride logs:', error);
     }
@@ -133,10 +133,10 @@ export default function HorseDetailPage() {
           Documents
         </button>
         <button
-          className={`tab ${activeTab === 'genetics' ? 'active' : ''}`}
-          onClick={() => setActiveTab('genetics')}
+          className={`tab ${activeTab === 'health' ? 'active' : ''}`}
+          onClick={() => setActiveTab('health')}
         >
-          Genetics
+          Health Info
         </button>
       </div>
 
@@ -156,8 +156,8 @@ export default function HorseDetailPage() {
         {activeTab === 'documents' && (
           <DocumentsTab horse={horse} />
         )}
-        {activeTab === 'genetics' && (
-          <GeneticsTab horse={horse} />
+        {activeTab === 'health' && (
+          <HealthInfoTab horse={horse} onRefresh={loadHorse} />
         )}
       </div>
 
@@ -264,6 +264,16 @@ function OverviewTab({ horse, rideLogs }: { horse: Horse; rideLogs: RideLog[] })
             </>
           )}
         </dl>
+      </div>
+
+      {/* Notes */}
+      <div className="card">
+        <h3 className="card-title">Notes</h3>
+        {horse.notes ? (
+          <p className="horse-notes" style={{ whiteSpace: 'pre-wrap' }}>{horse.notes}</p>
+        ) : (
+          <p className="text-muted">No notes added. Click "Edit" to add notes about this horse.</p>
+        )}
       </div>
 
       {/* Breeding Info */}
@@ -605,29 +615,111 @@ function UploadDocumentModal({
   );
 }
 
-function GeneticsTab({ horse }: { horse: Horse }) {
+function HealthInfoTab({ horse, onRefresh }: { horse: Horse; onRefresh: () => void }) {
   const [showAddModal, setShowAddModal] = useState(false);
-  const [geneticTests, setGeneticTests] = useState(horse.geneticTests || []);
+  const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleAddSuccess = (newTest: any) => {
-    setGeneticTests([...geneticTests, newTest]);
-    setShowAddModal(false);
+  const loadHealthRecords = async () => {
+    try {
+      const response = await horsesApi.getHealthRecords(horse.id);
+      setHealthRecords(response.healthRecords || []);
+    } catch (error) {
+      console.error('Failed to load health records:', error);
+      // Fallback to existing data from horse object
+      const combined = [
+        ...(horse.healthRecords || []),
+        ...(horse.geneticTests || []).map((t) => ({
+          ...t,
+          type: 'geneticTest' as HealthRecordType,
+          title: t.testName,
+          value: t.result,
+          date: t.testDate,
+        })),
+      ];
+      setHealthRecords(combined);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  useEffect(() => {
+    loadHealthRecords();
+  }, [horse.id]);
+
+  const handleAddSuccess = () => {
+    setShowAddModal(false);
+    loadHealthRecords();
+    onRefresh();
+  };
+
+  const handleDelete = async (recordId: string) => {
+    if (!confirm('Delete this health record?')) return;
+    try {
+      await horsesApi.deleteHealthRecord(horse.id, recordId);
+      loadHealthRecords();
+    } catch (error) {
+      console.error('Failed to delete health record:', error);
+    }
+  };
+
+  const getRecordTypeLabel = (type: HealthRecordType) => {
+    const labels: Record<HealthRecordType, string> = {
+      temperature: 'Temperature',
+      weight: 'Weight',
+      vaccination: 'Vaccination',
+      deworming: 'Deworming',
+      dental: 'Dental',
+      farrier: 'Farrier',
+      veterinary: 'Vet Visit',
+      medication: 'Medication',
+      injury: 'Injury',
+      geneticTest: 'Genetic Test',
+      other: 'Other',
+    };
+    return labels[type] || type;
+  };
+
+  const getRecordTypeBadgeClass = (type: HealthRecordType) => {
+    const classes: Record<HealthRecordType, string> = {
+      temperature: 'badge-warning',
+      weight: 'badge-info',
+      vaccination: 'badge-success',
+      deworming: 'badge-success',
+      dental: 'badge-primary',
+      farrier: 'badge-primary',
+      veterinary: 'badge-warning',
+      medication: 'badge-error',
+      injury: 'badge-error',
+      geneticTest: 'badge-neutral',
+      other: 'badge-outline',
+    };
+    return classes[type] || 'badge-outline';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="health-info-tab">
+        <div className="loading">Loading health records...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="genetics-tab">
+    <div className="health-info-tab">
       <div className="tab-header">
-        <h3>Genetic Tests</h3>
+        <h3>Health Records</h3>
         <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-          Add Test Result
+          Add Record
         </button>
       </div>
 
-      {geneticTests.length === 0 ? (
+      {healthRecords.length === 0 ? (
         <div className="empty-state">
-          <p>No genetic tests recorded for {horse.name}</p>
+          <p>No health records for {horse.name}</p>
+          <p className="text-muted">Track temperatures, vaccinations, vet visits, and more</p>
           <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-            Add First Test
+            Add First Record
           </button>
         </div>
       ) : (
@@ -635,23 +727,38 @@ function GeneticsTab({ horse }: { horse: Horse }) {
           <table className="table">
             <thead>
               <tr>
-                <th>Test Name</th>
-                <th>Result</th>
+                <th>Type</th>
+                <th>Title/Details</th>
+                <th>Value/Result</th>
                 <th>Date</th>
-                <th>Laboratory</th>
                 <th>Notes</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {geneticTests.map((test) => (
-                <tr key={test.id || test._id}>
-                  <td>{test.testName}</td>
+              {healthRecords.map((record) => (
+                <tr key={record.id || record._id}>
                   <td>
-                    <span className="badge badge-outline">{test.result}</span>
+                    <span className={`badge ${getRecordTypeBadgeClass(record.type)}`}>
+                      {getRecordTypeLabel(record.type)}
+                    </span>
                   </td>
-                  <td>{test.testDate ? format(new Date(test.testDate), 'MMM d, yyyy') : '-'}</td>
-                  <td>{test.laboratory || '-'}</td>
-                  <td>{test.notes || '-'}</td>
+                  <td>{record.title || record.testName || '-'}</td>
+                  <td>{record.value || record.result || '-'}</td>
+                  <td>
+                    {(record.date || record.testDate)
+                      ? format(new Date(record.date || record.testDate!), 'MMM d, yyyy')
+                      : '-'}
+                  </td>
+                  <td className="text-truncate">{record.notes || '-'}</td>
+                  <td>
+                    <button
+                      className="btn btn-ghost btn-sm btn-danger"
+                      onClick={() => handleDelete(record.id || record._id!)}
+                    >
+                      Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -660,7 +767,7 @@ function GeneticsTab({ horse }: { horse: Horse }) {
       )}
 
       {showAddModal && (
-        <AddGeneticTestModal
+        <AddHealthRecordModal
           horseId={horse.id}
           onClose={() => setShowAddModal(false)}
           onSuccess={handleAddSuccess}
@@ -670,24 +777,39 @@ function GeneticsTab({ horse }: { horse: Horse }) {
   );
 }
 
-function AddGeneticTestModal({
+function AddHealthRecordModal({
   horseId,
   onClose,
   onSuccess,
 }: {
   horseId: string;
   onClose: () => void;
-  onSuccess: (test: any) => void;
+  onSuccess: () => void;
 }) {
-  const [testName, setTestName] = useState('');
-  const [result, setResult] = useState('');
-  const [testDate, setTestDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [laboratory, setLaboratory] = useState('');
+  const [recordType, setRecordType] = useState<HealthRecordType>('other');
+  const [title, setTitle] = useState('');
+  const [value, setValue] = useState('');
+  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState('');
+  const [laboratory, setLaboratory] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const commonTests = [
+  const healthRecordTypes: { value: HealthRecordType; label: string; placeholder?: string }[] = [
+    { value: 'temperature', label: 'Temperature', placeholder: 'e.g., 101.5°F' },
+    { value: 'weight', label: 'Weight', placeholder: 'e.g., 1100 lbs' },
+    { value: 'vaccination', label: 'Vaccination', placeholder: 'e.g., Administered' },
+    { value: 'deworming', label: 'Deworming', placeholder: 'e.g., Quest Plus' },
+    { value: 'dental', label: 'Dental', placeholder: 'e.g., Floated' },
+    { value: 'farrier', label: 'Farrier', placeholder: 'e.g., Trimmed, New shoes' },
+    { value: 'veterinary', label: 'Vet Visit', placeholder: 'e.g., Annual exam' },
+    { value: 'medication', label: 'Medication', placeholder: 'e.g., Bute 1g' },
+    { value: 'injury', label: 'Injury', placeholder: 'e.g., Minor cut' },
+    { value: 'geneticTest', label: 'Genetic Test', placeholder: 'e.g., N/N, Carrier' },
+    { value: 'other', label: 'Other', placeholder: '' },
+  ];
+
+  const commonGeneticTests = [
     'GBED (Glycogen Branching Enzyme Deficiency)',
     'HERDA (Hereditary Equine Regional Dermal Asthenia)',
     'HYPP (Hyperkalemic Periodic Paralysis)',
@@ -699,8 +821,24 @@ function AddGeneticTestModal({
     'PSSM2 (Polysaccharide Storage Myopathy Type 2)',
     'Color Testing',
     'Parentage Verification',
-    'Other',
   ];
+
+  const commonVaccinations = [
+    'Rabies',
+    'Eastern/Western Encephalomyelitis',
+    'Tetanus',
+    'West Nile Virus',
+    'Influenza',
+    'Rhinopneumonitis (EHV)',
+    'Strangles',
+    'Potomac Horse Fever',
+    'Botulism',
+  ];
+
+  const getPlaceholder = () => {
+    const type = healthRecordTypes.find((t) => t.value === recordType);
+    return type?.placeholder || '';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -708,18 +846,26 @@ function AddGeneticTestModal({
     setIsLoading(true);
 
     try {
-      const testData = await horsesApi.addGeneticTest(horseId, {
-        testName,
-        result,
-        testDate: testDate ? new Date(testDate).toISOString() : undefined,
-        laboratory: laboratory || undefined,
+      const data: any = {
+        type: recordType,
+        title: title || undefined,
+        value: value || undefined,
+        date: date ? new Date(date).toISOString() : undefined,
         notes: notes || undefined,
-      });
-      // The API returns the array of all tests, get the last one
-      const newTest = Array.isArray(testData) ? testData[testData.length - 1] : testData;
-      onSuccess(newTest);
+      };
+
+      // For genetic tests, include legacy fields for backward compatibility
+      if (recordType === 'geneticTest') {
+        data.testName = title;
+        data.result = value;
+        data.testDate = date ? new Date(date).toISOString() : undefined;
+        data.laboratory = laboratory || undefined;
+      }
+
+      await horsesApi.addHealthRecord(horseId, data);
+      onSuccess();
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to add genetic test');
+      setError(err.response?.data?.error || 'Failed to add health record');
     } finally {
       setIsLoading(false);
     }
@@ -729,7 +875,7 @@ function AddGeneticTestModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">Add Genetic Test</h2>
+          <h2 className="modal-title">Add Health Record</h2>
           <button className="btn btn-ghost modal-close" onClick={onClose}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -747,52 +893,104 @@ function AddGeneticTestModal({
             )}
 
             <div className="form-group">
-              <label className="form-label">Test Name *</label>
+              <label className="form-label">Record Type *</label>
               <select
                 className="form-select"
-                value={testName}
-                onChange={(e) => setTestName(e.target.value)}
+                value={recordType}
+                onChange={(e) => {
+                  setRecordType(e.target.value as HealthRecordType);
+                  setTitle('');
+                  setValue('');
+                }}
                 required
               >
-                <option value="">Select a test...</option>
-                {commonTests.map((test) => (
-                  <option key={test} value={test}>
-                    {test}
+                {healthRecordTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
                   </option>
                 ))}
               </select>
-              {testName === 'Other' && (
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                {recordType === 'geneticTest' ? 'Test Name' :
+                 recordType === 'vaccination' ? 'Vaccine Name' :
+                 recordType === 'medication' ? 'Medication Name' : 'Title/Description'}
+              </label>
+              {recordType === 'geneticTest' ? (
+                <select
+                  className="form-select"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                >
+                  <option value="">Select a test...</option>
+                  {commonGeneticTests.map((test) => (
+                    <option key={test} value={test}>
+                      {test}
+                    </option>
+                  ))}
+                  <option value="__custom">Other (custom)</option>
+                </select>
+              ) : recordType === 'vaccination' ? (
+                <select
+                  className="form-select"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                >
+                  <option value="">Select a vaccine...</option>
+                  {commonVaccinations.map((vax) => (
+                    <option key={vax} value={vax}>
+                      {vax}
+                    </option>
+                  ))}
+                  <option value="__custom">Other (custom)</option>
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  className="form-input"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={recordType === 'temperature' ? 'Morning check' :
+                              recordType === 'weight' ? 'Monthly weigh-in' : 'Enter title...'}
+                />
+              )}
+              {(title === '__custom') && (
                 <input
                   type="text"
                   className="form-input mt-2"
-                  placeholder="Enter custom test name"
-                  onChange={(e) => setTestName(e.target.value)}
+                  placeholder="Enter custom name..."
+                  onChange={(e) => setTitle(e.target.value)}
                 />
               )}
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Result *</label>
-              <input
-                type="text"
-                className="form-input"
-                value={result}
-                onChange={(e) => setResult(e.target.value)}
-                placeholder="e.g., N/N, N/PSSM1, Negative, Carrier"
-                required
-              />
-            </div>
-
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Test Date</label>
+                <label className="form-label">
+                  {recordType === 'geneticTest' ? 'Result' : 'Value/Reading'}
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder={getPlaceholder()}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Date</label>
                 <input
                   type="date"
                   className="form-input"
-                  value={testDate}
-                  onChange={(e) => setTestDate(e.target.value)}
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
                 />
               </div>
+            </div>
+
+            {recordType === 'geneticTest' && (
               <div className="form-group">
                 <label className="form-label">Laboratory</label>
                 <input
@@ -803,7 +1001,7 @@ function AddGeneticTestModal({
                   placeholder="e.g., UC Davis, Animal Genetics"
                 />
               </div>
-            </div>
+            )}
 
             <div className="form-group">
               <label className="form-label">Notes</label>
@@ -822,7 +1020,7 @@ function AddGeneticTestModal({
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={isLoading}>
-              {isLoading ? 'Adding...' : 'Add Test'}
+              {isLoading ? 'Adding...' : 'Add Record'}
             </button>
           </div>
         </form>
@@ -845,6 +1043,7 @@ function EditHorseModal({
   const [age, setAge] = useState(horse.age?.toString() || '');
   const [color, setColor] = useState(horse.color || '');
   const [status, setStatus] = useState(horse.status);
+  const [notes, setNotes] = useState(horse.notes || '');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -860,6 +1059,7 @@ function EditHorseModal({
         age: age ? parseInt(age) : undefined,
         color: color || undefined,
         status,
+        notes: notes || '',
       });
       onSuccess();
     } catch (err: any) {
@@ -946,6 +1146,17 @@ function EditHorseModal({
                 </select>
               </div>
             </div>
+
+            <div className="form-group">
+              <label className="form-label">Notes</label>
+              <textarea
+                className="form-textarea"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={4}
+                placeholder="Add notes about this horse (e.g., special care instructions, dietary needs, training notes...)"
+              />
+            </div>
           </div>
 
           <div className="modal-footer">
@@ -974,10 +1185,24 @@ function AddRideLogModal({
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [type, setType] = useState<RideType>('training');
   const [durationMinutes, setDurationMinutes] = useState('30');
-  const [riderName, setRiderName] = useState('');
+  const [riderSelection, setRiderSelection] = useState('');
+  const [customRiderName, setCustomRiderName] = useState('');
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [barnUsers, setBarnUsers] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const response = await usersApi.getAll({ limit: 100 });
+        setBarnUsers(response.data || []);
+      } catch (err) {
+        console.error('Failed to load users:', err);
+      }
+    };
+    loadUsers();
+  }, []);
 
   const rideTypes: { value: RideType; label: string }[] = [
     { value: 'lesson', label: 'Lesson' },
@@ -994,13 +1219,23 @@ function AddRideLogModal({
     setError('');
     setIsLoading(true);
 
+    // Determine rider name - use custom if "custom" selected, otherwise use selected user's name
+    let finalRiderName = '';
+    if (riderSelection === 'custom') {
+      finalRiderName = customRiderName;
+    } else if (riderSelection) {
+      const selectedUser = barnUsers.find(u => u.id === riderSelection);
+      finalRiderName = selectedUser?.name || '';
+    }
+
     try {
       await rideLogsApi.create({
         horseId: horse.id,
         date,
         type,
         durationMinutes: parseInt(durationMinutes),
-        riderName: riderName || undefined,
+        riderId: riderSelection && riderSelection !== 'custom' ? riderSelection : undefined,
+        riderName: finalRiderName || undefined,
         notes: notes || undefined,
       });
       onSuccess();
@@ -1074,16 +1309,35 @@ function AddRideLogModal({
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Rider Name</label>
+                <label className="form-label">Rider</label>
+                <select
+                  className="form-select"
+                  value={riderSelection}
+                  onChange={(e) => setRiderSelection(e.target.value)}
+                >
+                  <option value="">Select a rider...</option>
+                  {barnUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name}
+                    </option>
+                  ))}
+                  <option value="custom">-- Enter custom name --</option>
+                </select>
+              </div>
+            </div>
+
+            {riderSelection === 'custom' && (
+              <div className="form-group">
+                <label className="form-label">Custom Rider Name</label>
                 <input
                   type="text"
                   className="form-input"
-                  value={riderName}
-                  onChange={(e) => setRiderName(e.target.value)}
-                  placeholder="Who rode?"
+                  value={customRiderName}
+                  onChange={(e) => setCustomRiderName(e.target.value)}
+                  placeholder="Enter rider name"
                 />
               </div>
-            </div>
+            )}
 
             <div className="form-group">
               <label className="form-label">Notes</label>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { invoicesApi, usersApi, horsesApi } from '../../services/api';
-import { Invoice, InvoiceStatus, User, Horse } from '../../types';
+import { invoicesApi, usersApi, horsesApi, billingApi } from '../../services/api';
+import { Invoice, InvoiceStatus, User, Horse, BillingTemplate } from '../../types';
 import { format } from 'date-fns';
 import { Plus, FileText, X } from 'lucide-react';
 import FilterTabs from '../../components/FilterTabs';
@@ -186,6 +186,8 @@ function CreateInvoiceModal({
   const [charges, setCharges] = useState([{ description: '', amount: '', quantity: '1', type: 'board' as const }]);
   const [users, setUsers] = useState<User[]>([]);
   const [horses, setHorses] = useState<Horse[]>([]);
+  const [templates, setTemplates] = useState<BillingTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
@@ -193,12 +195,14 @@ function CreateInvoiceModal({
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [usersRes, horsesRes] = await Promise.all([
+        const [usersRes, horsesRes, templatesRes] = await Promise.all([
           usersApi.getAll({ limit: 100 }),
-          horsesApi.getAll({ limit: 100 })
+          horsesApi.getAll({ limit: 100 }),
+          billingApi.getTemplates()
         ]);
         setUsers(usersRes.data || []);
         setHorses(horsesRes.data || []);
+        setTemplates(templatesRes || []);
       } catch (err) {
         console.error('Failed to load data:', err);
       } finally {
@@ -207,6 +211,21 @@ function CreateInvoiceModal({
     };
     loadData();
   }, []);
+
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId) return;
+
+    const template = templates.find(t => (t.id || t._id) === templateId);
+    if (template) {
+      setCharges(template.charges.map(c => ({
+        type: c.type,
+        description: c.description,
+        amount: c.amount.toFixed(2),
+        quantity: c.quantity.toString(),
+      })));
+    }
+  };
 
   const addCharge = () => {
     setCharges([...charges, { description: '', amount: '', quantity: '1', type: 'board' }]);
@@ -322,39 +341,31 @@ function CreateInvoiceModal({
                   </select>
                 </div>
 
+                {templates.length > 0 && (
+                  <div className="form-group">
+                    <label className="form-label">Load from Template (Optional)</label>
+                    <select
+                      className="form-select"
+                      value={selectedTemplateId}
+                      onChange={(e) => handleTemplateSelect(e.target.value)}
+                    >
+                      <option value="">-- Select a template to auto-fill charges --</option>
+                      {templates.map(template => (
+                        <option key={template.id || template._id} value={template.id || template._id}>
+                          {template.name} - ${template.charges.reduce((sum, c) => sum + c.amount * c.quantity, 0).toFixed(2)}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="form-hint">Select a template to pre-fill charges below</p>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label className="form-label">Charges</label>
                   {charges.map((charge, index) => (
                     <div key={index} className="charge-row">
-                      <input
-                        type="text"
-                        className="form-input"
-                        value={charge.description}
-                        onChange={(e) => updateCharge(index, 'description', e.target.value)}
-                        placeholder="Description"
-                        required
-                      />
-                      <input
-                        type="number"
-                        className="form-input"
-                        value={charge.amount}
-                        onChange={(e) => updateCharge(index, 'amount', e.target.value)}
-                        placeholder="Amount"
-                        min="0"
-                        step="0.01"
-                        required
-                      />
-                      <input
-                        type="number"
-                        className="form-input"
-                        value={charge.quantity}
-                        onChange={(e) => updateCharge(index, 'quantity', e.target.value)}
-                        placeholder="Qty"
-                        min="1"
-                        required
-                      />
                       <select
-                        className="form-select"
+                        className="form-select charge-type"
                         value={charge.type}
                         onChange={(e) => updateCharge(index, 'type', e.target.value)}
                       >
@@ -368,6 +379,48 @@ function CreateInvoiceModal({
                         <option value="service">Service</option>
                         <option value="other">Other</option>
                       </select>
+                      <input
+                        type="text"
+                        className="form-input charge-description"
+                        value={charge.description}
+                        onChange={(e) => updateCharge(index, 'description', e.target.value)}
+                        placeholder="Description"
+                        required
+                      />
+                      <div className="charge-amount-wrapper">
+                        <span className="charge-amount-prefix">$</span>
+                        <input
+                          type="text"
+                          className="form-input charge-amount"
+                          value={charge.amount}
+                          onChange={(e) => {
+                            // Allow only numbers and decimal
+                            const val = e.target.value.replace(/[^0-9.]/g, '');
+                            // Ensure only one decimal point
+                            const parts = val.split('.');
+                            const formatted = parts[0] + (parts.length > 1 ? '.' + parts[1].slice(0, 2) : '');
+                            updateCharge(index, 'amount', formatted);
+                          }}
+                          onBlur={(e) => {
+                            // Format to 2 decimal places on blur
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val)) {
+                              updateCharge(index, 'amount', val.toFixed(2));
+                            }
+                          }}
+                          placeholder="0.00"
+                          required
+                        />
+                      </div>
+                      <input
+                        type="number"
+                        className="form-input charge-quantity"
+                        value={charge.quantity}
+                        onChange={(e) => updateCharge(index, 'quantity', e.target.value)}
+                        placeholder="Qty"
+                        min="1"
+                        required
+                      />
                       {charges.length > 1 && (
                         <button
                           type="button"

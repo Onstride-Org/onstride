@@ -68,6 +68,7 @@ export interface Horse {
   isStud?: boolean;
   isBroodmare?: boolean;
   geneticTests?: GeneticTest[];
+  healthRecords?: HealthRecord[];
   documents?: HorseDocument[];
   strideNumber?: string;
   rideStats?: RideStats;
@@ -86,6 +87,24 @@ export interface GeneticTest {
   testDate?: string;
   laboratory?: string;
   notes?: string;
+}
+
+export type HealthRecordType = 'temperature' | 'weight' | 'vaccination' | 'deworming' | 'dental' | 'farrier' | 'veterinary' | 'medication' | 'injury' | 'geneticTest' | 'other';
+
+export interface HealthRecord {
+  id?: string;
+  _id?: string;
+  type: HealthRecordType;
+  title?: string;
+  value?: string;
+  date?: string;
+  notes?: string;
+  recordedBy?: string;
+  // Legacy fields for backward compatibility with genetic tests
+  testName?: string;
+  result?: string;
+  testDate?: string;
+  laboratory?: string;
 }
 
 export interface HorseDocument {

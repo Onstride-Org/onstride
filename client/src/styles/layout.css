@@ -515,6 +515,89 @@
   color: var(--color-text-secondary);
 }
 
+/* ============ 2FA Toggle Button ============ */
+.twofa-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  width: 100%;
+  padding: var(--spacing-4);
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.twofa-toggle-btn:hover {
+  border-color: var(--color-primary);
+  background: var(--color-background-secondary);
+}
+
+.twofa-toggle-btn.enabled {
+  border-color: var(--color-success-500);
+  background: var(--color-success-50);
+}
+
+.twofa-toggle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: var(--color-primary-50);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.twofa-toggle-btn.enabled .twofa-toggle-icon {
+  background: var(--color-success-100);
+  color: var(--color-success-600);
+}
+
+.twofa-toggle-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.twofa-toggle-title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+}
+
+.twofa-toggle-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.twofa-toggle-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.twofa-toggle-indicator.off {
+  background: var(--color-neutral-200);
+  color: var(--color-text-secondary);
+}
+
+.twofa-toggle-indicator.on {
+  background: var(--color-success-500);
+  color: white;
+}
+
 /* ============ Detail Pages ============ */
 .detail-header {
   margin-bottom: var(--spacing-6);

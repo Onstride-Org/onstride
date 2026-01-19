@@ -20,7 +20,7 @@ export default function TasksPage() {
       if (statusFilter !== 'all') params.status = statusFilter;
 
       const response = await tasksApi.getAll(params);
-      setTasks(response.data || []);
+      setTasks(response.tasks || []);
       setPagination(response.pagination || { page: 1, pages: 1, total: 0 });
     } catch (error) {
       console.error('Failed to load tasks:', error);

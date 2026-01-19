@@ -9,6 +9,7 @@ const { BarnSubscription } = require('../models/Subscription');
 const { authenticate } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const twilio = require('../services/twilio');
+const emailService = require('../services/email');
 
 const router = express.Router();
 
@@ -89,6 +90,15 @@ router.post('/register', [
     // Save refresh token
     user.refreshToken = refreshToken;
     await user.save();
+
+    // Send welcome email (non-blocking)
+    emailService.sendWelcomeEmail({
+      to: user.email,
+      name: user.name,
+      barnName: barn.name
+    }).catch(err => {
+      console.error('Failed to send welcome email:', err.message);
+    });
 
     res.status(201).json({
       user: {
@@ -571,6 +581,41 @@ router.get('/2fa/status', authenticate, async (req, res, next) => {
       phoneNumber: user.phoneNumber ? `***${user.phoneNumber.slice(-4)}` : null,
       isConfigured: twilio.isConfigured(),
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete account
+router.delete('/account', [
+  authenticate,
+  body('password').notEmpty().withMessage('Password is required to delete account'),
+  validate
+], async (req, res, next) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify password
+    const isValid = await user.comparePassword(req.body.password);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Incorrect password' });
+    }
+
+    // Soft delete user
+    user.deletedAt = new Date();
+    user.refreshToken = null;
+    await user.save();
+
+    // Deactivate all barn roles
+    await UserBarnRole.updateMany(
+      { userId: user._id },
+      { status: 'inactive' }
+    );
+
+    res.json({ message: 'Account deleted successfully' });
   } catch (error) {
     next(error);
   }

@@ -1,8 +1,23 @@
 import { useState, useEffect } from 'react';
 import { usersApi, invitationsApi } from '../../services/api';
 import { User, AccountType } from '../../types';
-import { UserPlus, Search, Users, MoreHorizontal, X, CheckCircle, Link2, Copy } from 'lucide-react';
+import { UserPlus, Search, Users, MoreHorizontal, X, CheckCircle, Link2, Copy, Mail, Clock, RefreshCw, Trash2, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
 import FilterTabs from '../../components/FilterTabs';
+
+interface Invitation {
+  _id: string;
+  email?: string;
+  accountType: AccountType;
+  barnName: string;
+  token: string;
+  expiresAt: string;
+  active: boolean;
+  isBulkInvite: boolean;
+  useCount: number;
+  maxUses: number | null;
+  createdAt: string;
+  createdById?: { name: string };
+}
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -12,6 +27,8 @@ export default function UsersPage() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showBulkInviteModal, setShowBulkInviteModal] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
+  const [pendingInvitations, setPendingInvitations] = useState<Invitation[]>([]);
+  const [showInvitations, setShowInvitations] = useState(true);
 
   const loadUsers = async () => {
     try {
@@ -30,8 +47,37 @@ export default function UsersPage() {
     }
   };
 
+  const loadPendingInvitations = async () => {
+    try {
+      const invitations = await invitationsApi.getAll({ active: true });
+      setPendingInvitations(invitations || []);
+    } catch (error) {
+      console.error('Failed to load invitations:', error);
+    }
+  };
+
+  const handleResendInvitation = async (id: string) => {
+    try {
+      await invitationsApi.resend(id);
+      loadPendingInvitations();
+    } catch (error) {
+      console.error('Failed to resend invitation:', error);
+    }
+  };
+
+  const handleDeleteInvitation = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this invitation?')) return;
+    try {
+      await invitationsApi.delete(id);
+      loadPendingInvitations();
+    } catch (error) {
+      console.error('Failed to delete invitation:', error);
+    }
+  };
+
   useEffect(() => {
     loadUsers();
+    loadPendingInvitations();
   }, [pagination.page, roleFilter]);
 
   useEffect(() => {
@@ -56,6 +102,23 @@ export default function UsersPage() {
       vendor: 'neutral',
     };
     return styles[role] || 'neutral';
+  };
+
+  const getTimeUntil = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffMs = date.getTime() - now.getTime();
+
+    if (diffMs < 0) return 'Expired';
+
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) return `${diffDays}d ${diffHours % 24}h`;
+    if (diffHours > 0) return `${diffHours}h`;
+
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    return `${diffMinutes}m`;
   };
 
   const roleLabels: Record<AccountType, string> = {
@@ -116,6 +179,139 @@ export default function UsersPage() {
           label="Filter by role"
         />
       </div>
+
+      {/* Pending Invitations Section */}
+      {pendingInvitations.length > 0 && (
+        <div className="card mb-6">
+          <div
+            className="card-header"
+            style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            onClick={() => setShowInvitations(!showInvitations)}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Mail size={20} />
+              <h3 style={{ margin: 0 }}>Pending Invitations ({pendingInvitations.length})</h3>
+            </div>
+            {showInvitations ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          </div>
+          {showInvitations && (
+            <div className="card-body" style={{ padding: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Email / Type</th>
+                    <th>Role</th>
+                    <th>Expires</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingInvitations.map((invitation) => {
+                    const isExpired = new Date(invitation.expiresAt) < new Date();
+                    const expiresIn = getTimeUntil(invitation.expiresAt);
+
+                    return (
+                      <tr key={invitation._id}>
+                        <td>
+                          {invitation.isBulkInvite ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <Link2 size={16} className="text-muted" />
+                              <span className="text-muted">Shareable Link</span>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <Mail size={16} className="text-muted" />
+                              <span>{invitation.email}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`badge badge-${getRoleBadge(invitation.accountType)}`}>
+                            {roleLabels[invitation.accountType]}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Clock size={14} className="text-muted" />
+                            <span className={isExpired ? 'text-error' : ''}>
+                              {isExpired ? 'Expired' : expiresIn}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          {invitation.isBulkInvite ? (
+                            <span className="text-muted">
+                              {invitation.useCount} uses
+                              {invitation.maxUses && ` / ${invitation.maxUses} max`}
+                            </span>
+                          ) : (
+                            <span className="badge badge-warning">Pending</span>
+                          )}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            {!invitation.isBulkInvite && (
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => handleResendInvitation(invitation._id)}
+                                title="Resend invitation"
+                              >
+                                <RefreshCw size={16} />
+                              </button>
+                            )}
+                            {invitation.isBulkInvite && (
+                              <>
+                                <button
+                                  className="btn btn-ghost btn-sm"
+                                  onClick={() => {
+                                    const url = `${window.location.origin}/invite/${invitation.token}`;
+                                    navigator.clipboard.writeText(url);
+                                  }}
+                                  title="Copy link"
+                                >
+                                  <Copy size={16} />
+                                </button>
+                                {navigator.share && (
+                                  <button
+                                    className="btn btn-ghost btn-sm"
+                                    onClick={async () => {
+                                      const url = `${window.location.origin}/invite/${invitation.token}`;
+                                      try {
+                                        await navigator.share({
+                                          title: 'Join my barn on OnStride',
+                                          text: `You've been invited to join as a ${invitation.accountType}. Click the link to get started!`,
+                                          url,
+                                        });
+                                      } catch (err) {
+                                        // User cancelled or error - ignore
+                                      }
+                                    }}
+                                    title="Share link"
+                                  >
+                                    <Share2 size={16} />
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            <button
+                              className="btn btn-ghost btn-sm text-error"
+                              onClick={() => handleDeleteInvitation(invitation._id)}
+                              title="Delete invitation"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Content */}
       {isLoading ? (
@@ -218,6 +414,7 @@ export default function UsersPage() {
           onSuccess={() => {
             setShowInviteModal(false);
             loadUsers();
+            loadPendingInvitations();
           }}
         />
       )}
@@ -225,6 +422,9 @@ export default function UsersPage() {
       {showBulkInviteModal && (
         <BulkInviteModal
           onClose={() => setShowBulkInviteModal(false)}
+          onSuccess={() => {
+            loadPendingInvitations();
+          }}
         />
       )}
     </div>
@@ -350,8 +550,10 @@ function InviteUserModal({
 
 function BulkInviteModal({
   onClose,
+  onSuccess,
 }: {
   onClose: () => void;
+  onSuccess?: () => void;
 }) {
   const [role, setRole] = useState<AccountType>('boarder');
   const [expiresInHours, setExpiresInHours] = useState('24');
@@ -381,6 +583,7 @@ function BulkInviteModal({
       });
       const fullUrl = `${window.location.origin}${result.inviteUrl}`;
       setInviteUrl(fullUrl);
+      onSuccess?.();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to generate invite link');
     } finally {
@@ -405,6 +608,28 @@ function BulkInviteModal({
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join my barn on OnStride',
+          text: `You've been invited to join as a ${role}. Click the link to get started!`,
+          url: inviteUrl,
+        });
+      } catch (err) {
+        // User cancelled share or error occurred - fall back to copy
+        if ((err as Error).name !== 'AbortError') {
+          copyToClipboard();
+        }
+      }
+    } else {
+      // Web Share API not supported - fall back to copy
+      copyToClipboard();
+    }
+  };
+
+  const canShare = typeof navigator !== 'undefined' && navigator.share;
 
   if (inviteUrl) {
     return (
@@ -437,8 +662,9 @@ function BulkInviteModal({
                 />
                 <button
                   type="button"
-                  className="btn btn-primary input-addon"
+                  className="btn btn-outline input-addon"
                   onClick={copyToClipboard}
+                  title="Copy to clipboard"
                 >
                   {copied ? <CheckCircle size={16} /> : <Copy size={16} />}
                   {copied ? 'Copied!' : 'Copy'}
@@ -449,10 +675,27 @@ function BulkInviteModal({
                 {maxUses && ` or after ${maxUses} uses`}
               </p>
             </div>
+
+            {/* Native Share Button */}
+            <div className="form-group">
+              <button
+                type="button"
+                className="btn btn-primary btn-block"
+                onClick={handleNativeShare}
+              >
+                <Share2 size={18} />
+                {canShare ? 'Share Invite Link' : 'Copy & Share'}
+              </button>
+              <p className="form-hint text-center mt-2">
+                {canShare
+                  ? 'Opens your device\'s native sharing options'
+                  : 'Copy the link to share via your preferred app'}
+              </p>
+            </div>
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-primary" onClick={onClose}>
+            <button type="button" className="btn btn-outline" onClick={onClose}>
               Done
             </button>
           </div>

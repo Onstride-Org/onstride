@@ -7,7 +7,9 @@ interface InviteDetails {
   barnName: string;
   role: string;
   inviterName: string;
-  email: string;
+  email: string | null;
+  isBulkInvite: boolean;
+  accountType: string;
 }
 
 export default function AcceptInvitePage() {
@@ -17,6 +19,7 @@ export default function AcceptInvitePage() {
 
   const [inviteDetails, setInviteDetails] = useState<InviteDetails | null>(null);
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -35,6 +38,9 @@ export default function AcceptInvitePage() {
       try {
         const response = await invitationsApi.validate(token);
         setInviteDetails(response);
+        if (response.email) {
+          setEmail(response.email);
+        }
       } catch (err: any) {
         setError(err.response?.data?.error || 'Invalid or expired invitation');
       } finally {
@@ -69,17 +75,33 @@ export default function AcceptInvitePage() {
     setIsSubmitting(true);
 
     try {
-      const response = await invitationsApi.accept(token, { name, password });
-
-      if (response.accessToken) {
-        setTokens(response.accessToken, response.refreshToken);
+      if (isAuthenticated) {
+        // Authenticated user - just add to barn
+        const response = await invitationsApi.acceptAuthenticated(token);
         if (response.barnId) {
           setCurrentBarn(response.barnId);
         }
-      }
+        await loadUser();
+        navigate('/dashboard');
+      } else {
+        // New user - create account
+        const response = await invitationsApi.accept(token, {
+          name,
+          email: email,
+          password,
+          phoneNumber: '', // Will be set up later in profile
+        });
 
-      await loadUser();
-      navigate('/dashboard');
+        if (response.accessToken) {
+          setTokens(response.accessToken, response.refreshToken);
+          if (response.user?.barnId) {
+            setCurrentBarn(response.user.barnId);
+          }
+        }
+
+        await loadUser();
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to accept invitation');
     } finally {
@@ -123,8 +145,8 @@ export default function AcceptInvitePage() {
     <div className="auth-form-container">
       <h2 className="auth-form-title">Join {inviteDetails?.barnName}</h2>
       <p className="auth-form-subtitle">
-        {inviteDetails?.inviterName} has invited you to join as a{' '}
-        <strong>{inviteDetails?.role}</strong>
+        You've been invited to join as a{' '}
+        <strong>{inviteDetails?.accountType || inviteDetails?.role}</strong>
       </p>
 
       <form onSubmit={handleSubmit} className="auth-form">
@@ -140,13 +162,19 @@ export default function AcceptInvitePage() {
         )}
 
         <div className="form-group">
-          <label className="form-label">Email</label>
+          <label className="form-label">Email {!inviteDetails?.isBulkInvite ? '' : '*'}</label>
           <input
             type="email"
             className="form-input"
-            value={inviteDetails?.email || ''}
-            disabled
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={!inviteDetails?.isBulkInvite && !!inviteDetails?.email}
+            placeholder={inviteDetails?.isBulkInvite ? 'Enter your email address' : ''}
+            required
           />
+          {inviteDetails?.isBulkInvite && (
+            <p className="form-hint">Enter the email you want to use for your account</p>
+          )}
         </div>
 
         {!isAuthenticated && (

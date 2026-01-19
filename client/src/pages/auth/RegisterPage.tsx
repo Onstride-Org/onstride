@@ -65,8 +65,11 @@ export default function RegisterPage() {
       } else {
         navigate('/dashboard');
       }
-    } catch {
-      // Error is handled by the store
+    } catch (err: any) {
+      // Error is handled by the store, but we also set local validation error
+      // to ensure form data is preserved
+      const errorMessage = err.response?.data?.error || 'Registration failed';
+      setValidationError(errorMessage);
     }
   };
 
@@ -112,6 +115,7 @@ export default function RegisterPage() {
     navigate('/dashboard');
   };
 
+  // Prioritize local validation error (which preserves form state better)
   const displayError = validationError || error;
 
   // Show 2FA setup screen after registration
@@ -316,23 +320,28 @@ export default function RegisterPage() {
           />
         </div>
 
-        {/* 2FA Option */}
+        {/* 2FA Option - Prominent Security Feature */}
         <div className="form-group">
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={enable2FA}
-              onChange={(e) => setEnable2FA(e.target.checked)}
-              className="checkbox"
-            />
-            <span className="checkbox-text">
-              <Shield size={16} className="inline mr-1" />
-              Enable two-factor authentication
-            </span>
-          </label>
-          <p className="form-hint">
-            Add extra security by requiring a code sent to your phone when signing in
-          </p>
+          <button
+            type="button"
+            onClick={() => setEnable2FA(!enable2FA)}
+            className={`twofa-toggle-btn ${enable2FA ? 'enabled' : ''}`}
+          >
+            <div className="twofa-toggle-icon">
+              <Shield size={24} />
+            </div>
+            <div className="twofa-toggle-content">
+              <span className="twofa-toggle-title">
+                {enable2FA ? 'Two-Factor Authentication Enabled' : 'Enable Two-Factor Authentication'}
+              </span>
+              <span className="twofa-toggle-desc">
+                Add extra security by requiring a code sent to your phone when signing in
+              </span>
+            </div>
+            <div className={`twofa-toggle-indicator ${enable2FA ? 'on' : 'off'}`}>
+              {enable2FA ? 'ON' : 'OFF'}
+            </div>
+          </button>
         </div>
 
         <button

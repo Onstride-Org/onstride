@@ -1,11 +1,27 @@
 const mongoose = require('mongoose');
 
-const geneticTestSchema = new mongoose.Schema({
+const healthRecordSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ['temperature', 'weight', 'vaccination', 'deworming', 'dental', 'farrier', 'veterinary', 'medication', 'injury', 'geneticTest', 'other'],
+    default: 'other'
+  },
+  title: String,
+  value: String, // For temperature: "101.5°F", for weight: "1100 lbs", etc.
+  date: {
+    type: Date,
+    default: Date.now
+  },
+  notes: String,
+  recordedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  // Legacy fields for backward compatibility with genetic tests
   testName: String,
   result: String,
   testDate: Date,
-  laboratory: String,
-  notes: String
+  laboratory: String
 }, { _id: true });
 
 const horseDocumentSchema = new mongoose.Schema({
@@ -102,8 +118,10 @@ const horseSchema = new mongoose.Schema({
   },
   colorGenetics: String,
 
-  // Genetic Tests
-  geneticTests: [geneticTestSchema],
+  // Health Records (includes genetic tests, temperatures, etc.)
+  healthRecords: [healthRecordSchema],
+  // Legacy: keep geneticTests for backward compatibility
+  geneticTests: [healthRecordSchema],
 
   // Documents
   documents: [horseDocumentSchema],

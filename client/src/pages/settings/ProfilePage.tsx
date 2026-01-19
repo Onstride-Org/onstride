@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { usersApi } from '../../services/api';
+import { usersApi, authApi } from '../../services/api';
 
 export default function ProfilePage() {
-  const { user, loadUser } = useAuthStore();
+  const { user, loadUser, logout } = useAuthStore();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   return (
     <div className="page profile-page">
@@ -106,10 +108,22 @@ export default function ProfilePage() {
             <p className="text-muted mb-4">
               Once you delete your account, there is no going back. Please be certain.
             </p>
-            <button className="btn btn-danger">Delete Account</button>
+            <button className="btn btn-danger" onClick={() => setShowDeleteModal(true)}>
+              Delete Account
+            </button>
           </div>
         </div>
       </div>
+
+      {showDeleteModal && (
+        <DeleteAccountModal
+          onClose={() => setShowDeleteModal(false)}
+          onSuccess={() => {
+            logout();
+            navigate('/login');
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -289,5 +303,106 @@ function ChangePasswordForm({
         </button>
       </div>
     </form>
+  );
+}
+
+function DeleteAccountModal({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [confirmText, setConfirmText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (confirmText !== 'DELETE') {
+      setError('Please type DELETE to confirm');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      await authApi.deleteAccount(password);
+      onSuccess();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to delete account');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title" style={{ color: 'var(--color-error)' }}>Delete Account</h2>
+          <button className="btn btn-ghost modal-close" onClick={onClose}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body">
+            <div className="alert alert-error mb-4">
+              <span>This action cannot be undone. All your data will be permanently deleted.</span>
+            </div>
+
+            {error && (
+              <div className="alert alert-error mb-4">
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label className="form-label">Enter your password to confirm</label>
+              <input
+                type="password"
+                className="form-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Your current password"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Type DELETE to confirm</label>
+              <input
+                type="text"
+                className="form-input"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                placeholder="DELETE"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-danger"
+              disabled={isLoading || confirmText !== 'DELETE'}
+            >
+              {isLoading ? 'Deleting...' : 'Delete My Account'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
