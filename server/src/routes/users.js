@@ -15,7 +15,7 @@ router.use(loadBarnContext);
 // Get all users in barn
 router.get('/', requireBarn, async (req, res, next) => {
   try {
-    const { role, search } = req.query;
+    const { role, search, page = 1, limit = 50 } = req.query;
 
     const barnRoles = await UserBarnRole.find({
       barnId: req.barnId,
@@ -33,7 +33,8 @@ router.get('/', requireBarn, async (req, res, next) => {
         role: r.role,
         permissions: r.permissions,
         title: r.title,
-        joinedAt: r.joinedAt
+        joinedAt: r.joinedAt,
+        accountType: r.role
       }));
 
     // Search filter
@@ -45,7 +46,21 @@ router.get('/', requireBarn, async (req, res, next) => {
       );
     }
 
-    res.json(users);
+    const total = users.length;
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const startIndex = (pageNum - 1) * limitNum;
+    const paginatedUsers = users.slice(startIndex, startIndex + limitNum);
+
+    res.json({
+      data: paginatedUsers,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum)
+      }
+    });
   } catch (error) {
     next(error);
   }
