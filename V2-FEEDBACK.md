@@ -42,14 +42,6 @@ Tracking all feedback items from V2 testing. Items will be marked as completed a
 
 ---
 
-## Tasks
-
-| # | Issue | Status | Notes |
-|---|-------|--------|-------|
-| 11 | When you create a task it doesn't actually show the task | [x] Fixed | Frontend was reading `response.data` instead of `response.tasks` |
-
----
-
 ## User Invitations
 
 | # | Issue | Status | Notes |
@@ -70,19 +62,40 @@ Tracking all feedback items from V2 testing. Items will be marked as completed a
 
 ---
 
+## Tasks
+
+| # | Issue | Status | Notes |
+|---|-------|--------|-------|
+| 11 | When you create a task it doesn't actually show the task | [x] Fixed | Frontend was reading `response.data` instead of `response.tasks` |
+| 19 | When I click checkbox next to task, it does not get checked | [x] Fixed | Task model missing toJSON virtuals config - `task.id` was undefined |
+
+---
+
+## Admin Dashboard
+
+| # | Issue | Status | Notes |
+|---|-------|--------|-------|
+| 20 | Want to see average # of horses per barn | [x] Fixed | Added avgHorsesPerBarn stat to admin dashboard |
+| 21 | Want to see average # of users per barn | [x] Fixed | Added avgUsersPerBarn stat to admin dashboard |
+| 22 | Want to see average revenue per barn (subscription + transaction fees) | [x] Fixed | Added avgRevenuePerBarn stat to admin dashboard |
+| 23 | Want to click on individual barns/users to see their details | [x] Fixed | Added AdminBarnDetailPage and AdminUserDetailPage with full details |
+
+---
+
 ## UI/Branding
 
 | # | Issue | Status | Notes |
 |---|-------|--------|-------|
 | 18 | Logo still isn't correct | [ ] Pending | |
+| 24 | Users page pending invitations section not mobile friendly | [x] Fixed | Converted table to card-based responsive layout |
 
 ---
 
 ## Summary
 
-**Total Items:** 18
-**Completed:** 16
-**Pending:** 0
+**Total Items:** 24
+**Completed:** 22
+**Pending:** 2
 **ENV Issues:** 2
 
 ---
@@ -114,6 +127,14 @@ Tracking all feedback items from V2 testing. Items will be marked as completed a
 ### Priority 4 - UI/Design
 - [ ] #5 - Horse profiles match V2 wireframes
 - [ ] #18 - Correct logo
+- [x] #24 - Mobile-friendly pending invitations
+
+### Priority 5 - Admin Dashboard
+- [x] #19 - Task checkbox not working
+- [x] #20 - Average horses per barn stat
+- [x] #21 - Average users per barn stat
+- [x] #22 - Average revenue per barn stat
+- [x] #23 - Clickable barn/user details
 
 ---
 
