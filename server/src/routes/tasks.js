@@ -13,6 +13,11 @@ router.use(loadBarnContext);
 router.get('/', requireBarn, async (req, res, next) => {
   try {
     const { status, assigneeId, horseId, startDate, endDate, myTasks, page = 1, limit = 50 } = req.query;
+    const user = req.user;
+
+    // Boarders can only see tasks assigned to them
+    const isBoarder = user.accountType === 'boarder' ||
+      (req.barnRole && req.barnRole.role === 'boarder');
 
     const filter = {
       barnId: req.barnId,
@@ -23,8 +28,10 @@ router.get('/', requireBarn, async (req, res, next) => {
       })
     };
 
-    // Filter by assignee
-    if (myTasks === 'true') {
+    // Boarders only see their own tasks
+    if (isBoarder) {
+      filter['assignees.id'] = req.userId;
+    } else if (myTasks === 'true') {
       filter['assignees.id'] = req.userId;
     } else if (assigneeId) {
       filter['assignees.id'] = assigneeId;

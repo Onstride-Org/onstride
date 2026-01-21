@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { Home, FileText, CheckSquare, Calendar, UserCheck, Users, Settings, Menu, X, LogOut } from 'lucide-react';
@@ -6,26 +6,36 @@ import { HorseIcon } from '../components/icons/HorseIcon';
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, barns, currentBarnId, switchBarn, logout } = useAuthStore();
+  const { user, barns, currentBarnId, currentBarnRole, switchBarn, logout } = useAuthStore();
   const navigate = useNavigate();
 
   const currentBarn = barns.find(b => b.id === currentBarnId);
+
+  // Check if user is staff (not a boarder/client)
+  const isStaff = useMemo(() => {
+    if (!currentBarnRole) return false;
+    return !['boarder'].includes(currentBarnRole.role);
+  }, [currentBarnRole]);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
-  const navItems = [
-    { path: '/dashboard', icon: 'home', label: 'Dashboard' },
-    { path: '/horses', icon: 'horse', label: 'Horses' },
-    { path: '/invoices', icon: 'invoice', label: 'Invoices' },
-    { path: '/tasks', icon: 'tasks', label: 'Tasks' },
-    { path: '/lessons', icon: 'calendar', label: 'Lessons' },
-    { path: '/vendors', icon: 'vendor', label: 'Vendors' },
-    { path: '/users', icon: 'users', label: 'Users' },
-    { path: '/settings', icon: 'settings', label: 'Settings' },
+  // Base nav items for all users
+  const allNavItems = [
+    { path: '/dashboard', icon: 'home', label: 'Dashboard', staffOnly: false },
+    { path: '/horses', icon: 'horse', label: 'Horses', staffOnly: false },
+    { path: '/invoices', icon: 'invoice', label: 'Invoices', staffOnly: false },
+    { path: '/tasks', icon: 'tasks', label: 'Tasks', staffOnly: false },
+    { path: '/lessons', icon: 'calendar', label: 'Lessons', staffOnly: false },
+    { path: '/vendors', icon: 'vendor', label: 'Vendors', staffOnly: true },
+    { path: '/users', icon: 'users', label: 'Users', staffOnly: true },
+    { path: '/settings', icon: 'settings', label: 'Settings', staffOnly: false },
   ];
+
+  // Filter nav items based on role
+  const navItems = allNavItems.filter(item => !item.staffOnly || isStaff);
 
   const getIcon = (icon: string) => {
     const iconProps = { size: 20, strokeWidth: 2 };

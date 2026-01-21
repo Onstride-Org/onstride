@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { invoicesApi } from '../../services/api';
+import { useAuthStore } from '../../stores/authStore';
 import { Invoice, InvoiceStatus } from '../../types';
 import { format } from 'date-fns';
 import { CreditCard, DollarSign, RefreshCw, X } from 'lucide-react';
@@ -9,11 +10,15 @@ export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { currentBarnRole } = useAuthStore();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
+
+  // Check if user is staff (not a boarder/client)
+  const isStaff = currentBarnRole && !['boarder'].includes(currentBarnRole.role);
 
   const loadInvoice = async () => {
     if (!id) return;
@@ -213,18 +218,22 @@ export default function InvoiceDetailPage() {
                     </>
                   )}
                 </button>
-                <button
-                  className="btn btn-outline"
-                  onClick={() => setShowPaymentOptions(true)}
-                  disabled={isProcessing}
-                >
-                  <DollarSign size={18} />
-                  Record Payment
-                </button>
-                <button className="btn btn-outline btn-danger" onClick={handleCancel}>
-                  <X size={18} />
-                  Cancel
-                </button>
+                {isStaff && (
+                  <>
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => setShowPaymentOptions(true)}
+                      disabled={isProcessing}
+                    >
+                      <DollarSign size={18} />
+                      Record Payment
+                    </button>
+                    <button className="btn btn-outline btn-danger" onClick={handleCancel}>
+                      <X size={18} />
+                      Cancel
+                    </button>
+                  </>
+                )}
               </>
             )}
             {invoice.status === 'processing' && (
@@ -237,7 +246,7 @@ export default function InvoiceDetailPage() {
                 Refresh Status
               </button>
             )}
-            {invoice.status === 'paid' && (invoice as any).windcavePaymentInfo?.transactionId && (
+            {isStaff && invoice.status === 'paid' && (invoice as any).windcavePaymentInfo?.transactionId && (
               <button
                 className="btn btn-outline btn-danger"
                 onClick={handleRefund}

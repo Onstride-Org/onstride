@@ -74,8 +74,14 @@ const loadBarnContext = async (req, res, next) => {
       req.barnId = barnId;
       req.barnRole = role;
     } else if (req.user?.barnId) {
-      // Fall back to user's default barn
+      // Fall back to user's default barn - also load their role
       req.barnId = req.user.barnId;
+      const role = await UserBarnRole.findOne({
+        userId: req.userId,
+        barnId: req.user.barnId,
+        status: 'active'
+      });
+      req.barnRole = role;
     }
 
     next();

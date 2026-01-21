@@ -1,18 +1,23 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { horsesApi, usersApi } from '../../services/api';
+import { useAuthStore } from '../../stores/authStore';
 import { Horse, User } from '../../types';
 import { Plus, Search, X } from 'lucide-react';
 import { HorseIcon } from '../../components/icons/HorseIcon';
 import FilterTabs from '../../components/FilterTabs';
 
 export default function HorsesPage() {
+  const { currentBarnRole } = useAuthStore();
   const [horses, setHorses] = useState<Horse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
+
+  // Check if user is staff
+  const isStaff = currentBarnRole && !['boarder'].includes(currentBarnRole.role);
 
   const loadHorses = async () => {
     try {
@@ -50,13 +55,15 @@ export default function HorsesPage() {
     <div className="page horses-page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Horses</h1>
-          <p className="page-subtitle">{pagination.total} horses in your barn</p>
+          <h1 className="page-title">{isStaff ? 'Horses' : 'My Horses'}</h1>
+          <p className="page-subtitle">{pagination.total} horse{pagination.total !== 1 ? 's' : ''}{isStaff ? ' in your barn' : ''}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-          <Plus size={20} />
-          Add Horse
-        </button>
+        {isStaff && (
+          <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+            <Plus size={20} />
+            Add Horse
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -99,7 +106,7 @@ export default function HorsesPage() {
               ? 'Try adjusting your filters'
               : 'Add your first horse to get started'}
           </p>
-          {!search && statusFilter === 'all' && (
+          {isStaff && !search && statusFilter === 'all' && (
             <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
               Add Horse
             </button>

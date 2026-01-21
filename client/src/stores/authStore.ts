@@ -9,10 +9,15 @@ interface TwoFactorState {
   phoneLastFour: string | null;
 }
 
+interface BarnRole {
+  role: string;
+}
+
 interface AuthState {
   user: User | null;
   barns: Barn[];
   currentBarnId: string | null;
+  currentBarnRole: BarnRole | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -34,6 +39,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   barns: [],
   currentBarnId: getCurrentBarn(),
+  currentBarnRole: null,
   isAuthenticated: false,
   isLoading: true,
   error: null,
@@ -72,10 +78,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         setCurrentBarn(primaryBarn.id);
       }
 
+      const currentBarn = primaryBarn || response.barns[0];
       set({
         user: response.user,
         barns: response.barns,
-        currentBarnId: primaryBarn?.id || response.barns[0]?.id || null,
+        currentBarnId: currentBarn?.id || null,
+        currentBarnRole: currentBarn?.role ? { role: currentBarn.role } : null,
         isAuthenticated: true,
         isLoading: false,
         twoFactor: { required: false, userId: null, method: null, phoneLastFour: null },
@@ -108,10 +116,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         setCurrentBarn(primaryBarn.id);
       }
 
+      const currentBarn = primaryBarn || response.barns[0];
       set({
         user: response.user,
         barns: response.barns,
-        currentBarnId: primaryBarn?.id || response.barns[0]?.id || null,
+        currentBarnId: currentBarn?.id || null,
+        currentBarnRole: currentBarn?.role ? { role: currentBarn.role } : null,
         isAuthenticated: true,
         isLoading: false,
         twoFactor: { required: false, userId: null, method: null, phoneLastFour: null },
@@ -165,6 +175,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: response.user,
         barns: [{ id: response.user.barnId, name: data.barnName || `${data.name}'s Barn`, ownerId: response.user.id, role: 'owner' as const, isPrimary: true }],
         currentBarnId: response.user.barnId,
+        currentBarnRole: { role: 'owner' },
         isAuthenticated: true,
         isLoading: false,
       });
@@ -189,6 +200,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: null,
         barns: [],
         currentBarnId: null,
+        currentBarnRole: null,
         isAuthenticated: false,
         isLoading: false,
       });
@@ -215,10 +227,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
 
+      // Get role for current barn
+      const currentBarn = response.barns.find((b: Barn) => b.id === currentBarnId);
+      const currentBarnRole = currentBarn?.role ? { role: currentBarn.role } : null;
+
       set({
         user: response.user,
         barns: response.barns,
         currentBarnId,
+        currentBarnRole,
         isAuthenticated: true,
         isLoading: false,
       });
@@ -228,6 +245,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: null,
         barns: [],
         currentBarnId: null,
+        currentBarnRole: null,
         isAuthenticated: false,
         isLoading: false,
       });
@@ -236,7 +254,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   switchBarn: (barnId: string) => {
     setCurrentBarn(barnId);
-    set({ currentBarnId: barnId });
+    const { barns } = get();
+    const barn = barns.find(b => b.id === barnId);
+    set({
+      currentBarnId: barnId,
+      currentBarnRole: barn?.role ? { role: barn.role } : null
+    });
   },
 
   clearError: () => set({ error: null }),

@@ -1,17 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { invoicesApi, usersApi, horsesApi, billingApi } from '../../services/api';
+import { useAuthStore } from '../../stores/authStore';
 import { Invoice, InvoiceStatus, User, Horse, BillingTemplate, ChargeType } from '../../types';
 import { format } from 'date-fns';
 import { Plus, FileText, X, ChevronRight, Calendar } from 'lucide-react';
 import FilterTabs from '../../components/FilterTabs';
 
 export default function InvoicesPage() {
+  const { currentBarnRole } = useAuthStore();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | 'all'>('all');
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Check if user is staff
+  const isStaff = currentBarnRole && !['boarder'].includes(currentBarnRole.role);
 
   const loadInvoices = async () => {
     try {
@@ -49,13 +54,15 @@ export default function InvoicesPage() {
     <div className="page invoices-page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Invoices</h1>
-          <p className="page-subtitle">{pagination.total} total invoices</p>
+          <h1 className="page-title">{isStaff ? 'Invoices' : 'My Invoices'}</h1>
+          <p className="page-subtitle">{pagination.total} total invoice{pagination.total !== 1 ? 's' : ''}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
-          <Plus size={20} />
-          Create Invoice
-        </button>
+        {isStaff && (
+          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+            <Plus size={20} />
+            Create Invoice
+          </button>
+        )}
       </div>
 
       {/* Filters */}

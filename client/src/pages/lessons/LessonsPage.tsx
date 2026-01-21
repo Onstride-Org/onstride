@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { lessonsApi, usersApi, horsesApi } from '../../services/api';
+import { useAuthStore } from '../../stores/authStore';
 import { Lesson, LessonStatus, LessonType, User, Horse } from '../../types';
 import { format, parseISO } from 'date-fns';
 import { Calendar, MapPin, X, Plus } from 'lucide-react';
@@ -7,11 +8,15 @@ import { HorseIcon } from '../../components/icons/HorseIcon';
 import FilterTabs from '../../components/FilterTabs';
 
 export default function LessonsPage() {
+  const { currentBarnRole } = useAuthStore();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<LessonStatus | 'all'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
+
+  // Check if user is staff
+  const isStaff = currentBarnRole && !['boarder'].includes(currentBarnRole.role);
 
   const loadLessons = async () => {
     try {
@@ -90,13 +95,15 @@ export default function LessonsPage() {
     <div className="page lessons-page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Lessons</h1>
-          <p className="page-subtitle">{pagination.total} lessons scheduled</p>
+          <h1 className="page-title">{isStaff ? 'Lessons' : 'My Lessons'}</h1>
+          <p className="page-subtitle">{pagination.total} lesson{pagination.total !== 1 ? 's' : ''} scheduled</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-          <Plus size={20} />
-          Schedule Lesson
-        </button>
+        {isStaff && (
+          <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+            <Plus size={20} />
+            Schedule Lesson
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -187,32 +194,34 @@ export default function LessonsPage() {
                   )}
                 </div>
 
-                <div className="lesson-card-actions">
-                  {lesson.status === 'requested' && (
-                    <>
+                {isStaff && (
+                  <div className="lesson-card-actions">
+                    {lesson.status === 'requested' && (
+                      <>
+                        <button
+                          className="btn btn-sm btn-primary"
+                          onClick={() => handleApprove(lesson.id)}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline"
+                          onClick={() => handleReject(lesson.id)}
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                    {lesson.status === 'approved' && (
                       <button
-                        className="btn btn-sm btn-primary"
-                        onClick={() => handleApprove(lesson.id)}
+                        className="btn btn-sm btn-outline btn-danger"
+                        onClick={() => handleCancel(lesson.id)}
                       >
-                        Approve
+                        Cancel
                       </button>
-                      <button
-                        className="btn btn-sm btn-outline"
-                        onClick={() => handleReject(lesson.id)}
-                      >
-                        Reject
-                      </button>
-                    </>
-                  )}
-                  {lesson.status === 'approved' && (
-                    <button
-                      className="btn btn-sm btn-outline btn-danger"
-                      onClick={() => handleCancel(lesson.id)}
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

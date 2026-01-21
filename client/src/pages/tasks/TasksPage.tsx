@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { tasksApi, usersApi, horsesApi } from '../../services/api';
+import { useAuthStore } from '../../stores/authStore';
 import { Task, TaskStatus, User as UserType, Horse } from '../../types';
 import { format, isToday, isPast, parseISO } from 'date-fns';
 import { Plus, CheckSquare, Calendar, User, Trash2, X, Check, Bell } from 'lucide-react';
@@ -7,11 +8,15 @@ import { HorseIcon } from '../../components/icons/HorseIcon';
 import FilterTabs from '../../components/FilterTabs';
 
 export default function TasksPage() {
+  const { currentBarnRole } = useAuthStore();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
+
+  // Check if user is staff
+  const isStaff = currentBarnRole && !['boarder'].includes(currentBarnRole.role);
 
   const loadTasks = async () => {
     try {
@@ -64,13 +69,15 @@ export default function TasksPage() {
     <div className="page tasks-page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Tasks</h1>
-          <p className="page-subtitle">{pagination.total} tasks</p>
+          <h1 className="page-title">{isStaff ? 'Tasks' : 'My Tasks'}</h1>
+          <p className="page-subtitle">{pagination.total} task{pagination.total !== 1 ? 's' : ''}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-          <Plus size={20} />
-          Add Task
-        </button>
+        {isStaff && (
+          <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+            <Plus size={20} />
+            Add Task
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -159,12 +166,14 @@ export default function TasksPage() {
                 </div>
               </div>
 
-              <button
-                className="btn btn-ghost btn-sm btn-danger"
-                onClick={() => handleDelete(task.id)}
-              >
-                <Trash2 size={16} />
-              </button>
+              {isStaff && (
+                <button
+                  className="btn btn-ghost btn-sm btn-danger"
+                  onClick={() => handleDelete(task.id)}
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
             </div>
           ))}
 

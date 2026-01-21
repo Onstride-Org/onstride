@@ -16,12 +16,25 @@ router.use(loadBarnContext);
 router.get('/', requireBarn, async (req, res, next) => {
   try {
     const { status, boarderId, search, page = 1, limit = 50 } = req.query;
+    const user = req.user;
+
+    // Boarders can only see horses linked to them (as owner or boarder)
+    const isBoarder = user.accountType === 'boarder' ||
+      (req.barnRole && req.barnRole.role === 'boarder');
 
     const filter = {
       barnId: req.barnId,
       ...(status && { status }),
       ...(boarderId && { boarderId })
     };
+
+    // Boarders only see their own horses
+    if (isBoarder) {
+      filter.$or = [
+        { boarderId: req.userId },
+        { ownerId: req.userId }
+      ];
+    }
 
     let horses = await Horse.find(filter)
       .populate('boarderId', 'name email')
