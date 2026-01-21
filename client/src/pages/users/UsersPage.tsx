@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { usersApi, invitationsApi } from '../../services/api';
 import { User, AccountType } from '../../types';
-import { UserPlus, Search, Users, MoreHorizontal, X, CheckCircle, Link2, Copy, Mail, Clock, RefreshCw, Trash2, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
+import { UserPlus, Search, Users, MoreHorizontal, X, CheckCircle, Link2, Copy, Mail, Clock, RefreshCw, Trash2, ChevronDown, ChevronUp, Share2, Edit, UserMinus } from 'lucide-react';
+import { useAuthStore } from '../../stores/authStore';
 import FilterTabs from '../../components/FilterTabs';
 
 interface Invitation {
@@ -20,6 +21,7 @@ interface Invitation {
 }
 
 export default function UsersPage() {
+  const { user: currentUser } = useAuthStore();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState<AccountType | 'all'>('all');
@@ -29,6 +31,8 @@ export default function UsersPage() {
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
   const [pendingInvitations, setPendingInvitations] = useState<Invitation[]>([]);
   const [showInvitations, setShowInvitations] = useState(true);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const loadUsers = async () => {
     try {
@@ -75,10 +79,31 @@ export default function UsersPage() {
     }
   };
 
+  const handleRemoveUser = async (userId: string, userName: string) => {
+    if (!confirm(`Remove ${userName} from this barn? They will lose access but can be re-invited later.`)) return;
+    try {
+      await usersApi.remove(userId);
+      loadUsers();
+      setActiveDropdown(null);
+    } catch (error: any) {
+      console.error('Failed to remove user:', error);
+      alert(error.response?.data?.error || 'Failed to remove user');
+    }
+  };
+
   useEffect(() => {
     loadUsers();
     loadPendingInvitations();
   }, [pagination.page, roleFilter]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setActiveDropdown(null);
+    if (activeDropdown) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [activeDropdown]);
 
   useEffect(() => {
     const debounce = setTimeout(() => {
@@ -360,9 +385,40 @@ export default function UsersPage() {
                       )}
                     </td>
                     <td>
-                      <button className="btn btn-ghost btn-sm">
-                        <MoreHorizontal size={16} />
-                      </button>
+                      <div className="dropdown-container">
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDropdown(activeDropdown === user.id ? null : user.id);
+                          }}
+                        >
+                          <MoreHorizontal size={16} />
+                        </button>
+                        {activeDropdown === user.id && (
+                          <div className="dropdown-menu dropdown-menu-right">
+                            <button
+                              className="dropdown-item"
+                              onClick={() => {
+                                setEditingUser(user);
+                                setActiveDropdown(null);
+                              }}
+                            >
+                              <Edit size={14} />
+                              Edit Role
+                            </button>
+                            {user.id !== currentUser?.id && user.accountType !== 'owner' && (
+                              <button
+                                className="dropdown-item text-error"
+                                onClick={() => handleRemoveUser(user.id, user.name)}
+                              >
+                                <UserMinus size={14} />
+                                Remove from Barn
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -410,6 +466,17 @@ export default function UsersPage() {
           onClose={() => setShowBulkInviteModal(false)}
           onSuccess={() => {
             loadPendingInvitations();
+          }}
+        />
+      )}
+
+      {editingUser && (
+        <EditUserRoleModal
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSuccess={() => {
+            setEditingUser(null);
+            loadUsers();
           }}
         />
       )}
@@ -765,6 +832,94 @@ function BulkInviteModal({
             </button>
             <button type="submit" className="btn btn-primary" disabled={isLoading}>
               {isLoading ? 'Generating...' : 'Generate Link'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditUserRoleModal({
+  user,
+  onClose,
+  onSuccess,
+}: {
+  user: User;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [role, setRole] = useState<AccountType>(user.accountType);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const roles: { value: AccountType; label: string }[] = [
+    { value: 'manager', label: 'Manager' },
+    { value: 'trainer', label: 'Trainer' },
+    { value: 'boarder', label: 'Boarder' },
+    { value: 'groomer', label: 'Groomer' },
+  ];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    try {
+      await usersApi.updatePermissions(user.id, { role });
+      onSuccess();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to update user role');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">Edit User Role</h2>
+          <button className="btn btn-ghost modal-close" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body">
+            {error && (
+              <div className="alert alert-error mb-4">
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label className="form-label">User</label>
+              <p className="text-muted">{user.name} ({user.email})</p>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Role</label>
+              <select
+                className="form-select"
+                value={role}
+                onChange={(e) => setRole(e.target.value as AccountType)}
+              >
+                {roles.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={isLoading}>
+              {isLoading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>

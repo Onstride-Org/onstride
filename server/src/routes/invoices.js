@@ -6,6 +6,8 @@ const Barn = require('../models/Barn');
 const { authenticate, loadBarnContext, requireBarn, hasPermission, ownsResourceOrStaff } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const windcave = require('../services/windcave');
+const emailService = require('../services/email');
+const { format } = require('date-fns');
 
 const router = express.Router();
 
@@ -41,7 +43,7 @@ router.get('/', requireBarn, async (req, res, next) => {
     const total = await Invoice.countDocuments(filter);
 
     res.json({
-      invoices,
+      data: invoices,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -115,6 +117,24 @@ router.post('/', [
     const populated = await Invoice.findById(invoice._id)
       .populate('boarderId', 'name email')
       .populate('horseId', 'name');
+
+    // Send email notification to boarder
+    if (populated.boarderId?.email) {
+      try {
+        const barn = await Barn.findById(req.barnId);
+        await emailService.sendInvoiceEmail({
+          to: populated.boarderId.email,
+          name: populated.boarderId.name,
+          barnName: barn?.name || 'Your Barn',
+          invoiceId: populated._id.toString(),
+          amount: subtotal,
+          dueDate: format(new Date(dueDate), 'MMMM d, yyyy')
+        });
+      } catch (emailError) {
+        console.error('Failed to send invoice email:', emailError.message);
+        // Don't fail the request if email fails
+      }
+    }
 
     res.status(201).json(populated);
   } catch (error) {

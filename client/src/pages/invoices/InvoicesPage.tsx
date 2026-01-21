@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { invoicesApi, usersApi, horsesApi, billingApi } from '../../services/api';
 import { Invoice, InvoiceStatus, User, Horse, BillingTemplate, ChargeType } from '../../types';
 import { format } from 'date-fns';
-import { Plus, FileText, X } from 'lucide-react';
+import { Plus, FileText, X, ChevronRight, Calendar } from 'lucide-react';
 import FilterTabs from '../../components/FilterTabs';
 
 export default function InvoicesPage() {
@@ -97,43 +97,40 @@ export default function InvoicesPage() {
         </div>
       ) : (
         <>
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Boarder</th>
-                  <th>Horse</th>
-                  <th>Amount</th>
-                  <th>Due Date</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map((invoice) => (
-                  <tr key={invoice.id}>
-                    <td>
-                      <span className="font-medium">{invoice.boarder?.name || 'Unknown'}</span>
-                    </td>
-                    <td>{invoice.horse?.name || '-'}</td>
-                    <td className="font-medium">${invoice.subtotal.toFixed(2)}</td>
-                    <td>{format(new Date(invoice.dueDate), 'MMM d, yyyy')}</td>
-                    <td>
-                      <span className={`badge badge-${getStatusBadge(invoice.status)}`}>
-                        {invoice.status}
+          <div className="invoice-cards">
+            {invoices.map((invoice) => (
+              <Link
+                key={invoice.id}
+                to={`/invoices/${invoice.id}`}
+                className="invoice-card"
+              >
+                <div className="invoice-card-main">
+                  <div className="invoice-card-info">
+                    <div className="invoice-card-header">
+                      <span className="invoice-card-name">
+                        {invoice.boarder?.name || 'Unknown'}
                       </span>
-                    </td>
-                    <td>{format(new Date(invoice.createdAt), 'MMM d, yyyy')}</td>
-                    <td>
-                      <Link to={`/invoices/${invoice.id}`} className="btn btn-ghost btn-sm">
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <span className={`badge badge-${getStatusBadge(invoice.status)}`}>
+                        {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                      </span>
+                    </div>
+                    {invoice.horse?.name && (
+                      <span className="invoice-card-horse">{invoice.horse.name}</span>
+                    )}
+                    <div className="invoice-card-meta">
+                      <span className="invoice-card-date">
+                        <Calendar size={14} />
+                        Due {format(new Date(invoice.dueDate), 'MMM d, yyyy')}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="invoice-card-amount">
+                    <span className="amount">${invoice.subtotal.toFixed(2)}</span>
+                    <ChevronRight size={20} className="chevron" />
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
 
           {pagination.pages > 1 && (

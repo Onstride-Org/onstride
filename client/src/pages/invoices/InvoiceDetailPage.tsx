@@ -160,6 +160,16 @@ export default function InvoiceDetailPage() {
 
   const total = invoice.charges.reduce((sum, charge) => sum + charge.amount * charge.quantity, 0);
 
+  const formatPaymentMethod = (method: string) => {
+    const methods: Record<string, string> = {
+      card: 'Credit/Debit Card',
+      cash: 'Cash',
+      check: 'Check',
+      other: 'Other',
+    };
+    return methods[method] || method;
+  };
+
   return (
     <div className="page invoice-detail-page">
       {/* Header */}
@@ -173,12 +183,14 @@ export default function InvoiceDetailPage() {
 
         <div className="detail-header-content">
           <div className="detail-info">
-            <h1 className="detail-title">Invoice for {invoice.boarder?.name}</h1>
+            <h1 className="detail-title">
+              Invoice #{invoice.id?.slice(-6).toUpperCase() || 'N/A'}
+            </h1>
             <p className="detail-subtitle">
-              Created {format(new Date(invoice.createdAt), 'MMMM d, yyyy')}
+              {invoice.boarder?.name || 'Unknown Boarder'} • Created {format(new Date(invoice.createdAt), 'MMM d, yyyy')}
             </p>
             <span className={`badge badge-${getStatusBadge(invoice.status)}`}>
-              {invoice.status}
+              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
             </span>
           </div>
           <div className="detail-actions">
@@ -222,7 +234,7 @@ export default function InvoiceDetailPage() {
                 disabled={isProcessing}
               >
                 <RefreshCw size={18} />
-                Check Status
+                Refresh Status
               </button>
             )}
             {invoice.status === 'paid' && (invoice as any).windcavePaymentInfo?.transactionId && (
@@ -261,82 +273,93 @@ export default function InvoiceDetailPage() {
       <div className="invoice-content">
         {/* Invoice Info */}
         <div className="card">
-          <h3 className="card-title">Invoice Details</h3>
-          <dl className="detail-list">
-            <dt>Boarder</dt>
-            <dd>{invoice.boarder?.name || 'Unknown'}</dd>
+          <div className="card-header">
+            <h3>Invoice Details</h3>
+          </div>
+          <div className="card-body">
+            <dl className="detail-list">
+              <dt>Bill To</dt>
+              <dd>{invoice.boarder?.name || 'Unknown'}</dd>
 
-            {invoice.horse && (
-              <>
-                <dt>Horse</dt>
-                <dd>{invoice.horse.name}</dd>
-              </>
-            )}
+              {invoice.horse && (
+                <>
+                  <dt>Horse</dt>
+                  <dd>{invoice.horse.name}</dd>
+                </>
+              )}
 
-            <dt>Due Date</dt>
-            <dd>{format(new Date(invoice.dueDate), 'MMMM d, yyyy')}</dd>
+              <dt>Due Date</dt>
+              <dd>{format(new Date(invoice.dueDate), 'MMMM d, yyyy')}</dd>
 
-            {invoice.method && (
-              <>
-                <dt>Payment Method</dt>
-                <dd>{invoice.method}</dd>
-              </>
-            )}
-          </dl>
+              {invoice.status === 'paid' && invoice.paidAt && (
+                <>
+                  <dt>Paid On</dt>
+                  <dd>{format(new Date(invoice.paidAt), 'MMMM d, yyyy')}</dd>
+                </>
+              )}
+
+              {invoice.method && (
+                <>
+                  <dt>Payment Method</dt>
+                  <dd>{formatPaymentMethod(invoice.method)}</dd>
+                </>
+              )}
+            </dl>
+          </div>
         </div>
 
         {/* Charges */}
         <div className="card">
-          <h3 className="card-title">Charges</h3>
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Description</th>
-                  <th>Type</th>
-                  <th>Quantity</th>
-                  <th>Amount</th>
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.charges.map((charge, index) => (
-                  <tr key={charge.id || index}>
-                    <td>{charge.description}</td>
-                    <td>
-                      <span className="badge badge-outline">{charge.type}</span>
-                    </td>
-                    <td>{charge.quantity}</td>
-                    <td>${charge.amount.toFixed(2)}</td>
-                    <td className="font-medium">
-                      ${(charge.amount * charge.quantity).toFixed(2)}
-                    </td>
+          <div className="card-header">
+            <h3>Charges</h3>
+          </div>
+          <div className="card-body" style={{ padding: 0 }}>
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th>Type</th>
+                    <th className="text-center">Qty</th>
+                    <th className="text-right">Rate</th>
+                    <th className="text-right">Amount</th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan={4} className="text-right font-medium">Subtotal</td>
-                  <td className="font-medium">${total.toFixed(2)}</td>
-                </tr>
-                {invoice.paymentBreakdown && (
-                  <>
-                    {(invoice.paymentBreakdown.processingFee || invoice.paymentBreakdown.stripeFee) && (
-                      <tr>
-                        <td colSpan={4} className="text-right text-muted">Processing Fee (internal)</td>
-                        <td className="text-muted">
-                          ${(invoice.paymentBreakdown.processingFee || invoice.paymentBreakdown.stripeFee || 0).toFixed(2)}
-                        </td>
-                      </tr>
-                    )}
-                    <tr>
-                      <td colSpan={4} className="text-right font-bold">Total Due</td>
-                      <td className="font-bold">${invoice.paymentBreakdown.total.toFixed(2)}</td>
+                </thead>
+                <tbody>
+                  {invoice.charges.map((charge, index) => (
+                    <tr key={charge.id || index}>
+                      <td>{charge.description}</td>
+                      <td>
+                        <span className="badge badge-outline">
+                          {charge.type.charAt(0).toUpperCase() + charge.type.slice(1)}
+                        </span>
+                      </td>
+                      <td className="text-center">{charge.quantity}</td>
+                      <td className="text-right">${charge.amount.toFixed(2)}</td>
+                      <td className="text-right font-medium">
+                        ${(charge.amount * charge.quantity).toFixed(2)}
+                      </td>
                     </tr>
-                  </>
-                )}
-              </tfoot>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="invoice-totals">
+              <div className="invoice-total-row">
+                <span>Subtotal</span>
+                <span className="font-medium">${total.toFixed(2)}</span>
+              </div>
+              {invoice.paymentBreakdown && (invoice.paymentBreakdown.processingFee || invoice.paymentBreakdown.stripeFee) && (
+                <div className="invoice-total-row text-muted">
+                  <span>Processing Fee</span>
+                  <span>${(invoice.paymentBreakdown.processingFee || invoice.paymentBreakdown.stripeFee || 0).toFixed(2)}</span>
+                </div>
+              )}
+              <div className="invoice-total-row invoice-total-final">
+                <span>Total {invoice.status === 'paid' ? 'Paid' : 'Due'}</span>
+                <span>${invoice.paymentBreakdown?.total?.toFixed(2) || total.toFixed(2)}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

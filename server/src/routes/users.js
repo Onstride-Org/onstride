@@ -30,6 +30,8 @@ router.get('/', requireBarn, async (req, res, next) => {
         name: r.userId.name,
         email: r.userId.email,
         avatarUrl: r.userId.avatarUrl,
+        phoneNumber: r.userId.phoneNumber,
+        emailVerified: r.userId.emailVerified,
         role: r.role,
         permissions: r.permissions,
         title: r.title,
