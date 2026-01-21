@@ -7,7 +7,14 @@ const { authenticate, loadBarnContext, requireBarn, hasPermission, ownsResourceO
 const validate = require('../middleware/validate');
 const windcave = require('../services/windcave');
 const emailService = require('../services/email');
-const { format } = require('date-fns');
+
+// Simple date formatter
+const formatDate = (date) => {
+  const d = new Date(date);
+  const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                  'July', 'August', 'September', 'October', 'November', 'December'];
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+};
 
 const router = express.Router();
 
@@ -128,7 +135,7 @@ router.post('/', [
           barnName: barn?.name || 'Your Barn',
           invoiceId: populated._id.toString(),
           amount: subtotal,
-          dueDate: format(new Date(dueDate), 'MMMM d, yyyy')
+          dueDate: formatDate(dueDate)
         });
       } catch (emailError) {
         console.error('Failed to send invoice email:', emailError.message);
