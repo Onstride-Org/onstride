@@ -449,6 +449,96 @@ The OnStride Team
   return sendEmail({ to, subject, text, html });
 };
 
+/**
+ * Send email verification email
+ * @param {Object} options
+ * @param {string} options.to - Recipient email
+ * @param {string} options.name - User's name
+ * @param {string} options.token - Verification token
+ */
+const sendEmailVerificationEmail = async ({ to, name, token }) => {
+  const verifyUrl = `${CLIENT_URL}/verify-email/${token}`;
+
+  const subject = 'Verify your OnStride email';
+
+  const text = `
+Hi ${name || 'there'},
+
+Thanks for signing up for OnStride! Please verify your email address by clicking the link below:
+
+${verifyUrl}
+
+This link will expire in 24 hours.
+
+If you didn't create an account, you can safely ignore this email.
+
+Best regards,
+The OnStride Team
+  `.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your Email</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <tr>
+      <td style="background-color: #ffffff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h1 style="color: #1a1a1a; font-size: 24px; margin: 0 0 20px 0;">Verify Your Email</h1>
+
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+          Hi ${name || 'there'},
+        </p>
+
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+          Thanks for signing up for OnStride! Please verify your email address by clicking the button below.
+        </p>
+
+        <table role="presentation" cellspacing="0" cellpadding="0" style="margin: 0 auto 30px auto;">
+          <tr>
+            <td style="background-color: #2563eb; border-radius: 6px;">
+              <a href="${verifyUrl}" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600;">
+                Verify Email
+              </a>
+            </td>
+          </tr>
+        </table>
+
+        <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 0 0 10px 0;">
+          This link will expire in 24 hours.
+        </p>
+
+        <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
+          If the button doesn't work, copy and paste this link into your browser:<br>
+          <a href="${verifyUrl}" style="color: #2563eb; word-break: break-all;">${verifyUrl}</a>
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+          If you didn't create an account, you can safely ignore this email.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px; text-align: center;">
+        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+          &copy; ${new Date().getFullYear()} OnStride. All rights reserved.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  return sendEmail({ to, subject, text, html });
+};
+
 module.exports = {
   isConfigured,
   sendEmail,
@@ -456,4 +546,5 @@ module.exports = {
   sendPasswordResetEmail,
   sendWelcomeEmail,
   sendInvoiceEmail,
+  sendEmailVerificationEmail,
 };

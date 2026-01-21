@@ -84,32 +84,28 @@ router.post('/register', [
       status: 'active'
     });
 
-    // Generate tokens
-    const { accessToken, refreshToken } = generateTokens(user._id);
+    // Generate email verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
 
-    // Save refresh token
-    user.refreshToken = refreshToken;
+    user.emailVerificationToken = hashedToken;
+    user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
     await user.save();
 
-    // Send welcome email (non-blocking)
-    emailService.sendWelcomeEmail({
+    // Send verification email (non-blocking)
+    emailService.sendEmailVerificationEmail({
       to: user.email,
       name: user.name,
-      barnName: barn.name
+      token: verificationToken
     }).catch(err => {
-      console.error('Failed to send welcome email:', err.message);
+      console.error('Failed to send verification email:', err.message);
     });
 
+    // Return success without tokens - user must verify email first
     res.status(201).json({
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        accountType: user.accountType,
-        barnId: user.barnId
-      },
-      accessToken,
-      refreshToken
+      message: 'Registration successful. Please check your email to verify your account.',
+      email: user.email,
+      requiresVerification: true
     });
   } catch (error) {
     next(error);
@@ -135,6 +131,34 @@ router.post('/login', [
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Check if email is verified
+    if (!user.emailVerified) {
+      // Generate new verification token if expired or missing
+      if (!user.emailVerificationToken || !user.emailVerificationExpires || user.emailVerificationExpires < Date.now()) {
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+
+        user.emailVerificationToken = hashedToken;
+        user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+        await user.save();
+
+        // Send verification email (non-blocking)
+        emailService.sendEmailVerificationEmail({
+          to: user.email,
+          name: user.name,
+          token: verificationToken
+        }).catch(err => {
+          console.error('Failed to send verification email:', err.message);
+        });
+      }
+
+      return res.status(403).json({
+        error: 'Email not verified. Please check your email for a verification link.',
+        code: 'EMAIL_NOT_VERIFIED',
+        email: user.email
+      });
     }
 
     // Check if 2FA is enabled
@@ -463,6 +487,54 @@ router.post('/verify-email', [
     await user.save();
 
     res.json({ message: 'Email verified successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Resend verification email
+router.post('/resend-verification', [
+  body('email').isEmail().normalizeEmail(),
+  validate
+], async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email, deletedAt: null });
+    if (!user) {
+      // Don't reveal if user exists
+      return res.json({ message: 'If an account exists, a verification email has been sent' });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({ error: 'Email is already verified' });
+    }
+
+    // Rate limit: check if we recently sent an email (within last 2 minutes)
+    if (user.emailVerificationExpires) {
+      const timeSinceLastSend = (user.emailVerificationExpires - Date.now()) + (24 * 60 * 60 * 1000);
+      const twoMinutesAgo = 24 * 60 * 60 * 1000 - (2 * 60 * 1000);
+      if (timeSinceLastSend > twoMinutesAgo) {
+        return res.status(429).json({ error: 'Please wait 2 minutes before requesting another email' });
+      }
+    }
+
+    // Generate new verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+
+    user.emailVerificationToken = hashedToken;
+    user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+    await user.save();
+
+    // Send verification email
+    await emailService.sendEmailVerificationEmail({
+      to: user.email,
+      name: user.name,
+      token: verificationToken
+    });
+
+    res.json({ message: 'Verification email sent' });
   } catch (error) {
     next(error);
   }

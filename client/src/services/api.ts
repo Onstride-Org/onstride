@@ -162,6 +162,11 @@ export const authApi = {
     return response.data;
   },
 
+  resendVerificationEmail: async (email: string) => {
+    const response = await api.post('/auth/resend-verification', { email });
+    return response.data;
+  },
+
   // 2FA Management
   get2FAStatus: async () => {
     const response = await api.get('/auth/2fa/status');

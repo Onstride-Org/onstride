@@ -30,8 +30,15 @@ export default function LoginPage() {
       if (!result?.requiresTwoFactor) {
         navigate('/dashboard');
       }
-    } catch {
-      // Error is handled by the store
+    } catch (err: any) {
+      // Check for email not verified error
+      if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+        navigate('/verification-required', {
+          state: { email: err.response.data.email || email }
+        });
+        return;
+      }
+      // Other errors are handled by the store
     }
   };
 

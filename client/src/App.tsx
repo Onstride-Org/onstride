@@ -12,6 +12,8 @@ import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import AcceptInvitePage from './pages/auth/AcceptInvitePage';
+import VerifyEmailPage from './pages/auth/VerifyEmailPage';
+import VerificationRequiredPage from './pages/auth/VerificationRequiredPage';
 
 // App Pages
 import DashboardPage from './pages/DashboardPage';
@@ -127,6 +129,22 @@ function App() {
         element={
           <AuthLayout>
             <AcceptInvitePage />
+          </AuthLayout>
+        }
+      />
+      <Route
+        path="/verify-email/:token"
+        element={
+          <AuthLayout>
+            <VerifyEmailPage />
+          </AuthLayout>
+        }
+      />
+      <Route
+        path="/verification-required"
+        element={
+          <AuthLayout>
+            <VerificationRequiredPage />
           </AuthLayout>
         }
       />
