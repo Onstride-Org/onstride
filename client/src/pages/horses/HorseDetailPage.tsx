@@ -113,7 +113,7 @@ export default function HorseDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="tabs">
+      <div className="tabs horse-tabs">
         <button
           className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveTab('overview')}
@@ -124,19 +124,22 @@ export default function HorseDetailPage() {
           className={`tab ${activeTab === 'rideLogs' ? 'active' : ''}`}
           onClick={() => setActiveTab('rideLogs')}
         >
-          Ride Logs
+          <span className="tab-label-short">Rides</span>
+          <span className="tab-label-full">Ride Logs</span>
         </button>
         <button
           className={`tab ${activeTab === 'documents' ? 'active' : ''}`}
           onClick={() => setActiveTab('documents')}
         >
-          Documents
+          <span className="tab-label-short">Docs</span>
+          <span className="tab-label-full">Documents</span>
         </button>
         <button
           className={`tab ${activeTab === 'health' ? 'active' : ''}`}
           onClick={() => setActiveTab('health')}
         >
-          Health Info
+          <span className="tab-label-short">Health</span>
+          <span className="tab-label-full">Health Info</span>
         </button>
       </div>
 
@@ -193,146 +196,154 @@ function OverviewTab({ horse, rideLogs }: { horse: Horse; rideLogs: RideLog[] })
   const stats = horse.rideStats;
 
   return (
-    <div className="overview-tab">
+    <div className="horse-overview">
       {/* Ride Stats */}
-      <div className="card">
-        <h3 className="card-title">Ride Statistics</h3>
-        <div className="stats-row">
-          <div className="stat">
-            <span className="stat-value">{stats?.totalRides || 0}</span>
-            <span className="stat-label">Total Rides</span>
+      <section className="horse-section">
+        <h3 className="horse-section-title">Ride Statistics</h3>
+        <div className="horse-stats-grid">
+          <div className="horse-stat-item">
+            <span className="horse-stat-value">{stats?.totalRides || 0}</span>
+            <span className="horse-stat-label">Total Rides</span>
           </div>
-          <div className="stat">
-            <span className="stat-value">{stats?.totalMinutes || 0}</span>
-            <span className="stat-label">Total Minutes</span>
+          <div className="horse-stat-item">
+            <span className="horse-stat-value">{stats?.totalMinutes || 0}</span>
+            <span className="horse-stat-label">Total Minutes</span>
           </div>
-          <div className="stat">
-            <span className="stat-value">{stats?.ridesThisMonth || 0}</span>
-            <span className="stat-label">This Month</span>
+          <div className="horse-stat-item">
+            <span className="horse-stat-value">{stats?.ridesThisMonth || 0}</span>
+            <span className="horse-stat-label">This Month</span>
           </div>
-          <div className="stat">
-            <span className="stat-value">{stats?.ridesThisWeek || 0}</span>
-            <span className="stat-label">This Week</span>
+          <div className="horse-stat-item">
+            <span className="horse-stat-value">{stats?.ridesThisWeek || 0}</span>
+            <span className="horse-stat-label">This Week</span>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Horse Details */}
-      <div className="card">
-        <h3 className="card-title">Details</h3>
-        <dl className="detail-list">
+      <section className="horse-section">
+        <h3 className="horse-section-title">Details</h3>
+        <div className="horse-details-card">
           {horse.registeredName && (
-            <>
-              <dt>Registered Name</dt>
-              <dd>{horse.registeredName}</dd>
-            </>
+            <div className="horse-detail-row">
+              <span className="horse-detail-label">Registered Name</span>
+              <span className="horse-detail-value">{horse.registeredName}</span>
+            </div>
           )}
           {horse.birthday && (
-            <>
-              <dt>Birthday</dt>
-              <dd>{format(new Date(horse.birthday), 'MMMM d, yyyy')}</dd>
-            </>
+            <div className="horse-detail-row">
+              <span className="horse-detail-label">Birthday</span>
+              <span className="horse-detail-value">{format(new Date(horse.birthday), 'MMMM d, yyyy')}</span>
+            </div>
           )}
           {horse.sexStatus && (
-            <>
-              <dt>Sex/Status</dt>
-              <dd>{horse.sexStatus.label}</dd>
-            </>
+            <div className="horse-detail-row">
+              <span className="horse-detail-label">Sex/Status</span>
+              <span className="horse-detail-value">{horse.sexStatus.label}</span>
+            </div>
           )}
           {horse.boarder && (
-            <>
-              <dt>Owner</dt>
-              <dd>{horse.boarder.name}</dd>
-            </>
+            <div className="horse-detail-row">
+              <span className="horse-detail-label">Owner</span>
+              <span className="horse-detail-value">{horse.boarder.name}</span>
+            </div>
           )}
           {horse.usefNumber && (
-            <>
-              <dt>USEF Number</dt>
-              <dd>{horse.usefNumber}</dd>
-            </>
+            <div className="horse-detail-row">
+              <span className="horse-detail-label">USEF Number</span>
+              <span className="horse-detail-value">{horse.usefNumber}</span>
+            </div>
           )}
           {horse.feiNumber && (
-            <>
-              <dt>FEI Number</dt>
-              <dd>{horse.feiNumber}</dd>
-            </>
+            <div className="horse-detail-row">
+              <span className="horse-detail-label">FEI Number</span>
+              <span className="horse-detail-value">{horse.feiNumber}</span>
+            </div>
           )}
           {horse.strideNumber && (
-            <>
-              <dt>Stride Number</dt>
-              <dd>{horse.strideNumber}</dd>
-            </>
+            <div className="horse-detail-row">
+              <span className="horse-detail-label">Stride Number</span>
+              <span className="horse-detail-value">{horse.strideNumber}</span>
+            </div>
           )}
-        </dl>
-      </div>
+          {!horse.registeredName && !horse.birthday && !horse.sexStatus && !horse.boarder && !horse.usefNumber && !horse.feiNumber && !horse.strideNumber && (
+            <p className="horse-empty-text">No details added yet. Click "Edit" to add information.</p>
+          )}
+        </div>
+      </section>
 
       {/* Notes */}
-      <div className="card">
-        <h3 className="card-title">Notes</h3>
-        {horse.notes ? (
-          <p className="horse-notes" style={{ whiteSpace: 'pre-wrap' }}>{horse.notes}</p>
-        ) : (
-          <p className="text-muted">No notes added. Click "Edit" to add notes about this horse.</p>
-        )}
-      </div>
+      <section className="horse-section">
+        <h3 className="horse-section-title">Notes</h3>
+        <div className="horse-notes-card">
+          {horse.notes ? (
+            <p className="horse-notes-text">{horse.notes}</p>
+          ) : (
+            <p className="horse-empty-text">No notes added. Click "Edit" to add notes about this horse.</p>
+          )}
+        </div>
+      </section>
 
       {/* Breeding Info */}
       {(horse.sireName || horse.damName || horse.isStud || horse.isBroodmare) && (
-        <div className="card">
-          <h3 className="card-title">Breeding Information</h3>
-          <dl className="detail-list">
+        <section className="horse-section">
+          <h3 className="horse-section-title">Breeding Information</h3>
+          <div className="horse-details-card">
             {horse.sireName && (
-              <>
-                <dt>Sire</dt>
-                <dd>{horse.sireName}</dd>
-              </>
+              <div className="horse-detail-row">
+                <span className="horse-detail-label">Sire</span>
+                <span className="horse-detail-value">{horse.sireName}</span>
+              </div>
             )}
             {horse.damName && (
-              <>
-                <dt>Dam</dt>
-                <dd>{horse.damName}</dd>
-              </>
+              <div className="horse-detail-row">
+                <span className="horse-detail-label">Dam</span>
+                <span className="horse-detail-value">{horse.damName}</span>
+              </div>
             )}
             {horse.isStud && (
-              <>
-                <dt>Status</dt>
-                <dd>Active Stud</dd>
-              </>
+              <div className="horse-detail-row">
+                <span className="horse-detail-label">Status</span>
+                <span className="horse-detail-value">Active Stud</span>
+              </div>
             )}
             {horse.isBroodmare && (
-              <>
-                <dt>Status</dt>
-                <dd>Broodmare</dd>
-              </>
+              <div className="horse-detail-row">
+                <span className="horse-detail-label">Status</span>
+                <span className="horse-detail-value">Broodmare</span>
+              </div>
             )}
-          </dl>
-        </div>
+          </div>
+        </section>
       )}
 
       {/* Recent Rides */}
-      <div className="card">
-        <h3 className="card-title">Recent Rides</h3>
+      <section className="horse-section">
+        <h3 className="horse-section-title">Recent Rides</h3>
         {rideLogs.length === 0 ? (
-          <p className="text-muted">No ride logs yet</p>
+          <div className="horse-empty-card">
+            <p className="horse-empty-text">No ride logs yet</p>
+          </div>
         ) : (
-          <ul className="ride-log-list">
+          <div className="horse-rides-list">
             {rideLogs.slice(0, 5).map((log) => (
-              <li key={log.id} className="ride-log-item">
-                <div className="ride-log-date">
-                  {format(new Date(log.date), 'MMM d')}
+              <div key={log.id} className="horse-ride-item">
+                <div className="horse-ride-date">
+                  <span className="horse-ride-day">{format(new Date(log.date), 'd')}</span>
+                  <span className="horse-ride-month">{format(new Date(log.date), 'MMM')}</span>
                 </div>
-                <div className="ride-log-info">
-                  <span className="ride-log-type">{log.type}</span>
-                  <span className="ride-log-rider">
+                <div className="horse-ride-content">
+                  <span className="horse-ride-type">{log.type}</span>
+                  <span className="horse-ride-rider">
                     {log.rider?.name || log.riderName || 'Unknown rider'}
                   </span>
                 </div>
-                <span className="ride-log-duration">{log.durationMinutes} min</span>
-              </li>
+                <span className="horse-ride-duration">{log.durationMinutes} min</span>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

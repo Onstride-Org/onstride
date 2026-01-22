@@ -1,24 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { horsesApi, tasksApi, invoicesApi, lessonsApi } from '../services/api';
-import { Horse, Task, Invoice, Lesson } from '../types';
-import { format } from 'date-fns';
-import { CheckSquare, FileText, Calendar } from 'lucide-react';
-import { HorseIcon } from '../components/icons/HorseIcon';
+import { horsesApi, tasksApi, invoicesApi, usersApi } from '../services/api';
+import { Horse, Task, Invoice, User } from '../types';
+import { Plus } from 'lucide-react';
 
 export default function DashboardPage() {
   const { user, currentBarnId } = useAuthStore();
   const [stats, setStats] = useState({
     horses: 0,
     tasks: 0,
-    invoices: 0,
-    lessons: 0,
+    pendingInvoices: 0,
+    totalRevenue: 0,
   });
   const [recentHorses, setRecentHorses] = useState<Horse[]>([]);
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
-  const [pendingInvoices, setPendingInvoices] = useState<Invoice[]>([]);
-  const [upcomingLessons, setUpcomingLessons] = useState<Lesson[]>([]);
+  const [staff, setStaff] = useState<User[]>([]);
+  const [staffFilter, setStaffFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -26,23 +24,26 @@ export default function DashboardPage() {
       if (!currentBarnId) return;
 
       try {
-        const [horsesRes, tasksRes, invoicesRes, lessonsRes] = await Promise.all([
+        const [horsesRes, tasksRes, invoicesRes, usersRes] = await Promise.all([
           horsesApi.getAll({ limit: 5 }),
           tasksApi.getToday(),
-          invoicesApi.getAll({ status: 'pending', limit: 5 }),
-          lessonsApi.getAll({ limit: 5, status: 'approved' }),
+          invoicesApi.getAll({ status: 'pending', limit: 100 }),
+          usersApi.getAll(),
         ]);
 
         setRecentHorses(horsesRes.data || []);
         setTodayTasks(tasksRes.tasks || []);
-        setPendingInvoices(invoicesRes.data || []);
-        setUpcomingLessons(lessonsRes.data || []);
+        setStaff(usersRes.data || []);
+
+        // Calculate total revenue from pending invoices
+        const pendingInvoices: Invoice[] = invoicesRes.data || [];
+        const totalRevenue = pendingInvoices.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
 
         setStats({
           horses: horsesRes.pagination?.total || 0,
           tasks: tasksRes.tasks?.length || 0,
-          invoices: invoicesRes.pagination?.total || 0,
-          lessons: lessonsRes.pagination?.total || 0,
+          pendingInvoices: invoicesRes.pagination?.total || 0,
+          totalRevenue,
         });
       } catch (error) {
         console.error('Failed to load dashboard data:', error);
@@ -54,12 +55,17 @@ export default function DashboardPage() {
     loadDashboardData();
   }, [currentBarnId]);
 
-  const statCards = [
-    { label: 'Horses', value: stats.horses, icon: 'horse', path: '/horses', color: 'brand' },
-    { label: 'Tasks Today', value: stats.tasks, icon: 'tasks', path: '/tasks', color: 'warning' },
-    { label: 'Pending Invoices', value: stats.invoices, icon: 'invoice', path: '/invoices', color: 'error' },
-    { label: 'Upcoming Lessons', value: stats.lessons, icon: 'calendar', path: '/lessons', color: 'success' },
-  ];
+  const filteredStaff = staff.filter(member => {
+    if (staffFilter === 'all') return true;
+    return member.accountType === staffFilter;
+  });
+
+  const formatCurrency = (amount: number) => {
+    if (amount >= 1000) {
+      return `$${(amount / 1000).toFixed(0)}k`;
+    }
+    return `$${amount.toFixed(0)}`;
+  };
 
   if (isLoading) {
     return (
@@ -71,174 +77,133 @@ export default function DashboardPage() {
 
   return (
     <div className="page dashboard-page">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Welcome back, {user?.name?.split(' ')[0]}!</h1>
-          <p className="page-subtitle">Here's what's happening at your barn today</p>
+      {/* Header */}
+      <div className="dashboard-header">
+        <h1 className="dashboard-title">Welcome back, {user?.name?.split(' ')[0]}!</h1>
+      </div>
+
+      {/* Stats Row */}
+      <div className="dashboard-stats">
+        <Link to="/horses" className="dashboard-stat">
+          <span className="dashboard-stat-value">{stats.horses}</span>
+          <span className="dashboard-stat-label">Horses</span>
+        </Link>
+        <Link to="/tasks" className="dashboard-stat">
+          <span className="dashboard-stat-value">{stats.tasks}</span>
+          <span className="dashboard-stat-label">Tasks Today</span>
+        </Link>
+        <Link to="/invoices" className="dashboard-stat">
+          <span className="dashboard-stat-value">{stats.pendingInvoices}</span>
+          <span className="dashboard-stat-label">Invoices</span>
+        </Link>
+        <div className="dashboard-stat">
+          <span className="dashboard-stat-value">{formatCurrency(stats.totalRevenue)}</span>
+          <span className="dashboard-stat-label">Revenue</span>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="stats-grid">
-        {statCards.map((stat) => (
-          <Link key={stat.label} to={stat.path} className={`stat-card stat-card-${stat.color}`}>
-            <div className="stat-icon">
-              {stat.icon === 'horse' && <HorseIcon size={24} />}
-              {stat.icon === 'tasks' && <CheckSquare size={24} />}
-              {stat.icon === 'invoice' && <FileText size={24} />}
-              {stat.icon === 'calendar' && <Calendar size={24} />}
-            </div>
-            <div className="stat-content">
-              <span className="stat-value">{stat.value}</span>
-              <span className="stat-label">{stat.label}</span>
-            </div>
-          </Link>
-        ))}
-      </div>
+      {/* My Horses Section */}
+      {recentHorses.length > 0 && (
+        <section className="dashboard-section">
+          <div className="dashboard-section-header">
+            <h2 className="dashboard-section-title">My horses</h2>
+            <Link to="/horses" className="btn btn-icon btn-ghost btn-sm">
+              <Plus size={20} />
+            </Link>
+          </div>
+          <div className="dashboard-horses-scroll">
+            {recentHorses.map((horse) => (
+              <Link key={horse.id} to={`/horses/${horse.id}`} className="dashboard-horse-card">
+                <div className="dashboard-horse-avatar">
+                  {horse.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="dashboard-horse-name">{horse.name}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
-      {/* Dashboard Grid */}
-      <div className="dashboard-grid">
-        {/* Today's Tasks */}
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h3 className="card-title">Today's Tasks</h3>
-            <Link to="/tasks" className="link">View all</Link>
+      {/* Today's Tasks Section */}
+      {todayTasks.length > 0 && (
+        <section className="dashboard-section">
+          <div className="dashboard-section-header">
+            <h2 className="dashboard-section-title">Today's tasks</h2>
+            <Link to="/tasks" className="link text-secondary">View all</Link>
           </div>
-          <div className="card-content">
-            {todayTasks.length === 0 ? (
-              <div className="empty-state-small">
-                <p>No tasks for today</p>
+          <div className="dashboard-tasks">
+            {todayTasks.slice(0, 4).map((task) => (
+              <div key={task.id} className="dashboard-task-item">
+                <div className={`dashboard-task-checkbox ${task.status === 'completed' ? 'checked' : ''}`}>
+                  {task.status === 'completed' && (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <path d="M5 12l5 5L20 7" />
+                    </svg>
+                  )}
+                </div>
+                <div className="dashboard-task-content">
+                  <span className={`dashboard-task-name ${task.status === 'completed' ? 'completed' : ''}`}>
+                    {task.name}
+                  </span>
+                  {task.horses && task.horses.length > 0 && (
+                    <span className="dashboard-task-horse">{task.horses[0].name}</span>
+                  )}
+                </div>
               </div>
-            ) : (
-              <ul className="task-list">
-                {todayTasks.slice(0, 5).map((task) => (
-                  <li key={task.id} className={`task-item ${task.status}`}>
-                    <span className="task-checkbox">
-                      {task.status === 'completed' ? (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M9 11l3 3L22 4" />
-                        </svg>
-                      ) : null}
-                    </span>
-                    <span className="task-name">{task.name}</span>
-                    {task.horses.length > 0 && (
-                      <span className="task-horses">
-                        {task.horses.map(h => h.name).join(', ')}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+            ))}
           </div>
-        </div>
+        </section>
+      )}
 
-        {/* Recent Horses */}
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h3 className="card-title">Horses</h3>
-            <Link to="/horses" className="link">View all</Link>
+      {/* My Staff Section */}
+      {staff.length > 0 && (
+        <section className="dashboard-section">
+          <div className="dashboard-section-header">
+            <h2 className="dashboard-section-title">My staff</h2>
+            <Link to="/users" className="btn btn-icon btn-ghost btn-sm">
+              <Plus size={20} />
+            </Link>
           </div>
-          <div className="card-content">
-            {recentHorses.length === 0 ? (
-              <div className="empty-state-small">
-                <p>No horses yet</p>
-                <Link to="/horses" className="btn btn-sm btn-primary">Add Horse</Link>
-              </div>
-            ) : (
-              <ul className="horse-list">
-                {recentHorses.map((horse) => (
-                  <li key={horse.id}>
-                    <Link to={`/horses/${horse.id}`} className="horse-list-item">
-                      <div className="horse-avatar">
-                        {horse.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="horse-info">
-                        <span className="horse-name">{horse.name}</span>
-                        <span className="horse-meta">
-                          {horse.breed?.label || 'Unknown breed'}
-                          {horse.age && ` • ${horse.age} yrs`}
-                        </span>
-                      </div>
-                      <span className={`badge badge-${horse.status === 'active' ? 'success' : 'neutral'}`}>
-                        {horse.status}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
 
-        {/* Pending Invoices */}
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h3 className="card-title">Pending Invoices</h3>
-            <Link to="/invoices" className="link">View all</Link>
+          {/* Staff Filter Tabs */}
+          <div className="dashboard-filter-tabs">
+            <button
+              className={`filter-tab ${staffFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setStaffFilter('all')}
+            >
+              All
+            </button>
+            <button
+              className={`filter-tab ${staffFilter === 'manager' ? 'active' : ''}`}
+              onClick={() => setStaffFilter('manager')}
+            >
+              Manager
+            </button>
+            <button
+              className={`filter-tab ${staffFilter === 'groomer' ? 'active' : ''}`}
+              onClick={() => setStaffFilter('groomer')}
+            >
+              Groom
+            </button>
           </div>
-          <div className="card-content">
-            {pendingInvoices.length === 0 ? (
-              <div className="empty-state-small">
-                <p>No pending invoices</p>
-              </div>
-            ) : (
-              <ul className="invoice-list">
-                {pendingInvoices.map((invoice) => (
-                  <li key={invoice.id}>
-                    <Link to={`/invoices/${invoice.id}`} className="invoice-list-item">
-                      <div className="invoice-info">
-                        <span className="invoice-boarder">{invoice.boarder?.name}</span>
-                        <span className="invoice-date">
-                          Due {format(new Date(invoice.dueDate), 'MMM d')}
-                        </span>
-                      </div>
-                      <span className="invoice-amount">
-                        ${invoice.subtotal.toFixed(2)}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
 
-        {/* Upcoming Lessons */}
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h3 className="card-title">Upcoming Lessons</h3>
-            <Link to="/lessons" className="link">View all</Link>
-          </div>
-          <div className="card-content">
-            {upcomingLessons.length === 0 ? (
-              <div className="empty-state-small">
-                <p>No upcoming lessons</p>
+          {/* Staff Grid */}
+          <div className="dashboard-staff-grid">
+            {filteredStaff.slice(0, 6).map((member) => (
+              <div key={member.id} className="dashboard-staff-card">
+                <div className="dashboard-staff-name">{member.name}</div>
+                <div className="dashboard-staff-role">{member.accountType}</div>
+                {member.email && (
+                  <div className="dashboard-staff-email">{member.email}</div>
+                )}
+                {member.phoneNumber && (
+                  <div className="dashboard-staff-phone">{member.phoneNumber}</div>
+                )}
               </div>
-            ) : (
-              <ul className="lesson-list">
-                {upcomingLessons.map((lesson) => (
-                  <li key={lesson.id} className="lesson-list-item">
-                    <div className="lesson-time">
-                      <span className="lesson-date">
-                        {format(new Date(lesson.scheduledDate), 'MMM d')}
-                      </span>
-                      <span className="lesson-hour">
-                        {format(new Date(lesson.scheduledDate), 'h:mm a')}
-                      </span>
-                    </div>
-                    <div className="lesson-info">
-                      <span className="lesson-client">{lesson.client?.name}</span>
-                      <span className="lesson-type">{lesson.type}</span>
-                    </div>
-                    <span className="lesson-duration">{lesson.durationMinutes}min</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            ))}
           </div>
-        </div>
-      </div>
+        </section>
+      )}
     </div>
   );
 }
