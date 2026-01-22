@@ -343,87 +343,160 @@ export default function UsersPage() {
         </div>
       ) : (
         <>
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>User</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Phone</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id}>
-                    <td>
-                      <div className="user-cell">
-                        <span className="user-avatar">
-                          {user.avatarUrl ? (
-                            <img src={user.avatarUrl} alt={user.name} />
-                          ) : (
-                            user.name.charAt(0).toUpperCase()
-                          )}
-                        </span>
-                        <span className="user-name">{user.name}</span>
-                      </div>
-                    </td>
-                    <td>{user.email}</td>
-                    <td>
-                      <span className={`badge badge-${getRoleBadge(user.accountType)}`}>
-                        {roleLabels[user.accountType]}
-                      </span>
-                    </td>
-                    <td>{user.phoneNumber || '-'}</td>
-                    <td>
-                      {user.emailVerified ? (
-                        <span className="badge badge-success">Verified</span>
+          {/* Mobile Card View */}
+          <div className="user-cards-mobile">
+            {users.map((user) => (
+              <div key={user.id} className="user-card-mobile">
+                <div className="user-card-header">
+                  <div className="user-cell">
+                    <span className="user-avatar">
+                      {user.avatarUrl ? (
+                        <img src={user.avatarUrl} alt={user.name} />
                       ) : (
-                        <span className="badge badge-warning">Pending</span>
+                        user.name.charAt(0).toUpperCase()
                       )}
-                    </td>
-                    <td>
-                      <div className="dropdown-container">
+                    </span>
+                    <div className="user-info">
+                      <span className="user-name">{user.name}</span>
+                      <span className="user-email">{user.email}</span>
+                    </div>
+                  </div>
+                  <div className="dropdown-container">
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveDropdown(activeDropdown === user.id ? null : user.id);
+                      }}
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+                    {activeDropdown === user.id && (
+                      <div className="dropdown-menu dropdown-menu-right">
                         <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveDropdown(activeDropdown === user.id ? null : user.id);
+                          className="dropdown-item"
+                          onClick={() => {
+                            setEditingUser(user);
+                            setActiveDropdown(null);
                           }}
                         >
-                          <MoreHorizontal size={16} />
+                          <Edit size={14} />
+                          Edit Role
                         </button>
-                        {activeDropdown === user.id && (
-                          <div className="dropdown-menu dropdown-menu-right">
-                            <button
-                              className="dropdown-item"
-                              onClick={() => {
-                                setEditingUser(user);
-                                setActiveDropdown(null);
-                              }}
-                            >
-                              <Edit size={14} />
-                              Edit Role
-                            </button>
-                            {user.id !== currentUser?.id && user.accountType !== 'owner' && (
-                              <button
-                                className="dropdown-item text-error"
-                                onClick={() => handleRemoveUser(user.id, user.name)}
-                              >
-                                <UserMinus size={14} />
-                                Remove from Barn
-                              </button>
-                            )}
-                          </div>
+                        {user.id !== currentUser?.id && user.accountType !== 'owner' && (
+                          <button
+                            className="dropdown-item text-error"
+                            onClick={() => handleRemoveUser(user.id, user.name)}
+                          >
+                            <UserMinus size={14} />
+                            Remove from Barn
+                          </button>
                         )}
                       </div>
-                    </td>
+                    )}
+                  </div>
+                </div>
+                <div className="user-card-footer">
+                  <span className={`badge badge-${getRoleBadge(user.accountType)}`}>
+                    {roleLabels[user.accountType]}
+                  </span>
+                  {user.phoneNumber && (
+                    <span className="user-phone">{user.phoneNumber}</span>
+                  )}
+                  {user.emailVerified ? (
+                    <span className="badge badge-success">Verified</span>
+                  ) : (
+                    <span className="badge badge-warning">Pending</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="user-table-desktop">
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id}>
+                      <td>
+                        <div className="user-cell">
+                          <span className="user-avatar">
+                            {user.avatarUrl ? (
+                              <img src={user.avatarUrl} alt={user.name} />
+                            ) : (
+                              user.name.charAt(0).toUpperCase()
+                            )}
+                          </span>
+                          <span className="user-name">{user.name}</span>
+                        </div>
+                      </td>
+                      <td>{user.email}</td>
+                      <td>
+                        <span className={`badge badge-${getRoleBadge(user.accountType)}`}>
+                          {roleLabels[user.accountType]}
+                        </span>
+                      </td>
+                      <td>{user.phoneNumber || '-'}</td>
+                      <td>
+                        {user.emailVerified ? (
+                          <span className="badge badge-success">Verified</span>
+                        ) : (
+                          <span className="badge badge-warning">Pending</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="dropdown-container">
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdown(activeDropdown === user.id ? null : user.id);
+                            }}
+                          >
+                            <MoreHorizontal size={16} />
+                          </button>
+                          {activeDropdown === user.id && (
+                            <div className="dropdown-menu dropdown-menu-right">
+                              <button
+                                className="dropdown-item"
+                                onClick={() => {
+                                  setEditingUser(user);
+                                  setActiveDropdown(null);
+                                }}
+                              >
+                                <Edit size={14} />
+                                Edit Role
+                              </button>
+                              {user.id !== currentUser?.id && user.accountType !== 'owner' && (
+                                <button
+                                  className="dropdown-item text-error"
+                                  onClick={() => handleRemoveUser(user.id, user.name)}
+                                >
+                                  <UserMinus size={14} />
+                                  Remove from Barn
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {pagination.pages > 1 && (

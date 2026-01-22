@@ -2082,8 +2082,8 @@
 
 /* ============ Users Page V2 Styles ============ */
 .users-page .user-avatar {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-full);
   background-color: var(--color-neutral-200);
   color: var(--color-neutral-600);
@@ -2093,6 +2093,7 @@
   font-weight: var(--font-weight-medium);
   font-size: var(--font-size-sm);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .users-page .user-avatar img {
@@ -2105,10 +2106,83 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.users-page .user-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
 }
 
 .users-page .user-name {
   font-weight: var(--font-weight-medium);
+  text-align: left;
+}
+
+.users-page .user-email {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.users-page .user-phone {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Mobile Card View */
+.user-cards-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.user-card-mobile {
+  background-color: var(--color-surface-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-4);
+}
+
+.user-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-3);
+}
+
+.user-card-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  flex-wrap: wrap;
+}
+
+/* Desktop Table View */
+.user-table-desktop {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .user-cards-mobile {
+    display: none;
+  }
+
+  .user-table-desktop {
+    display: block;
+  }
+
+  .users-page .user-avatar {
+    width: 36px;
+    height: 36px;
+  }
 }
 
 /* Invitation Cards V2 */
