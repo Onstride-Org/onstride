@@ -1699,6 +1699,14 @@
   justify-content: center;
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.dashboard-horse-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .dashboard-horse-name {

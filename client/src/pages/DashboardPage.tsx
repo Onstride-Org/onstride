@@ -136,7 +136,11 @@ export default function DashboardPage() {
             {recentHorses.map((horse) => (
               <Link key={horse.id} to={`/horses/${horse.id}`} className="dashboard-horse-card">
                 <div className="dashboard-horse-avatar">
-                  {horse.name.charAt(0).toUpperCase()}
+                  {horse.photoUrl ? (
+                    <img src={horse.photoUrl} alt={horse.name} className="dashboard-horse-avatar-img" />
+                  ) : (
+                    horse.name.charAt(0).toUpperCase()
+                  )}
                 </div>
                 <span className="dashboard-horse-name">{horse.name}</span>
               </Link>
