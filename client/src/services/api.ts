@@ -478,7 +478,7 @@ export const invoicesApi = {
 
 // ============ Tasks API ============
 export const tasksApi = {
-  getAll: async (params?: { status?: string; assigneeId?: string; myTasks?: boolean; page?: number }) => {
+  getAll: async (params?: { status?: string; assigneeId?: string; myTasks?: boolean; page?: number; limit?: number }) => {
     const response = await api.get('/tasks', { params });
     return response.data;
   },
@@ -530,55 +530,68 @@ export const tasksApi = {
 };
 
 // ============ Lessons API ============
+// Helper to transform lesson data from backend format to frontend format
+const transformLesson = (lesson: any) => ({
+  ...lesson,
+  id: lesson._id || lesson.id,
+  trainer: lesson.trainerId && typeof lesson.trainerId === 'object' ? lesson.trainerId : undefined,
+  client: lesson.clientId && typeof lesson.clientId === 'object' ? lesson.clientId : undefined,
+  horse: lesson.horseId && typeof lesson.horseId === 'object' ? lesson.horseId : undefined,
+});
+
 export const lessonsApi = {
   getAll: async (params?: { status?: string; trainerId?: string; startDate?: string; endDate?: string; limit?: number }) => {
     const response = await api.get('/lessons', { params });
-    return response.data;
+    const data = response.data;
+    return {
+      ...data,
+      lessons: (data.lessons || []).map(transformLesson),
+    };
   },
 
   getById: async (id: string) => {
     const response = await api.get(`/lessons/${id}`);
-    return response.data;
+    return transformLesson(response.data);
   },
 
   request: async (data: object) => {
     const response = await api.post('/lessons/request', data);
-    return response.data;
+    return transformLesson(response.data);
   },
 
   create: async (data: object) => {
     const response = await api.post('/lessons', data);
-    return response.data;
+    return transformLesson(response.data);
   },
 
   update: async (id: string, data: object) => {
     const response = await api.put(`/lessons/${id}`, data);
-    return response.data;
+    return transformLesson(response.data);
   },
 
   approve: async (id: string) => {
     const response = await api.put(`/lessons/${id}/approve`);
-    return response.data;
+    return transformLesson(response.data);
   },
 
   reject: async (id: string, reason?: string) => {
     const response = await api.put(`/lessons/${id}/reject`, { reason });
-    return response.data;
+    return transformLesson(response.data);
   },
 
   counter: async (id: string, proposedDate: string, notes?: string) => {
     const response = await api.put(`/lessons/${id}/counter`, { proposedDate, notes });
-    return response.data;
+    return transformLesson(response.data);
   },
 
   complete: async (id: string) => {
     const response = await api.put(`/lessons/${id}/complete`);
-    return response.data;
+    return transformLesson(response.data);
   },
 
   cancel: async (id: string, reason?: string) => {
     const response = await api.put(`/lessons/${id}/cancel`, { reason });
-    return response.data;
+    return transformLesson(response.data);
   },
 
   getAvailability: async (trainerId: string) => {

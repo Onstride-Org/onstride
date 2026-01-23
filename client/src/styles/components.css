@@ -247,6 +247,58 @@
   margin-top: var(--spacing-6);
 }
 
+/* Form Section */
+.form-section {
+  margin-top: var(--spacing-6);
+  padding-top: var(--spacing-5);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.form-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--spacing-4);
+}
+
+.form-hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-top: var(--spacing-2);
+}
+
+/* Day Selector for Recurring Lessons */
+.day-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+}
+
+.day-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-full);
+  background-color: var(--color-neutral-100);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.day-checkbox:has(input:checked) {
+  background-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+
+.day-checkbox input {
+  display: none;
+}
+
 /* Input Group */
 .input-group {
   display: flex;
@@ -862,6 +914,14 @@
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
   margin-bottom: var(--spacing-4);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.horse-card-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .horse-card-name {

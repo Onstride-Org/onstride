@@ -101,8 +101,20 @@ router.post('/', [
   validate
 ], async (req, res, next) => {
   try {
+    const { age, birthday, ...rest } = req.body;
+
+    // If age is provided without birthday, calculate birthday from age
+    let calculatedBirthday = birthday;
+    if (age !== undefined && !birthday) {
+      const today = new Date();
+      const birthYear = today.getFullYear() - parseInt(age);
+      calculatedBirthday = new Date(birthYear, 0, 1); // January 1st of birth year
+    }
+
     const horse = await Horse.create({
-      ...req.body,
+      ...rest,
+      age,
+      birthday: calculatedBirthday,
       barnId: req.barnId,
       createdById: req.userId
     });
@@ -129,12 +141,21 @@ router.put('/:id', [
       isStud, isBroodmare, colorGenetics
     } = req.body;
 
+    // If age is provided without birthday, calculate birthday from age
+    // Set to January 1st of the birth year so calculatedAge virtual works correctly
+    let calculatedBirthday = birthday;
+    if (age !== undefined && birthday === undefined) {
+      const today = new Date();
+      const birthYear = today.getFullYear() - parseInt(age);
+      calculatedBirthday = new Date(birthYear, 0, 1); // January 1st of birth year
+    }
+
     const horse = await Horse.findByIdAndUpdate(
       req.params.id,
       {
         ...(name && { name }),
         ...(age !== undefined && { age }),
-        ...(birthday !== undefined && { birthday }),
+        ...(calculatedBirthday !== undefined && { birthday: calculatedBirthday }),
         ...(breed && { breed }),
         ...(sexStatus && { sexStatus }),
         ...(color !== undefined && { color }),

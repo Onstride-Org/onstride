@@ -21,8 +21,6 @@ import HorsesPage from './pages/horses/HorsesPage';
 import HorseDetailPage from './pages/horses/HorseDetailPage';
 import InvoicesPage from './pages/invoices/InvoicesPage';
 import InvoiceDetailPage from './pages/invoices/InvoiceDetailPage';
-import TasksPage from './pages/tasks/TasksPage';
-import LessonsPage from './pages/lessons/LessonsPage';
 import CalendarPage from './pages/calendar/CalendarPage';
 import VendorsPage from './pages/vendors/VendorsPage';
 import UsersPage from './pages/users/UsersPage';

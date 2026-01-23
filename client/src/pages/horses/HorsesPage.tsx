@@ -118,7 +118,11 @@ export default function HorsesPage() {
             {horses.map((horse) => (
               <Link key={horse.id} to={`/horses/${horse.id}`} className="horse-card">
                 <div className="horse-card-avatar">
-                  {horse.name.charAt(0).toUpperCase()}
+                  {horse.photoUrl ? (
+                    <img src={horse.photoUrl} alt={horse.name} className="horse-card-avatar-img" />
+                  ) : (
+                    horse.name.charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div className="horse-card-content">
                   <h3 className="horse-card-name">{horse.name}</h3>

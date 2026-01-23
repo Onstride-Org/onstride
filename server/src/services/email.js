@@ -539,6 +539,198 @@ The OnStride Team
   return sendEmail({ to, subject, text, html });
 };
 
+/**
+ * Send lesson notification email (request, approval, rejection, reschedule)
+ * @param {Object} options
+ * @param {string} options.to - Recipient email
+ * @param {string} options.recipientName - Recipient's name
+ * @param {string} options.type - Notification type: 'requested', 'approved', 'rejected', 'countered', 'cancelled'
+ * @param {Object} options.lesson - Lesson details
+ * @param {string} options.lesson.date - Formatted lesson date/time
+ * @param {string} options.lesson.duration - Duration in minutes
+ * @param {string} options.lesson.type - Lesson type (e.g., 'privateSingle')
+ * @param {string} options.lesson.trainer - Trainer name
+ * @param {string} options.lesson.client - Client name
+ * @param {string} options.lesson.horse - Horse name (optional)
+ * @param {string} options.lesson.location - Location (optional)
+ * @param {string} options.reason - Reason for rejection/cancellation (optional)
+ * @param {string} options.proposedDate - Alternative date for counter-proposal (optional)
+ */
+const sendLessonNotificationEmail = async ({ to, recipientName, type, lesson, reason, proposedDate }) => {
+  const calendarUrl = `${CLIENT_URL}/calendar`;
+
+  const typeLabels = {
+    privateSingle: 'Private (Single)',
+    privatePackage: 'Private (Package)',
+    groupLesson: 'Group Lesson',
+    training: 'Training',
+    assessment: 'Assessment',
+    other: 'Other'
+  };
+
+  const lessonTypeLabel = typeLabels[lesson.type] || lesson.type;
+
+  let subject, bodyText, headerText, statusColor;
+
+  switch (type) {
+    case 'requested':
+      subject = `New Lesson Request from ${lesson.client}`;
+      headerText = 'New Lesson Request';
+      bodyText = `${lesson.client} has requested a ${lessonTypeLabel.toLowerCase()} lesson.`;
+      statusColor = '#8b5cf6'; // Purple
+      break;
+    case 'approved':
+      subject = `Lesson Approved - ${lesson.date}`;
+      headerText = 'Lesson Approved!';
+      bodyText = `Great news! Your ${lessonTypeLabel.toLowerCase()} lesson has been approved.`;
+      statusColor = '#10b981'; // Green
+      break;
+    case 'rejected':
+      subject = 'Lesson Request Declined';
+      headerText = 'Lesson Request Declined';
+      bodyText = `Unfortunately, your lesson request could not be approved.${reason ? ` Reason: ${reason}` : ''}`;
+      statusColor = '#ef4444'; // Red
+      break;
+    case 'countered':
+      subject = 'Alternative Time Proposed for Your Lesson';
+      headerText = 'Alternative Time Proposed';
+      bodyText = `An alternative time has been proposed for your lesson request. The new proposed time is: ${proposedDate}`;
+      statusColor = '#f59e0b'; // Amber
+      break;
+    case 'cancelled':
+      subject = 'Lesson Cancelled';
+      headerText = 'Lesson Cancelled';
+      bodyText = `Your ${lessonTypeLabel.toLowerCase()} lesson has been cancelled.${reason ? ` Reason: ${reason}` : ''}`;
+      statusColor = '#6b7280'; // Gray
+      break;
+    default:
+      subject = 'Lesson Update';
+      headerText = 'Lesson Update';
+      bodyText = 'There has been an update to your lesson.';
+      statusColor = '#3b82f6'; // Blue
+  }
+
+  const text = `
+Hi ${recipientName || 'there'},
+
+${bodyText}
+
+Lesson Details:
+- Date & Time: ${lesson.date}
+- Duration: ${lesson.duration} minutes
+- Type: ${lessonTypeLabel}
+- Trainer: ${lesson.trainer}
+- Client: ${lesson.client}
+${lesson.horse ? `- Horse: ${lesson.horse}` : ''}
+${lesson.location ? `- Location: ${lesson.location}` : ''}
+
+View your calendar for more details:
+${calendarUrl}
+
+Best regards,
+The OnStride Team
+  `.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <tr>
+      <td style="background-color: #ffffff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="display: inline-block; padding: 6px 12px; background-color: ${statusColor}; color: white; border-radius: 4px; font-size: 12px; font-weight: 600; margin-bottom: 20px; text-transform: uppercase;">
+          ${type.charAt(0).toUpperCase() + type.slice(1)}
+        </div>
+
+        <h1 style="color: #1a1a1a; font-size: 24px; margin: 0 0 20px 0;">${headerText}</h1>
+
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+          Hi ${recipientName || 'there'},
+        </p>
+
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+          ${bodyText}
+        </p>
+
+        <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%; margin: 0 0 30px 0; background-color: #f9fafb; border-radius: 8px;">
+          <tr>
+            <td style="padding: 20px;">
+              <h3 style="color: #1a1a1a; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">Lesson Details</h3>
+              <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%;">
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px; width: 100px;">Date & Time</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${lesson.date}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px;">Duration</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${lesson.duration} minutes</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px;">Type</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${lessonTypeLabel}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px;">Trainer</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${lesson.trainer}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px;">Client</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${lesson.client}</td>
+                </tr>
+                ${lesson.horse ? `
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px;">Horse</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${lesson.horse}</td>
+                </tr>
+                ` : ''}
+                ${lesson.location ? `
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px;">Location</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${lesson.location}</td>
+                </tr>
+                ` : ''}
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <table role="presentation" cellspacing="0" cellpadding="0" style="margin: 0 auto 30px auto;">
+          <tr>
+            <td style="background-color: #2563eb; border-radius: 6px;">
+              <a href="${calendarUrl}" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600;">
+                View Calendar
+              </a>
+            </td>
+          </tr>
+        </table>
+
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+          Best regards,<br>The OnStride Team
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px; text-align: center;">
+        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+          &copy; ${new Date().getFullYear()} OnStride. All rights reserved.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  return sendEmail({ to, subject, text, html });
+};
+
 module.exports = {
   isConfigured,
   sendEmail,
@@ -547,4 +739,5 @@ module.exports = {
   sendWelcomeEmail,
   sendInvoiceEmail,
   sendEmailVerificationEmail,
+  sendLessonNotificationEmail,
 };

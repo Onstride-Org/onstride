@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Calendar, dateFnsLocalizer, Views, View } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { tasksApi, lessonsApi, usersApi, horsesApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
-import { Task, Lesson, User as UserType, Horse, LessonType, TaskStatus } from '../../types';
-import { Plus, X, Calendar as CalendarIcon, CheckSquare, Clock, ChevronLeft, ChevronRight, Check, Bell, MapPin } from 'lucide-react';
+import { Task, Lesson, User as UserType, Horse, LessonType, TaskStatus, RecurrenceType } from '../../types';
+import { X, Calendar as CalendarIcon, CheckSquare, Clock, ChevronLeft, ChevronRight, Check, Bell, MapPin, Repeat } from 'lucide-react';
 import { HorseIcon } from '../../components/icons/HorseIcon';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -45,17 +45,13 @@ export default function CalendarPage() {
     try {
       setIsLoading(true);
 
-      // Fetch tasks and lessons for the current month range
-      const monthStart = startOfMonth(subMonths(currentDate, 1));
-      const monthEnd = endOfMonth(addMonths(currentDate, 1));
-
       const [tasksRes, lessonsRes] = await Promise.all([
         tasksApi.getAll({ limit: 500 }),
         lessonsApi.getAll({ limit: 500 })
       ]);
 
       const tasks: Task[] = tasksRes.tasks || [];
-      const lessons: Lesson[] = lessonsRes.data || [];
+      const lessons: Lesson[] = lessonsRes.lessons || [];
 
       // Convert tasks to calendar events
       const taskEvents: CalendarEvent[] = tasks.map((task) => {
@@ -279,7 +275,7 @@ export default function CalendarPage() {
           event={selectedEvent}
           onClose={() => setSelectedEvent(null)}
           onUpdate={loadEvents}
-          isStaff={isStaff}
+          isStaff={!!isStaff}
         />
       )}
 
@@ -753,6 +749,10 @@ function AddLessonModal({
   const [price, setPrice] = useState('');
   const [type, setType] = useState<LessonType>('privateSingle');
   const [location, setLocation] = useState('');
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>('none');
+  const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
+  const [recurrenceCount, setRecurrenceCount] = useState('12');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
@@ -820,7 +820,10 @@ function AddLessonModal({
         price: parseFloat(price) || 0,
         type,
         location: location || undefined,
-        recurrenceType: 'none',
+        recurrenceType,
+        recurrenceDays: recurrenceType === 'custom' ? recurrenceDays : undefined,
+        recurrenceEndDate: recurrenceEndDate ? new Date(recurrenceEndDate).toISOString() : undefined,
+        recurrenceCount: parseInt(recurrenceCount) || undefined,
       });
       onSuccess();
     } catch (err: any) {
@@ -970,6 +973,91 @@ function AddLessonModal({
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder="e.g., Indoor Arena"
                   />
+                </div>
+
+                {/* Recurring Lessons Section */}
+                <div className="form-section">
+                  <h4 className="form-section-title">
+                    <Repeat size={16} />
+                    Recurring Lesson
+                  </h4>
+
+                  <div className="form-group">
+                    <label className="form-label">Repeat</label>
+                    <select
+                      className="form-select"
+                      value={recurrenceType}
+                      onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
+                    >
+                      <option value="none">Does not repeat</option>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="biweekly">Bi-weekly</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="custom">Custom (specific days)</option>
+                    </select>
+                  </div>
+
+                  {recurrenceType === 'custom' && (
+                    <div className="form-group">
+                      <label className="form-label">Repeat on days</label>
+                      <div className="checkbox-grid day-selector">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => (
+                          <label key={day} className="checkbox-label day-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={recurrenceDays.includes(idx)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setRecurrenceDays([...recurrenceDays, idx].sort());
+                                } else {
+                                  setRecurrenceDays(recurrenceDays.filter(d => d !== idx));
+                                }
+                              }}
+                            />
+                            <span>{day}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {recurrenceType !== 'none' && (
+                    <>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label className="form-label">End after (lessons)</label>
+                          <input
+                            type="number"
+                            className="form-input"
+                            value={recurrenceCount}
+                            onChange={(e) => setRecurrenceCount(e.target.value)}
+                            min="1"
+                            max="52"
+                            placeholder="12"
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Or end by date</label>
+                          <input
+                            type="date"
+                            className="form-input"
+                            value={recurrenceEndDate}
+                            onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <p className="form-hint">
+                        {recurrenceType === 'daily' && 'Lesson will repeat every day.'}
+                        {recurrenceType === 'weekly' && 'Lesson will repeat every week on the same day.'}
+                        {recurrenceType === 'biweekly' && 'Lesson will repeat every 2 weeks on the same day.'}
+                        {recurrenceType === 'monthly' && 'Lesson will repeat monthly on the same day.'}
+                        {recurrenceType === 'custom' && recurrenceDays.length > 0 &&
+                          `Lesson will repeat on: ${recurrenceDays.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}`
+                        }
+                      </p>
+                    </>
+                  )}
                 </div>
               </>
             )}

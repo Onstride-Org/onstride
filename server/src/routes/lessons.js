@@ -2,8 +2,81 @@ const express = require('express');
 const { body, param } = require('express-validator');
 const Lesson = require('../models/Lesson');
 const TrainerAvailability = require('../models/TrainerAvailability');
+const User = require('../models/User');
 const { authenticate, loadBarnContext, requireBarn, hasPermission, hasRole } = require('../middleware/auth');
 const validate = require('../middleware/validate');
+const { sendLessonNotificationEmail } = require('../services/email');
+const { format } = require('date-fns');
+
+// Helper to format lesson for email notification
+const formatLessonForEmail = (lesson) => ({
+  date: format(new Date(lesson.scheduledDate), 'EEEE, MMMM d, yyyy \'at\' h:mm a'),
+  duration: lesson.durationMinutes || 60,
+  type: lesson.type,
+  trainer: lesson.trainerName || 'Unknown',
+  client: lesson.clientName || 'Unknown',
+  horse: lesson.horseName || null,
+  location: lesson.location || null,
+});
+
+// Helper to send lesson notification
+const sendLessonNotification = async (lesson, type, options = {}) => {
+  try {
+    const lessonData = formatLessonForEmail(lesson);
+
+    // Get trainer and client details
+    const [trainer, client] = await Promise.all([
+      User.findById(lesson.trainerId).select('name email'),
+      User.findById(lesson.clientId).select('name email'),
+    ]);
+
+    if (!trainer || !client) return;
+
+    // Determine recipients based on notification type
+    switch (type) {
+      case 'requested':
+        // Notify trainer about new request
+        await sendLessonNotificationEmail({
+          to: trainer.email,
+          recipientName: trainer.name,
+          type,
+          lesson: { ...lessonData, trainer: trainer.name, client: client.name },
+        });
+        break;
+
+      case 'approved':
+      case 'rejected':
+      case 'countered':
+        // Notify client about decision
+        await sendLessonNotificationEmail({
+          to: client.email,
+          recipientName: client.name,
+          type,
+          lesson: { ...lessonData, trainer: trainer.name, client: client.name },
+          reason: options.reason,
+          proposedDate: options.proposedDate ? format(new Date(options.proposedDate), 'EEEE, MMMM d, yyyy \'at\' h:mm a') : null,
+        });
+        break;
+
+      case 'cancelled':
+        // Notify the other party (whoever didn't cancel)
+        const cancelledBy = options.cancelledById;
+        const recipientIsClient = cancelledBy === lesson.trainerId.toString();
+        const recipient = recipientIsClient ? client : trainer;
+        await sendLessonNotificationEmail({
+          to: recipient.email,
+          recipientName: recipient.name,
+          type,
+          lesson: { ...lessonData, trainer: trainer.name, client: client.name },
+          reason: options.reason,
+        });
+        break;
+    }
+  } catch (error) {
+    console.error('Failed to send lesson notification:', error);
+    // Don't throw - notification failure shouldn't break the API
+  }
+};
 
 const router = express.Router();
 
@@ -94,7 +167,7 @@ router.post('/request', [
     } = req.body;
 
     // Get trainer name
-    const trainer = await require('../models/User').findById(trainerId);
+    const trainer = await User.findById(trainerId);
 
     const lesson = await Lesson.create({
       barnId: req.barnId,
@@ -116,6 +189,9 @@ router.post('/request', [
     const populated = await Lesson.findById(lesson._id)
       .populate('trainerId', 'name email')
       .populate('horseId', 'name');
+
+    // Send notification to trainer about new request
+    sendLessonNotification(lesson, 'requested');
 
     res.status(201).json(populated);
   } catch (error) {
@@ -142,8 +218,8 @@ router.post('/', [
 
     // Get names
     const [trainer, client] = await Promise.all([
-      require('../models/User').findById(trainerId),
-      require('../models/User').findById(clientId)
+      User.findById(trainerId),
+      User.findById(clientId)
     ]);
 
     const lesson = await Lesson.create({
@@ -298,7 +374,15 @@ router.put('/:id/approve', [
     lesson.status = 'approved';
     await lesson.save();
 
-    res.json(lesson);
+    // Send notification to client about approval
+    sendLessonNotification(lesson, 'approved');
+
+    const populated = await Lesson.findById(lesson._id)
+      .populate('trainerId', 'name email')
+      .populate('clientId', 'name email')
+      .populate('horseId', 'name');
+
+    res.json(populated);
   } catch (error) {
     next(error);
   }
@@ -322,7 +406,15 @@ router.put('/:id/reject', [
     lesson.notes = req.body.reason || lesson.notes;
     await lesson.save();
 
-    res.json(lesson);
+    // Send notification to client about rejection
+    sendLessonNotification(lesson, 'rejected', { reason: req.body.reason });
+
+    const populated = await Lesson.findById(lesson._id)
+      .populate('trainerId', 'name email')
+      .populate('clientId', 'name email')
+      .populate('horseId', 'name');
+
+    res.json(populated);
   } catch (error) {
     next(error);
   }
@@ -346,7 +438,15 @@ router.put('/:id/counter', [
     lesson.counterNotes = req.body.notes;
     await lesson.save();
 
-    res.json(lesson);
+    // Send notification to client about counter-proposal
+    sendLessonNotification(lesson, 'countered', { proposedDate: req.body.proposedDate });
+
+    const populated = await Lesson.findById(lesson._id)
+      .populate('trainerId', 'name email')
+      .populate('clientId', 'name email')
+      .populate('horseId', 'name');
+
+    res.json(populated);
   } catch (error) {
     next(error);
   }
@@ -392,7 +492,18 @@ router.put('/:id/cancel', async (req, res, next) => {
     lesson.notes = req.body.reason || lesson.notes;
     await lesson.save();
 
-    res.json(lesson);
+    // Send notification to the other party about cancellation
+    sendLessonNotification(lesson, 'cancelled', {
+      reason: req.body.reason,
+      cancelledById: req.userId.toString()
+    });
+
+    const populated = await Lesson.findById(lesson._id)
+      .populate('trainerId', 'name email')
+      .populate('clientId', 'name email')
+      .populate('horseId', 'name');
+
+    res.json(populated);
   } catch (error) {
     next(error);
   }

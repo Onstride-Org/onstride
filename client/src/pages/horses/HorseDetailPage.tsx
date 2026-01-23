@@ -546,7 +546,7 @@ function ScheduleTab({ horse }: { horse: Horse }) {
                   </span>
                   <span className="schedule-item-time">
                     {format(new Date(lesson.scheduledDate), 'h:mm a')}
-                    {lesson.duration && ` • ${lesson.duration} min`}
+                    {lesson.durationMinutes && ` • ${lesson.durationMinutes} min`}
                   </span>
                   {lesson.client && (
                     <span className="schedule-item-meta">
@@ -1274,12 +1274,29 @@ function EditHorseModal({
 }) {
   const [name, setName] = useState(horse.name);
   const [breed, setBreed] = useState(horse.breed?.label || '');
-  const [age, setAge] = useState(horse.age?.toString() || '');
+  const [birthday, setBirthday] = useState(
+    horse.birthday ? new Date(horse.birthday).toISOString().split('T')[0] : ''
+  );
   const [color, setColor] = useState(horse.color || '');
   const [status, setStatus] = useState(horse.status);
   const [notes, setNotes] = useState(horse.notes || '');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Calculate age from birthday
+  const calculateAge = (birthDate: string) => {
+    if (!birthDate) return null;
+    const birth = new Date(birthDate);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const age = calculateAge(birthday);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1290,7 +1307,7 @@ function EditHorseModal({
       await horsesApi.update(horse.id, {
         name,
         breed: breed ? { value: breed.toLowerCase().replace(/\s+/g, '_'), label: breed } : undefined,
-        age: age ? parseInt(age) : undefined,
+        birthday: birthday ? new Date(birthday).toISOString() : undefined,
         color: color || undefined,
         status,
         notes: notes || '',
@@ -1346,15 +1363,16 @@ function EditHorseModal({
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Age</label>
+                <label className="form-label">Date of Birth</label>
                 <input
-                  type="number"
+                  type="date"
                   className="form-input"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  min="0"
-                  max="50"
+                  value={birthday}
+                  onChange={(e) => setBirthday(e.target.value)}
                 />
+                {age !== null && age >= 0 && (
+                  <p className="form-hint">Age: {age} year{age !== 1 ? 's' : ''} old</p>
+                )}
               </div>
             </div>
 

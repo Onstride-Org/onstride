@@ -114,3 +114,46 @@
     - Includes personalized greeting with user's name and barn name (if available)
     - Contains links to dashboard and highlights key features of OnStride
 
+---
+
+## Lessons Workflow - January 23, 2026
+
+### Task List
+- [x] Fix: Lessons don't show when created
+- [x] Refine entire lesson workflow (create, display, manage)
+- [x] Implement notification system for lessons (approval, reschedule, etc.)
+- [x] Add recurring lessons feature
+
+### Progress Notes
+
+### Jan 23 - Lesson Display Fix (Completed)
+15. **Lessons not showing when created**: Fixed data structure mismatch between backend and frontend:
+    - Backend returns `{ lessons, pagination }` but frontend was reading `lessonsRes.data`
+    - Fixed CalendarPage.tsx to read `lessonsRes.lessons` correctly
+    - Added `transformLesson` helper in `/client/src/services/api.ts` to map populated Mongoose fields:
+      - `trainerId` (populated object) -> `trainer`
+      - `clientId` (populated object) -> `client`
+      - `horseId` (populated object) -> `horse`
+    - Applied transform to all lessonsApi methods (getAll, getById, create, update, approve, reject, counter, complete, cancel)
+    - Fixed `durationMinutes` property reference in HorseDetailPage schedule tab
+
+### Jan 23 - Lesson Email Notifications (Completed)
+16. **Lesson notification system**: Implemented email notifications for lesson status changes:
+    - Added `sendLessonNotificationEmail` function in `/server/src/services/email.js`
+    - Supports notification types: requested, approved, rejected, countered, cancelled
+    - Professional HTML email templates with lesson details (date/time, duration, type, trainer, client, horse, location)
+    - Color-coded status badges (purple for requested, green for approved, red for rejected, amber for countered, gray for cancelled)
+    - Updated `/server/src/routes/lessons.js` to send notifications:
+      - When client requests a lesson -> notify trainer
+      - When trainer approves/rejects/counter-proposes -> notify client
+      - When lesson is cancelled -> notify the other party
+
+### Jan 23 - Recurring Lessons UI (Completed)
+17. **Recurring lessons feature**: Added UI for creating recurring lessons in AddLessonModal:
+    - Recurrence options: Does not repeat, Daily, Weekly, Bi-weekly, Monthly, Custom (specific days)
+    - Custom day selector with checkboxes for each day of the week
+    - End options: number of lessons (1-52) or end by date
+    - Helpful hint text explaining the recurrence pattern
+    - Backend already had `generateRecurringLessons` helper function that creates recurring lesson instances
+    - Added CSS styles for form sections and day selector in `/client/src/styles/components.css`
+

@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import { horsesApi, tasksApi, lessonsApi, invoicesApi, usersApi } from '../services/api';
 import { Horse, Task, Lesson, Invoice, User } from '../types';
 import { Plus, Calendar, CheckSquare } from 'lucide-react';
-import { isToday, parseISO, isFuture, startOfDay, endOfDay } from 'date-fns';
+import { isToday, parseISO } from 'date-fns';
 import { formatPhoneNumber } from '../utils/formatters';
 
 export default function DashboardPage() {
