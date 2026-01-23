@@ -105,25 +105,37 @@ const uploadToCloud = (folder = 'uploads') => {
     try {
       // If GCS is not configured, use local path
       if (!storageService.isConfigured()) {
+        console.log('GCS not configured, using local storage fallback');
         if (req.file) {
+          // For memory storage without GCS, we need to generate a filename
+          if (!req.file.filename) {
+            const ext = path.extname(req.file.originalname);
+            req.file.filename = `${uuidv4()}${ext}`;
+          }
           req.file.cloudUrl = `/uploads/${req.file.filename}`;
         }
         if (req.files && Array.isArray(req.files)) {
           req.files.forEach(file => {
+            if (!file.filename) {
+              const ext = path.extname(file.originalname);
+              file.filename = `${uuidv4()}${ext}`;
+            }
             file.cloudUrl = `/uploads/${file.filename}`;
           });
         }
         return next();
       }
 
-      // Upload single file
+      // Upload single file to GCS
       if (req.file && req.file.buffer) {
+        console.log(`Uploading file to GCS: ${req.file.originalname} -> ${folder}/`);
         const result = await storageService.uploadFromMulter(req.file, folder);
         req.file.cloudUrl = result.url;
         req.file.cloudFilename = result.filename;
+        console.log(`File uploaded successfully: ${result.url}`);
       }
 
-      // Upload multiple files
+      // Upload multiple files to GCS
       if (req.files && Array.isArray(req.files)) {
         for (const file of req.files) {
           if (file.buffer) {
@@ -136,8 +148,13 @@ const uploadToCloud = (folder = 'uploads') => {
 
       next();
     } catch (error) {
-      console.error('Cloud upload error:', error);
-      next(error);
+      console.error('Cloud upload error:', error.message);
+      console.error('Full error:', error);
+      // Return a more descriptive error
+      return res.status(500).json({
+        error: 'Failed to upload file',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   };
 };

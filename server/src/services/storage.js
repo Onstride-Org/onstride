@@ -10,11 +10,21 @@ const BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'onstride-storage';
 
 // Check if GCS is configured
 const isConfigured = () => {
-  return !!(
+  const configured = !!(
     process.env.GCS_PROJECT_ID &&
     process.env.GCS_CLIENT_EMAIL &&
     process.env.GCS_PRIVATE_KEY
   );
+
+  if (!configured) {
+    console.log('GCS config check - Missing:', {
+      hasProjectId: !!process.env.GCS_PROJECT_ID,
+      hasClientEmail: !!process.env.GCS_CLIENT_EMAIL,
+      hasPrivateKey: !!process.env.GCS_PRIVATE_KEY
+    });
+  }
+
+  return configured;
 };
 
 // Initialize storage client
