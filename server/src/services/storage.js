@@ -37,11 +37,40 @@ const initStorage = () => {
   }
 
   try {
+    // Parse the private key - handle various formats:
+    // 1. JSON escaped newlines (\\n)
+    // 2. Literal \n strings
+    // 3. Leading/trailing whitespace on each line
+    // 4. Extra spaces from multiline env var formatting
+    let privateKey = process.env.GCS_PRIVATE_KEY;
+
+    // First, replace escaped newlines with actual newlines
+    privateKey = privateKey.replace(/\\n/g, '\n');
+
+    // Clean up each line - remove leading/trailing spaces from each line
+    // This handles cases where env vars are pasted with indentation
+    privateKey = privateKey
+      .split('\n')
+      .map(line => line.trim())
+      .join('\n');
+
+    // Ensure proper PEM format - must have newlines after header and before footer
+    if (!privateKey.includes('\n')) {
+      // If no newlines at all, it might be a completely mangled key
+      console.error('Private key appears to have no line breaks');
+    }
+
+    console.log('Private key format check:', {
+      startsWithHeader: privateKey.startsWith('-----BEGIN PRIVATE KEY-----'),
+      endsWithFooter: privateKey.trim().endsWith('-----END PRIVATE KEY-----'),
+      lineCount: privateKey.split('\n').length
+    });
+
     storage = new Storage({
       projectId: process.env.GCS_PROJECT_ID,
       credentials: {
         client_email: process.env.GCS_CLIENT_EMAIL,
-        private_key: process.env.GCS_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        private_key: privateKey,
       },
     });
 
