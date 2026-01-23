@@ -23,6 +23,7 @@ import InvoicesPage from './pages/invoices/InvoicesPage';
 import InvoiceDetailPage from './pages/invoices/InvoiceDetailPage';
 import TasksPage from './pages/tasks/TasksPage';
 import LessonsPage from './pages/lessons/LessonsPage';
+import CalendarPage from './pages/calendar/CalendarPage';
 import VendorsPage from './pages/vendors/VendorsPage';
 import UsersPage from './pages/users/UsersPage';
 import SettingsPage from './pages/settings/SettingsPage';
@@ -169,11 +170,12 @@ function App() {
         <Route path="invoices" element={<InvoicesPage />} />
         <Route path="invoices/:id" element={<InvoiceDetailPage />} />
 
-        {/* Tasks */}
-        <Route path="tasks" element={<TasksPage />} />
+        {/* Calendar (combined Tasks & Lessons) */}
+        <Route path="calendar" element={<CalendarPage />} />
 
-        {/* Lessons */}
-        <Route path="lessons" element={<LessonsPage />} />
+        {/* Legacy routes redirect to calendar */}
+        <Route path="tasks" element={<Navigate to="/calendar" replace />} />
+        <Route path="lessons" element={<Navigate to="/calendar" replace />} />
 
         {/* Vendors */}
         <Route path="vendors" element={<VendorsPage />} />

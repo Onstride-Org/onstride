@@ -375,28 +375,71 @@ export const horsesApi = {
     const response = await api.post(`/horses/${id}/export`);
     return response.data;
   },
+
+  uploadPhoto: async (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append('photo', file);
+    const response = await api.post(`/horses/${id}/photo`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  deletePhoto: async (id: string) => {
+    const response = await api.delete(`/horses/${id}/photo`);
+    return response.data;
+  },
+
+  getTasks: async (id: string, params?: { status?: string; page?: number }) => {
+    const response = await api.get(`/horses/${id}/tasks`, { params });
+    return response.data;
+  },
+
+  getLessons: async (id: string, params?: { status?: string; page?: number }) => {
+    const response = await api.get(`/horses/${id}/lessons`, { params });
+    return response.data;
+  },
 };
 
 // ============ Invoices API ============
+// Transform invoice response to match frontend interface
+// Backend sends boarderId/horseId (populated), frontend expects boarder/horse
+const transformInvoice = (invoice: any) => {
+  if (!invoice) return invoice;
+  return {
+    ...invoice,
+    id: invoice._id || invoice.id,
+    boarder: invoice.boarderId && typeof invoice.boarderId === 'object'
+      ? { name: invoice.boarderId.name, email: invoice.boarderId.email }
+      : invoice.boarder,
+    horse: invoice.horseId && typeof invoice.horseId === 'object'
+      ? { name: invoice.horseId.name }
+      : invoice.horse,
+  };
+};
+
 export const invoicesApi = {
   getAll: async (params?: { status?: string; boarderId?: string; page?: number; limit?: number }) => {
     const response = await api.get('/invoices', { params });
-    return response.data;
+    return {
+      ...response.data,
+      data: response.data.data?.map(transformInvoice) || [],
+    };
   },
 
   getById: async (id: string) => {
     const response = await api.get(`/invoices/${id}`);
-    return response.data;
+    return transformInvoice(response.data);
   },
 
   create: async (data: object) => {
     const response = await api.post('/invoices', data);
-    return response.data;
+    return transformInvoice(response.data);
   },
 
   update: async (id: string, data: object) => {
     const response = await api.put(`/invoices/${id}`, data);
-    return response.data;
+    return transformInvoice(response.data);
   },
 
   // Initiate payment - returns redirect URL for card payments

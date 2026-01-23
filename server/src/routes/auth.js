@@ -484,9 +484,51 @@ router.post('/verify-email', [
     user.emailVerified = true;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
+    user.lastLogin = new Date();
     await user.save();
 
-    res.json({ message: 'Email verified successfully' });
+    // Send welcome email (async, don't wait)
+    const primaryRole = await UserBarnRole.findOne({ user: user._id, isPrimary: true })
+      .populate('barn', 'name');
+
+    emailService.sendWelcomeEmail({
+      to: user.email,
+      name: user.name,
+      barnName: primaryRole?.barn?.name
+    }).catch(err => console.error('Failed to send welcome email:', err));
+
+    // Generate tokens for auto-login
+    const { accessToken, refreshToken } = generateTokens(user._id);
+
+    // Get all barn roles
+    const barnRoles = await UserBarnRole.find({ user: user._id })
+      .populate('barn', 'name')
+      .lean();
+
+    res.json({
+      message: 'Email verified successfully',
+      accessToken,
+      refreshToken,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        accountType: user.accountType,
+        emailVerified: user.emailVerified,
+        avatarUrl: user.avatarUrl,
+      },
+      barn: primaryRole?.barn ? {
+        id: primaryRole.barn._id,
+        name: primaryRole.barn.name,
+        role: primaryRole.role
+      } : null,
+      barns: barnRoles.map(br => ({
+        id: br.barn._id,
+        name: br.barn.name,
+        role: br.role,
+        isPrimary: br.isPrimary
+      }))
+    });
   } catch (error) {
     next(error);
   }
@@ -665,7 +707,7 @@ router.delete('/account', [
   validate
 ], async (req, res, next) => {
   try {
-    const user = await User.findById(req.userId);
+    const user = await User.findById(req.userId).select('+password');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }

@@ -54,6 +54,7 @@ const horseSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  photoUrl: String,
   age: Number,
   birthday: {
     type: Date,

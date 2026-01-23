@@ -2,9 +2,11 @@ const express = require('express');
 const { body, param, query } = require('express-validator');
 const Horse = require('../models/Horse');
 const RideLog = require('../models/RideLog');
+const Task = require('../models/Task');
+const Lesson = require('../models/Lesson');
 const { authenticate, loadBarnContext, requireBarn, hasPermission, ownsResourceOrStaff } = require('../middleware/auth');
 const validate = require('../middleware/validate');
-const { uploadDocument, uploadToCloud } = require('../middleware/upload');
+const { uploadDocument, uploadImage, uploadToCloud } = require('../middleware/upload');
 const storageService = require('../services/storage');
 
 const router = express.Router();
@@ -356,6 +358,63 @@ router.delete('/:id/genetics/:testId', [
   }
 });
 
+// Upload horse photo
+router.post('/:id/photo', [
+  hasPermission('horseManagement'),
+  uploadImage.single('photo'),
+  uploadToCloud('horses')
+], async (req, res, next) => {
+  try {
+    const horse = await Horse.findById(req.params.id);
+    if (!horse) {
+      return res.status(404).json({ error: 'Horse not found' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No photo uploaded' });
+    }
+
+    // Delete old photo if exists
+    if (horse.photoUrl && horse.photoUrl.includes('storage.googleapis.com')) {
+      await storageService.deleteFile(horse.photoUrl);
+    }
+
+    // Use cloud URL if available, otherwise fallback to local path
+    const photoUrl = req.file.cloudUrl || `/uploads/${req.file.filename}`;
+
+    horse.photoUrl = photoUrl;
+    await horse.save();
+
+    res.json({ photoUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete horse photo
+router.delete('/:id/photo', [
+  hasPermission('horseManagement')
+], async (req, res, next) => {
+  try {
+    const horse = await Horse.findById(req.params.id);
+    if (!horse) {
+      return res.status(404).json({ error: 'Horse not found' });
+    }
+
+    // Delete from cloud storage if it's a GCS URL
+    if (horse.photoUrl && horse.photoUrl.includes('storage.googleapis.com')) {
+      await storageService.deleteFile(horse.photoUrl);
+    }
+
+    horse.photoUrl = null;
+    await horse.save();
+
+    res.json({ message: 'Photo deleted' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get horse documents
 router.get('/:id/documents', async (req, res, next) => {
   try {
@@ -457,6 +516,70 @@ router.get('/:id/ride-logs', async (req, res, next) => {
 
     res.json({
       rideLogs,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get tasks assigned to horse
+router.get('/:id/tasks', async (req, res, next) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+
+    const filter = {
+      'horses.id': req.params.id,
+      ...(status && { status })
+    };
+
+    const tasks = await Task.find(filter)
+      .sort({ dueDate: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    const total = await Task.countDocuments(filter);
+
+    res.json({
+      tasks,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get lessons assigned to horse
+router.get('/:id/lessons', async (req, res, next) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+
+    const filter = {
+      horseId: req.params.id,
+      ...(status && { status })
+    };
+
+    const lessons = await Lesson.find(filter)
+      .populate('clientId', 'name email')
+      .populate('trainerId', 'name email')
+      .sort({ scheduledDate: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    const total = await Lesson.countDocuments(filter);
+
+    res.json({
+      lessons,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),

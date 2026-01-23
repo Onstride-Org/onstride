@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { authApi } from '../../services/api';
+import { authApi, setTokens, setCurrentBarn } from '../../services/api';
+import { useAuthStore } from '../../stores/authStore';
 
 export default function VerifyEmailPage() {
   const { token } = useParams<{ token: string }>();
@@ -17,10 +18,37 @@ export default function VerifyEmailPage() {
 
     const verifyEmail = async () => {
       try {
-        await authApi.verifyEmail(token);
+        const response = await authApi.verifyEmail(token);
         setStatus('success');
-        // Redirect to login after 3 seconds
-        setTimeout(() => navigate('/login'), 3000);
+
+        // If response includes tokens, auto-login the user
+        if (response.accessToken && response.refreshToken) {
+          setTokens(response.accessToken, response.refreshToken);
+
+          // Set primary barn
+          const primaryBarn = response.barns?.find((b: any) => b.isPrimary);
+          if (primaryBarn) {
+            setCurrentBarn(primaryBarn.id);
+          }
+
+          const currentBarn = primaryBarn || response.barns?.[0];
+
+          // Update auth store directly
+          useAuthStore.setState({
+            user: response.user,
+            barns: response.barns || [],
+            currentBarnId: currentBarn?.id || null,
+            currentBarnRole: currentBarn?.role ? { role: currentBarn.role } : null,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+
+          // Redirect to dashboard after brief success message
+          setTimeout(() => navigate('/dashboard'), 2000);
+        } else {
+          // Fallback to login if no tokens
+          setTimeout(() => navigate('/login'), 3000);
+        }
       } catch (err: any) {
         setStatus('error');
         setError(err.response?.data?.error || 'Verification failed. The link may have expired.');
@@ -54,10 +82,10 @@ export default function VerifyEmailPage() {
           </div>
           <h2 className="auth-form-title">Email Verified!</h2>
           <p className="auth-form-subtitle">
-            Your email has been successfully verified. Redirecting to sign in...
+            Your email has been successfully verified. Taking you to your dashboard...
           </p>
-          <Link to="/login" className="btn btn-primary btn-block mt-4">
-            Sign In Now
+          <Link to="/dashboard" className="btn btn-primary btn-block mt-4">
+            Go to Dashboard
           </Link>
         </div>
       </div>

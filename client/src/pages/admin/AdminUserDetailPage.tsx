@@ -8,6 +8,7 @@ import {
   Building2, Database, DollarSign, ChevronLeft,
   Mail, Phone, Calendar, Shield, CheckCircle, XCircle
 } from 'lucide-react';
+import { formatPhoneNumber } from '../../utils/formatters';
 
 interface UserDetail {
   user: any;
@@ -156,7 +157,7 @@ export default function AdminUserDetailPage() {
               {user.phoneNumber && (
                 <>
                   <dt><Phone size={14} /> Phone</dt>
-                  <dd>{user.phoneNumber}</dd>
+                  <dd>{formatPhoneNumber(user.phoneNumber)}</dd>
                 </>
               )}
 

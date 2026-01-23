@@ -8,6 +8,7 @@ import {
   Building2, Users, Database, DollarSign,
   ChevronLeft, Mail, Phone, MapPin, Calendar
 } from 'lucide-react';
+import { formatPhoneNumber } from '../../utils/formatters';
 
 interface BarnDetail {
   barn: any;
@@ -150,7 +151,7 @@ export default function AdminBarnDetailPage() {
               {barn.phoneNumber && (
                 <>
                   <dt><Phone size={14} /> Phone</dt>
-                  <dd>{barn.phoneNumber}</dd>
+                  <dd>{formatPhoneNumber(barn.phoneNumber)}</dd>
                 </>
               )}
 

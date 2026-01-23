@@ -131,7 +131,6 @@ router.put('/periods/:id', [
 router.post('/periods/:id/charges', [
   hasPermission('generateInvoices'),
   body('type').notEmpty(),
-  body('description').notEmpty(),
   body('amount').isNumeric(),
   validate
 ], async (req, res, next) => {

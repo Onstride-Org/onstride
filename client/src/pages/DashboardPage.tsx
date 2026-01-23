@@ -1,20 +1,24 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { horsesApi, tasksApi, invoicesApi, usersApi } from '../services/api';
-import { Horse, Task, Invoice, User } from '../types';
-import { Plus } from 'lucide-react';
+import { horsesApi, tasksApi, lessonsApi, invoicesApi, usersApi } from '../services/api';
+import { Horse, Task, Lesson, Invoice, User } from '../types';
+import { Plus, Calendar, CheckSquare } from 'lucide-react';
+import { isToday, parseISO, isFuture, startOfDay, endOfDay } from 'date-fns';
+import { formatPhoneNumber } from '../utils/formatters';
 
 export default function DashboardPage() {
   const { user, currentBarnId } = useAuthStore();
   const [stats, setStats] = useState({
     horses: 0,
     tasks: 0,
+    lessons: 0,
     pendingInvoices: 0,
     totalRevenue: 0,
   });
   const [recentHorses, setRecentHorses] = useState<Horse[]>([]);
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
+  const [todayLessons, setTodayLessons] = useState<Lesson[]>([]);
   const [staff, setStaff] = useState<User[]>([]);
   const [staffFilter, setStaffFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -24,9 +28,10 @@ export default function DashboardPage() {
       if (!currentBarnId) return;
 
       try {
-        const [horsesRes, tasksRes, invoicesRes, usersRes] = await Promise.all([
+        const [horsesRes, tasksRes, lessonsRes, invoicesRes, usersRes] = await Promise.all([
           horsesApi.getAll({ limit: 5 }),
           tasksApi.getToday(),
+          lessonsApi.getAll({ limit: 100 }),
           invoicesApi.getAll({ status: 'pending', limit: 100 }),
           usersApi.getAll(),
         ]);
@@ -35,13 +40,25 @@ export default function DashboardPage() {
         setTodayTasks(tasksRes.tasks || []);
         setStaff(usersRes.data || []);
 
+        // Filter lessons for today
+        const allLessons: Lesson[] = lessonsRes.data || [];
+        const todaysLessons = allLessons.filter((lesson) => {
+          const lessonDate = parseISO(lesson.scheduledDate);
+          return isToday(lessonDate) && ['approved', 'requested'].includes(lesson.status);
+        });
+        setTodayLessons(todaysLessons);
+
         // Calculate total revenue from pending invoices
         const pendingInvoices: Invoice[] = invoicesRes.data || [];
         const totalRevenue = pendingInvoices.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
 
+        // Count all due tasks (not completed, not started today or overdue)
+        const dueTasks = (tasksRes.tasks || []).filter((t: Task) => t.status !== 'completed');
+
         setStats({
           horses: horsesRes.pagination?.total || 0,
-          tasks: tasksRes.tasks?.length || 0,
+          tasks: dueTasks.length,
+          lessons: todaysLessons.length,
           pendingInvoices: invoicesRes.pagination?.total || 0,
           totalRevenue,
         });
@@ -88,9 +105,13 @@ export default function DashboardPage() {
           <span className="dashboard-stat-value">{stats.horses}</span>
           <span className="dashboard-stat-label">Horses</span>
         </Link>
-        <Link to="/tasks" className="dashboard-stat">
+        <Link to="/calendar" className="dashboard-stat">
           <span className="dashboard-stat-value">{stats.tasks}</span>
-          <span className="dashboard-stat-label">Tasks Today</span>
+          <span className="dashboard-stat-label">Tasks Due</span>
+        </Link>
+        <Link to="/calendar" className="dashboard-stat">
+          <span className="dashboard-stat-value">{stats.lessons}</span>
+          <span className="dashboard-stat-label">Lessons Today</span>
         </Link>
         <Link to="/invoices" className="dashboard-stat">
           <span className="dashboard-stat-value">{stats.pendingInvoices}</span>
@@ -124,34 +145,72 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Today's Tasks Section */}
-      {todayTasks.length > 0 && (
+      {/* Today's Schedule Section */}
+      {(todayTasks.length > 0 || todayLessons.length > 0) && (
         <section className="dashboard-section">
           <div className="dashboard-section-header">
-            <h2 className="dashboard-section-title">Today's tasks</h2>
-            <Link to="/tasks" className="link text-secondary">View all</Link>
+            <h2 className="dashboard-section-title">Today's Schedule</h2>
+            <Link to="/calendar" className="link text-secondary">View calendar</Link>
           </div>
-          <div className="dashboard-tasks">
-            {todayTasks.slice(0, 4).map((task) => (
-              <div key={task.id} className="dashboard-task-item">
-                <div className={`dashboard-task-checkbox ${task.status === 'completed' ? 'checked' : ''}`}>
-                  {task.status === 'completed' && (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                      <path d="M5 12l5 5L20 7" />
-                    </svg>
-                  )}
-                </div>
-                <div className="dashboard-task-content">
-                  <span className={`dashboard-task-name ${task.status === 'completed' ? 'completed' : ''}`}>
-                    {task.name}
-                  </span>
-                  {task.horses && task.horses.length > 0 && (
-                    <span className="dashboard-task-horse">{task.horses[0].name}</span>
-                  )}
-                </div>
+
+          {/* Today's Tasks */}
+          {todayTasks.length > 0 && (
+            <div className="dashboard-subsection">
+              <h3 className="dashboard-subsection-title">
+                <CheckSquare size={16} /> Tasks ({todayTasks.length})
+              </h3>
+              <div className="dashboard-tasks">
+                {todayTasks.slice(0, 4).map((task) => (
+                  <div key={task.id} className="dashboard-task-item">
+                    <div className={`dashboard-task-checkbox ${task.status === 'completed' ? 'checked' : ''}`}>
+                      {task.status === 'completed' && (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                          <path d="M5 12l5 5L20 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="dashboard-task-content">
+                      <span className={`dashboard-task-name ${task.status === 'completed' ? 'completed' : ''}`}>
+                        {task.name}
+                      </span>
+                      {task.horses && task.horses.length > 0 && (
+                        <span className="dashboard-task-horse">{task.horses[0].name}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+
+          {/* Today's Lessons */}
+          {todayLessons.length > 0 && (
+            <div className="dashboard-subsection">
+              <h3 className="dashboard-subsection-title">
+                <Calendar size={16} /> Lessons ({todayLessons.length})
+              </h3>
+              <div className="dashboard-lessons">
+                {todayLessons.slice(0, 4).map((lesson) => (
+                  <div key={lesson.id} className="dashboard-lesson-item">
+                    <div className="dashboard-lesson-time">
+                      {new Date(lesson.scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    <div className="dashboard-lesson-content">
+                      <span className="dashboard-lesson-name">
+                        {lesson.client?.name || 'Client'} - {lesson.type}
+                      </span>
+                      {lesson.horse && (
+                        <span className="dashboard-lesson-horse">{lesson.horse.name}</span>
+                      )}
+                    </div>
+                    <span className={`badge badge-sm badge-${lesson.status === 'approved' ? 'success' : 'warning'}`}>
+                      {lesson.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -197,7 +256,7 @@ export default function DashboardPage() {
                   <div className="dashboard-staff-email">{member.email}</div>
                 )}
                 {member.phoneNumber && (
-                  <div className="dashboard-staff-phone">{member.phoneNumber}</div>
+                  <div className="dashboard-staff-phone">{formatPhoneNumber(member.phoneNumber)}</div>
                 )}
               </div>
             ))}

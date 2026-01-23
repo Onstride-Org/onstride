@@ -4,6 +4,7 @@ import { User, AccountType } from '../../types';
 import { UserPlus, Search, Users, MoreHorizontal, X, CheckCircle, Link2, Copy, Mail, Clock, RefreshCw, Trash2, ChevronDown, ChevronUp, Share2, Edit, UserMinus } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import FilterTabs from '../../components/FilterTabs';
+import { formatPhoneNumber } from '../../utils/formatters';
 
 interface Invitation {
   _id: string;
@@ -375,7 +376,8 @@ export default function UsersPage() {
                       <div className="dropdown-menu dropdown-menu-right">
                         <button
                           className="dropdown-item"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setEditingUser(user);
                             setActiveDropdown(null);
                           }}
@@ -386,7 +388,10 @@ export default function UsersPage() {
                         {user.id !== currentUser?.id && user.accountType !== 'owner' && (
                           <button
                             className="dropdown-item text-error"
-                            onClick={() => handleRemoveUser(user.id, user.name)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveUser(user.id, user.name);
+                            }}
                           >
                             <UserMinus size={14} />
                             Remove from Barn
@@ -401,7 +406,7 @@ export default function UsersPage() {
                     {roleLabels[user.accountType]}
                   </span>
                   {user.phoneNumber && (
-                    <span className="user-phone">{user.phoneNumber}</span>
+                    <span className="user-phone">{formatPhoneNumber(user.phoneNumber)}</span>
                   )}
                   {user.emailVerified ? (
                     <span className="badge badge-success">Verified</span>
@@ -448,7 +453,7 @@ export default function UsersPage() {
                           {roleLabels[user.accountType]}
                         </span>
                       </td>
-                      <td>{user.phoneNumber || '-'}</td>
+                      <td>{user.phoneNumber ? formatPhoneNumber(user.phoneNumber) : '-'}</td>
                       <td>
                         {user.emailVerified ? (
                           <span className="badge badge-success">Verified</span>
@@ -471,7 +476,8 @@ export default function UsersPage() {
                             <div className="dropdown-menu dropdown-menu-right">
                               <button
                                 className="dropdown-item"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setEditingUser(user);
                                   setActiveDropdown(null);
                                 }}
@@ -482,7 +488,10 @@ export default function UsersPage() {
                               {user.id !== currentUser?.id && user.accountType !== 'owner' && (
                                 <button
                                   className="dropdown-item text-error"
-                                  onClick={() => handleRemoveUser(user.id, user.name)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveUser(user.id, user.name);
+                                  }}
                                 >
                                   <UserMinus size={14} />
                                   Remove from Barn

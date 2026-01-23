@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { horsesApi, rideLogsApi, usersApi } from '../../services/api';
-import { Horse, RideLog, RideType, HealthRecord, HealthRecordType } from '../../types';
+import { Horse, RideLog, RideType, HealthRecord, HealthRecordType, Task, Lesson } from '../../types';
 import { format } from 'date-fns';
+import { Camera, X, Calendar, CheckSquare } from 'lucide-react';
 
-type Tab = 'overview' | 'rideLogs' | 'documents' | 'health';
+type Tab = 'overview' | 'schedule' | 'rideLogs' | 'documents' | 'health';
 
 export default function HorseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +16,8 @@ export default function HorseDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddRideModal, setShowAddRideModal] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const loadHorse = async () => {
     if (!id) return;
@@ -56,6 +59,37 @@ export default function HorseDetailPage() {
     }
   };
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+
+    setIsUploadingPhoto(true);
+    try {
+      const result = await horsesApi.uploadPhoto(id, file);
+      setHorse(prev => prev ? { ...prev, photoUrl: result.photoUrl } : null);
+    } catch (error) {
+      console.error('Failed to upload photo:', error);
+      alert('Failed to upload photo. Please try again.');
+    } finally {
+      setIsUploadingPhoto(false);
+      if (photoInputRef.current) {
+        photoInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    if (!id || !horse?.photoUrl) return;
+    if (!confirm('Remove this photo?')) return;
+
+    try {
+      await horsesApi.deletePhoto(id);
+      setHorse(prev => prev ? { ...prev, photoUrl: undefined } : null);
+    } catch (error) {
+      console.error('Failed to delete photo:', error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="page-loading">
@@ -87,8 +121,42 @@ export default function HorseDetailPage() {
         </Link>
 
         <div className="detail-header-content">
-          <div className="detail-avatar">
-            {horse.name.charAt(0).toUpperCase()}
+          <div className="horse-photo-container">
+            {horse.photoUrl ? (
+              <>
+                <img src={horse.photoUrl} alt={horse.name} className="horse-photo" />
+                <button
+                  className="horse-photo-delete"
+                  onClick={handleDeletePhoto}
+                  title="Remove photo"
+                >
+                  <X size={16} />
+                </button>
+              </>
+            ) : (
+              <div className="detail-avatar horse-avatar-placeholder">
+                {horse.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <input
+              type="file"
+              ref={photoInputRef}
+              onChange={handlePhotoUpload}
+              accept="image/jpeg,image/png,image/webp"
+              style={{ display: 'none' }}
+            />
+            <button
+              className="horse-photo-upload"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={isUploadingPhoto}
+              title={horse.photoUrl ? 'Change photo' : 'Add photo'}
+            >
+              {isUploadingPhoto ? (
+                <div className="spinner spinner-sm"></div>
+              ) : (
+                <Camera size={16} />
+              )}
+            </button>
           </div>
           <div className="detail-info">
             <h1 className="detail-title">{horse.name}</h1>
@@ -121,6 +189,13 @@ export default function HorseDetailPage() {
           Overview
         </button>
         <button
+          className={`tab ${activeTab === 'schedule' ? 'active' : ''}`}
+          onClick={() => setActiveTab('schedule')}
+        >
+          <span className="tab-label-short">Schedule</span>
+          <span className="tab-label-full">Tasks & Lessons</span>
+        </button>
+        <button
           className={`tab ${activeTab === 'rideLogs' ? 'active' : ''}`}
           onClick={() => setActiveTab('rideLogs')}
         >
@@ -147,6 +222,9 @@ export default function HorseDetailPage() {
       <div className="tab-content">
         {activeTab === 'overview' && (
           <OverviewTab horse={horse} rideLogs={rideLogs} />
+        )}
+        {activeTab === 'schedule' && (
+          <ScheduleTab horse={horse} />
         )}
         {activeTab === 'rideLogs' && (
           <RideLogsTab
@@ -339,6 +417,151 @@ function OverviewTab({ horse, rideLogs }: { horse: Horse; rideLogs: RideLog[] })
                   </span>
                 </div>
                 <span className="horse-ride-duration">{log.durationMinutes} min</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ScheduleTab({ horse }: { horse: Horse }) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadSchedule = async () => {
+      try {
+        const [tasksRes, lessonsRes] = await Promise.all([
+          horsesApi.getTasks(horse.id),
+          horsesApi.getLessons(horse.id),
+        ]);
+        setTasks(tasksRes.tasks || []);
+        setLessons(lessonsRes.lessons || []);
+      } catch (error) {
+        console.error('Failed to load schedule:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadSchedule();
+  }, [horse.id]);
+
+  if (isLoading) {
+    return (
+      <div className="schedule-tab">
+        <div className="loading">Loading schedule...</div>
+      </div>
+    );
+  }
+
+  const getTaskStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'badge-success';
+      case 'overdue':
+        return 'badge-error';
+      default:
+        return 'badge-warning';
+    }
+  };
+
+  const getLessonStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'badge-success';
+      case 'approved':
+        return 'badge-info';
+      case 'cancelled':
+        return 'badge-error';
+      default:
+        return 'badge-warning';
+    }
+  };
+
+  return (
+    <div className="schedule-tab">
+      {/* Tasks Section */}
+      <section className="schedule-section">
+        <div className="schedule-section-header">
+          <h3><CheckSquare size={18} /> Tasks ({tasks.length})</h3>
+          <Link to="/calendar" className="btn btn-outline btn-sm">
+            View Calendar
+          </Link>
+        </div>
+        {tasks.length === 0 ? (
+          <div className="empty-state-small">
+            <p>No tasks assigned to {horse.name}</p>
+          </div>
+        ) : (
+          <div className="schedule-list">
+            {tasks.map((task) => (
+              <div key={task.id} className="schedule-item">
+                <div className="schedule-item-date">
+                  <span className="schedule-day">{format(new Date(task.dueDate), 'd')}</span>
+                  <span className="schedule-month">{format(new Date(task.dueDate), 'MMM')}</span>
+                </div>
+                <div className="schedule-item-content">
+                  <span className="schedule-item-name">{task.name}</span>
+                  {task.description && (
+                    <span className="schedule-item-desc">{task.description}</span>
+                  )}
+                  {task.assignees && task.assignees.length > 0 && (
+                    <span className="schedule-item-meta">
+                      Assigned to: {task.assignees.map(a => a.name).join(', ')}
+                    </span>
+                  )}
+                </div>
+                <span className={`badge ${getTaskStatusBadge(task.status)}`}>
+                  {task.status === 'notStarted' ? 'pending' : task.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Lessons Section */}
+      <section className="schedule-section">
+        <div className="schedule-section-header">
+          <h3><Calendar size={18} /> Lessons ({lessons.length})</h3>
+        </div>
+        {lessons.length === 0 ? (
+          <div className="empty-state-small">
+            <p>No lessons scheduled for {horse.name}</p>
+          </div>
+        ) : (
+          <div className="schedule-list">
+            {lessons.map((lesson) => (
+              <div key={lesson.id} className="schedule-item">
+                <div className="schedule-item-date">
+                  <span className="schedule-day">{format(new Date(lesson.scheduledDate), 'd')}</span>
+                  <span className="schedule-month">{format(new Date(lesson.scheduledDate), 'MMM')}</span>
+                </div>
+                <div className="schedule-item-content">
+                  <span className="schedule-item-name">
+                    {lesson.type} Lesson
+                  </span>
+                  <span className="schedule-item-time">
+                    {format(new Date(lesson.scheduledDate), 'h:mm a')}
+                    {lesson.duration && ` • ${lesson.duration} min`}
+                  </span>
+                  {lesson.client && (
+                    <span className="schedule-item-meta">
+                      Client: {lesson.client.name}
+                    </span>
+                  )}
+                  {lesson.trainer && (
+                    <span className="schedule-item-meta">
+                      Trainer: {lesson.trainer.name}
+                    </span>
+                  )}
+                </div>
+                <span className={`badge ${getLessonStatusBadge(lesson.status)}`}>
+                  {lesson.status}
+                </span>
               </div>
             ))}
           </div>

@@ -8,6 +8,7 @@ import {
   CheckCircle, XCircle
 } from 'lucide-react';
 import FilterTabs from '../../components/FilterTabs';
+import { formatPhoneNumber } from '../../utils/formatters';
 
 type TabType = 'directory' | 'connections' | 'appointments';
 
@@ -227,7 +228,7 @@ export default function VendorsPage() {
                       {vendor.businessPhone && (
                         <div className="vendor-phone">
                           <Phone size={14} />
-                          {vendor.businessPhone}
+                          {formatPhoneNumber(vendor.businessPhone)}
                         </div>
                       )}
 
@@ -493,7 +494,7 @@ function VendorDetailModal({
               {vendor.businessPhone && (
                 <div className="detail-item">
                   <label>Phone:</label>
-                  <span>{vendor.businessPhone}</span>
+                  <span>{formatPhoneNumber(vendor.businessPhone)}</span>
                 </div>
               )}
               {(vendor.city || vendor.state) && (

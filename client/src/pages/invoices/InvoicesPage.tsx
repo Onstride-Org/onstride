@@ -184,6 +184,7 @@ function CreateInvoiceModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { user: currentUser } = useAuthStore();
   const [boarderId, setBoarderId] = useState('');
   const [horseId, setHorseId] = useState('');
   const [dueDate, setDueDate] = useState(format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'));
@@ -195,6 +196,9 @@ function CreateInvoiceModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
+
+  // Filter out current user from billable users (can't bill yourself)
+  const billableUsers = users.filter(user => user.id !== currentUser?.id);
 
   useEffect(() => {
     const loadData = async () => {
@@ -310,7 +314,7 @@ function CreateInvoiceModal({
                       required
                     >
                       <option value="">Select a user...</option>
-                      {users.map(user => (
+                      {billableUsers.map(user => (
                         <option key={user.id} value={user.id}>
                           {user.name} ({user.accountType}) - {user.email}
                         </option>
@@ -383,14 +387,6 @@ function CreateInvoiceModal({
                         <option value="service">Service</option>
                         <option value="other">Other</option>
                       </select>
-                      <input
-                        type="text"
-                        className="form-input charge-description"
-                        value={charge.description}
-                        onChange={(e) => updateCharge(index, 'description', e.target.value)}
-                        placeholder="Description"
-                        required
-                      />
                       <div className="charge-amount-wrapper">
                         <span className="charge-amount-prefix">$</span>
                         <input
@@ -416,6 +412,13 @@ function CreateInvoiceModal({
                           required
                         />
                       </div>
+                      <input
+                        type="text"
+                        className="form-input charge-description"
+                        value={charge.description}
+                        onChange={(e) => updateCharge(index, 'description', e.target.value)}
+                        placeholder="Description (optional)"
+                      />
                       <input
                         type="number"
                         className="form-input charge-quantity"

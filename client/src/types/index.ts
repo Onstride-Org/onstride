@@ -48,6 +48,7 @@ export interface Horse {
   id: string;
   barnId: string;
   name: string;
+  photoUrl?: string;
   age?: number;
   birthday?: string;
   calculatedAge?: number;

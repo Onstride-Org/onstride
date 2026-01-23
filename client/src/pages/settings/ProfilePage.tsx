@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { usersApi, authApi } from '../../services/api';
+import { formatPhoneNumber } from '../../utils/formatters';
 
 export default function ProfilePage() {
   const { user, loadUser, logout } = useAuthStore();
@@ -58,7 +59,7 @@ export default function ProfilePage() {
                   <dt>Email</dt>
                   <dd>{user?.email}</dd>
                   <dt>Phone</dt>
-                  <dd>{user?.phoneNumber || 'Not provided'}</dd>
+                  <dd>{user?.phoneNumber ? formatPhoneNumber(user.phoneNumber) : 'Not provided'}</dd>
                   <dt>Account Type</dt>
                   <dd className="capitalize">{user?.accountType}</dd>
                   <dt>Email Verified</dt>
