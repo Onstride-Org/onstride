@@ -75,18 +75,39 @@ const uploadFile = async (fileBuffer, originalFilename, mimetype, folder = 'uplo
   const file = bucket.file(filename);
 
   try {
+    // Generate a unique token for Firebase Storage URL
+    const downloadToken = uuidv4();
+
     await file.save(fileBuffer, {
       metadata: {
         contentType: mimetype,
         cacheControl: 'public, max-age=31536000', // 1 year cache
+        metadata: {
+          firebaseStorageDownloadTokens: downloadToken,
+        },
       },
       resumable: false,
     });
 
     // Make file publicly readable
-    await file.makePublic();
+    try {
+      await file.makePublic();
+    } catch (publicError) {
+      console.log('Could not make file public (may be Firebase Storage):', publicError.message);
+    }
 
-    const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${filename}`;
+    // Construct the URL - handle both regular GCS and Firebase Storage buckets
+    let publicUrl;
+    if (BUCKET_NAME.includes('firebasestorage.app') || BUCKET_NAME.includes('appspot.com')) {
+      // Firebase Storage URL format
+      const encodedFilename = encodeURIComponent(filename);
+      publicUrl = `https://firebasestorage.googleapis.com/v0/b/${BUCKET_NAME}/o/${encodedFilename}?alt=media&token=${downloadToken}`;
+    } else {
+      // Regular GCS URL format
+      publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${filename}`;
+    }
+
+    console.log('File uploaded successfully:', publicUrl);
 
     return {
       url: publicUrl,
@@ -97,6 +118,7 @@ const uploadFile = async (fileBuffer, originalFilename, mimetype, folder = 'uplo
     console.error('GCS upload error:', error.message);
     console.error('Bucket:', BUCKET_NAME);
     console.error('Filename:', filename);
+    console.error('Full error:', error);
     throw new Error(`Failed to upload file to cloud storage: ${error.message}`);
   }
 };
@@ -131,7 +153,14 @@ const deleteFile = async (fileUrl) => {
   try {
     // Extract filename from URL if full URL is provided
     let filename = fileUrl;
-    if (fileUrl.includes('storage.googleapis.com')) {
+
+    if (fileUrl.includes('firebasestorage.googleapis.com')) {
+      // Firebase Storage URL format: /o/folder%2Ffile.ext?alt=media
+      const match = fileUrl.match(/\/o\/([^?]+)/);
+      if (match) {
+        filename = decodeURIComponent(match[1]);
+      }
+    } else if (fileUrl.includes('storage.googleapis.com')) {
       filename = fileUrl.split(`${BUCKET_NAME}/`)[1];
     }
 
