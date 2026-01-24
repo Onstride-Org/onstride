@@ -3065,6 +3065,9 @@
 
 /* ============ Stable Management ============ */
 .stable-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
   padding: var(--spacing-4);
   max-width: 600px;
   margin: 0 auto;
@@ -3098,6 +3101,12 @@
 
 .stable-stat strong {
   color: var(--color-text-primary);
+}
+
+.stable-footer {
+  margin-top: auto;
+  padding: var(--spacing-6) var(--spacing-4);
+  padding-bottom: calc(var(--spacing-6) + env(safe-area-inset-bottom));
 }
 
 /* Setup Wizard */
@@ -3253,9 +3262,6 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  /* Center the stall on its calculated position */
-  margin-left: -25px;
-  margin-top: -20px;
 }
 
 .circular-center {

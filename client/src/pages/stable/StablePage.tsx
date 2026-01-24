@@ -236,6 +236,12 @@ export default function StablePage() {
         </div>
       )}
 
+      <div className="stable-footer">
+        <button className="btn btn-primary btn-block" onClick={() => navigate('/')}>
+          Save
+        </button>
+      </div>
+
       {showAssignModal && selectedStall && (
         <AssignHorseModal
           stall={selectedStall}
@@ -335,7 +341,7 @@ function CircularLayout({ stalls, onStallClick }: LayoutProps) {
               key={stall.stallId}
               className="circular-stall-wrapper"
               style={{
-                transform: `translate(${x}px, ${y}px) rotate(${rotation}deg)`,
+                transform: `translate(calc(${x}px - 50%), calc(${y}px - 50%)) rotate(${rotation}deg)`,
               }}
             >
               <StallCard stall={stall} onClick={() => onStallClick(stall)} mini />
