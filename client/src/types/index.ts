@@ -46,6 +46,7 @@ export interface BarnSetup {
 // Horse types
 export interface Horse {
   id: string;
+  _id?: string;
   barnId: string;
   name: string;
   photoUrl?: string;
@@ -54,6 +55,7 @@ export interface Horse {
   calculatedAge?: number;
   breed?: LabelValue;
   sexStatus?: LabelValue;
+  gender?: string;
   color?: string;
   status: 'active' | 'inactive';
   notes?: string;

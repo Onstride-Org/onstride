@@ -34,6 +34,7 @@ import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminBarnDetailPage from './pages/admin/AdminBarnDetailPage';
 import AdminUserDetailPage from './pages/admin/AdminUserDetailPage';
 import BillingTemplatesPage from './pages/billing/BillingTemplatesPage';
+import StablePage from './pages/stable/StablePage';
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -174,6 +175,9 @@ function App() {
         {/* Legacy routes redirect to calendar */}
         <Route path="tasks" element={<Navigate to="/calendar" replace />} />
         <Route path="lessons" element={<Navigate to="/calendar" replace />} />
+
+        {/* Stable */}
+        <Route path="stable" element={<StablePage />} />
 
         {/* Vendors */}
         <Route path="vendors" element={<VendorsPage />} />

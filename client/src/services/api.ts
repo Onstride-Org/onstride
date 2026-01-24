@@ -900,6 +900,44 @@ export const billingApi = {
   },
 };
 
+// ============ Stables API ============
+export const stablesApi = {
+  get: async () => {
+    const response = await api.get('/stables');
+    return response.data;
+  },
+
+  configure: async (data: { name?: string; layout: string; totalStalls: number; stallsPerRow?: number }) => {
+    const response = await api.post('/stables/configure', data);
+    return response.data;
+  },
+
+  assignHorse: async (stallId: string, horseId: string | null) => {
+    const response = await api.post(`/stables/stalls/${stallId}/assign`, { horseId });
+    return response.data;
+  },
+
+  removeHorse: async (stallId: string) => {
+    const response = await api.delete(`/stables/stalls/${stallId}/horse`);
+    return response.data;
+  },
+
+  updateStall: async (stallId: string, data: { status?: string; notes?: string }) => {
+    const response = await api.patch(`/stables/stalls/${stallId}`, data);
+    return response.data;
+  },
+
+  reset: async () => {
+    const response = await api.post('/stables/reset');
+    return response.data;
+  },
+
+  delete: async () => {
+    const response = await api.delete('/stables');
+    return response.data;
+  },
+};
+
 // ============ Auth API additional methods ============
 (authApi as any).changePassword = async (currentPassword: string, newPassword: string) => {
   const response = await api.post('/auth/change-password', { currentPassword, newPassword });

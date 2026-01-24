@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { Home, FileText, CheckSquare, Calendar, UserCheck, Users, Settings, Menu, X, LogOut } from 'lucide-react';
+import { Home, FileText, CheckSquare, Calendar, UserCheck, Users, Settings, Menu, X, LogOut, Warehouse } from 'lucide-react';
 import { HorseIcon } from '../components/icons/HorseIcon';
 
 export default function AppLayout() {
@@ -26,6 +26,7 @@ export default function AppLayout() {
   const allNavItems = [
     { path: '/dashboard', icon: 'home', label: 'Dashboard', staffOnly: false },
     { path: '/horses', icon: 'horse', label: 'Horses', staffOnly: false },
+    { path: '/stable', icon: 'stable', label: 'Stable', staffOnly: true },
     { path: '/invoices', icon: 'invoice', label: 'Invoices', staffOnly: false },
     { path: '/calendar', icon: 'calendar', label: 'Calendar', staffOnly: false },
     { path: '/vendors', icon: 'vendor', label: 'Vendors', staffOnly: true },
@@ -49,6 +50,8 @@ export default function AppLayout() {
         return <CheckSquare {...iconProps} />;
       case 'calendar':
         return <Calendar {...iconProps} />;
+      case 'stable':
+        return <Warehouse {...iconProps} />;
       case 'vendor':
         return <UserCheck {...iconProps} />;
       case 'users':
