@@ -398,8 +398,6 @@ function AssignHorseModal({ stall, horses, assignedHorseIds, onAssign, onClose }
     return !isAssigned;
   });
 
-  const currentHorseId = stall.horse?._id || (stall.horse as any)?.id;
-
   const handleSave = () => {
     if (selectedHorseId) {
       onAssign(selectedHorseId);
