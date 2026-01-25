@@ -452,10 +452,32 @@
 
 /* V2 Auth forms - larger radius */
 .auth-form-container {
+  position: relative;
   background-color: var(--color-surface-elevated);
   border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-lg);
   padding: var(--spacing-8);
+}
+
+.auth-close-btn {
+  position: absolute;
+  top: var(--spacing-4);
+  left: var(--spacing-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  background: transparent;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+}
+
+.auth-close-btn:hover {
+  background: var(--color-neutral-100);
+  color: var(--color-text-primary);
 }
 
 .auth-form-title {

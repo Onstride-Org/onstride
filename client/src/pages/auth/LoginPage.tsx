@@ -159,6 +159,12 @@ export default function LoginPage() {
   // Show regular login form
   return (
     <div className="auth-form-container">
+      <Link to="/" className="auth-close-btn" aria-label="Back to home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="24" height="24">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </Link>
       <h2 className="auth-form-title">Welcome Back</h2>
       <p className="auth-form-subtitle">Sign in to manage your barn</p>
 
