@@ -108,7 +108,7 @@ export default function InvoicesPage() {
             {invoices.map((invoice) => (
               <Link
                 key={invoice.id}
-                to={`/invoices/${invoice.id}`}
+                to={`/app/invoices/${invoice.id}`}
                 className="invoice-card"
               >
                 <div className="invoice-card-main">

@@ -3,25 +3,28 @@ import { Link } from 'react-router-dom';
 import {
   Menu,
   X,
-  LayoutDashboard,
-  Users,
-  CreditCard,
-  Bell,
+  ArrowRight,
   Check,
-  ChevronRight,
-  Star,
+  Sparkles,
+  BarChart3,
+  Users,
+  Calendar,
+  CreditCard,
+  FileText,
   Shield,
   Zap,
-  ArrowRight
+  Clock,
+  Star
 } from 'lucide-react';
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isAnnouncementClosed, setIsAnnouncementClosed] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      setIsScrolled(window.scrollY > 10);
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
@@ -36,450 +39,465 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="landing-page">
-      {/* Navigation */}
-      <nav className={`landing-nav ${isScrolled ? 'scrolled' : ''}`}>
+    <div className={`landing-page ${!isAnnouncementClosed ? 'has-announcement' : ''}`}>
+      {/* Announcement Bar */}
+      {!isAnnouncementClosed && (
+        <div className="announcement-bar">
+          <div className="announcement-content">
+            <span className="announcement-text">
+              Join our BETA now for early access
+            </span>
+            <a 
+              href="#demo" 
+              className="announcement-link"
+              onClick={(e) => { 
+                e.preventDefault(); 
+                scrollToSection('demo'); 
+              }}
+            >
+              Sign up
+              <ArrowRight size={14} />
+            </a>
+          </div>
+          <button 
+            className="announcement-close"
+            onClick={() => setIsAnnouncementClosed(true)}
+            aria-label="Close announcement"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
+      {/* Navigation - Linear-style minimal */}
+      <nav className={`landing-nav ${isScrolled ? 'scrolled' : ''} ${!isAnnouncementClosed ? 'with-announcement' : ''}`}>
         <div className="landing-nav-container">
-          <div className="landing-logo">
+          <Link to="/" className="landing-logo">
             <span className="logo-text">OnStride</span>
             <span className="beta-badge">BETA</span>
-          </div>
+          </Link>
 
-          {/* Desktop Nav */}
           <div className="landing-nav-links">
+            <button onClick={() => scrollToSection('platform')} className="nav-link">Platform</button>
             <button onClick={() => scrollToSection('features')} className="nav-link">Features</button>
             <button onClick={() => scrollToSection('pricing')} className="nav-link">Pricing</button>
-            <button onClick={() => scrollToSection('founders')} className="nav-link">Founders Program</button>
           </div>
 
           <div className="landing-nav-actions">
-            <Link to="/login" className="btn btn-ghost">Sign In</Link>
+            <Link to="/login" className="nav-link">Sign in</Link>
             <a href="#demo" className="btn btn-primary" onClick={(e) => { e.preventDefault(); scrollToSection('demo'); }}>
-              Request Demo
+              Get a Demo
             </a>
           </div>
 
-          {/* Mobile Menu Button */}
-          <button className="landing-menu-toggle" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+          <button className="landing-menu-toggle" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle menu">
             {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
 
-        {/* Mobile Menu */}
         {isMenuOpen && (
           <div className="landing-mobile-menu">
+            <button onClick={() => scrollToSection('platform')} className="mobile-nav-link">Platform</button>
             <button onClick={() => scrollToSection('features')} className="mobile-nav-link">Features</button>
             <button onClick={() => scrollToSection('pricing')} className="mobile-nav-link">Pricing</button>
-            <button onClick={() => scrollToSection('founders')} className="mobile-nav-link">Founders Program</button>
-            <hr />
-            <Link to="/login" className="mobile-nav-link">Sign In</Link>
+            <div className="mobile-menu-divider" />
+            <Link to="/login" className="mobile-nav-link">Sign in</Link>
             <a href="#demo" className="btn btn-primary btn-block" onClick={(e) => { e.preventDefault(); scrollToSection('demo'); setIsMenuOpen(false); }}>
-              Request Demo
+              Get a Demo
             </a>
           </div>
         )}
       </nav>
 
-      {/* Hero Section */}
+      {/* Hero - ServiceTitan structure, Linear polish */}
       <section className="landing-hero">
         <div className="landing-container">
-          <div className="hero-content">
-            <div className="hero-text">
+          <div className="hero-content-wrapper">
+            <div className="hero-content">
               <h1 className="hero-headline">
-                The Operating System for Modern Horse Barns
+                The #1 software for<br />
+                <span className="hero-highlight">modern horse barns</span>
               </h1>
               <p className="hero-subheadline">
-                Manage horses, staff, clients, and payments — all in one platform.
+                Run your entire equine operation from one platform. Manage horses, coordinate staff, engage clients, and grow revenue—all in one place.
               </p>
-              <div className="hero-ctas">
-                <a href="#demo" className="btn btn-primary btn-lg" onClick={(e) => { e.preventDefault(); scrollToSection('demo'); }}>
-                  Request a Demo
-                  <ArrowRight size={20} />
-                </a>
-                <button onClick={() => scrollToSection('how-it-works')} className="btn btn-outline btn-lg">
-                  See How It Works
+              <form className="hero-email-form" onSubmit={(e) => { e.preventDefault(); scrollToSection('demo'); }}>
+                <input 
+                  type="email" 
+                  placeholder="Email" 
+                  required 
+                  className="hero-email-input"
+                />
+                <button type="submit" className="btn btn-primary btn-lg hero-cta-button">
+                  Get Started
+                  <ArrowRight size={18} />
                 </button>
-              </div>
-              <p className="hero-trust-line">
-                Built for professional barns. Designed to scale.
-              </p>
-            </div>
-            <div className="hero-visual">
-              <div className="hero-mockup">
-                <div className="mockup-placeholder">
-                  <span>Dashboard Preview</span>
+              </form>
+              <div className="hero-social-proof">
+                <div className="social-proof-item">
+                  <div className="social-proof-stars">
+                    <Star size={16} fill="currentColor" />
+                    <Star size={16} fill="currentColor" />
+                    <Star size={16} fill="currentColor" />
+                    <Star size={16} fill="currentColor" />
+                    <Star size={16} fill="currentColor" />
+                  </div>
+                  <span className="social-proof-rating">4.8</span>
+                  <span className="social-proof-label">Capterra</span>
+                </div>
+                <div className="social-proof-item">
+                  <div className="social-proof-stars">
+                    <Star size={16} fill="currentColor" />
+                    <Star size={16} fill="currentColor" />
+                    <Star size={16} fill="currentColor" />
+                    <Star size={16} fill="currentColor" />
+                    <Star size={16} fill="currentColor" />
+                  </div>
+                  <span className="social-proof-rating">4.9</span>
+                  <span className="social-proof-label">Software Advice</span>
                 </div>
               </div>
             </div>
+            <div className="hero-visual">
+              <img src="/hero.png" alt="OnStride platform" className="hero-image" />
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Problem → Solution Section */}
-      <section className="landing-section landing-problem">
+      {/* Platform Overview - ServiceTitan style */}
+      <section id="platform" className="landing-section">
         <div className="landing-container">
-          <div className="section-header">
-            <h2 className="section-headline">Barns Run on Paper. Businesses Don't.</h2>
+          <div className="section-header section-header-wide">
+            <span className="section-eyebrow">The Platform</span>
+            <h2 className="section-headline">
+              One operating system.<br />Your entire operation.
+            </h2>
             <p className="section-description">
-              Most barns still rely on paper logs, scattered spreadsheets, and manual processes.
-              Payments get missed. Schedules get lost. Staff and clients stay disconnected.
-              It's time for something better.
+              From horse health records to client billing, from staff scheduling to revenue insights—everything your barn needs, unified in one intelligent platform.
             </p>
           </div>
 
-          <div className="problem-grid">
-            <div className="problem-item">
-              <div className="problem-icon">
-                <X size={24} />
+          <div className="platform-grid">
+            <div className="platform-card platform-card-featured">
+              <div className="platform-card-content">
+                <div className="platform-icon">
+                  <BarChart3 size={24} />
+                </div>
+                <h3>Complete Visibility</h3>
+                <p>See your entire operation at a glance. Track horses, monitor tasks, and stay on top of payments from a single dashboard.</p>
+                <ul className="platform-features">
+                  <li><Check size={16} /> Real-time dashboard</li>
+                  <li><Check size={16} /> Performance analytics</li>
+                  <li><Check size={16} /> Custom reports</li>
+                </ul>
               </div>
-              <p>No centralized system for barn operations</p>
-            </div>
-            <div className="problem-item">
-              <div className="problem-icon">
-                <X size={24} />
+              <div className="platform-card-visual">
+                <img src="/CompleteVisibilityImage.png" alt="OnStride mobile dashboard" className="platform-image" />
               </div>
-              <p>Manual billing and scheduling headaches</p>
-            </div>
-            <div className="problem-item">
-              <div className="problem-icon">
-                <X size={24} />
-              </div>
-              <p>Disconnected staff and client communication</p>
-            </div>
-          </div>
-
-          <div className="solution-statement">
-            <Check size={32} className="solution-check" />
-            <p><strong>OnStride replaces all of this</strong> with one unified platform.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Core Features Section */}
-      <section id="features" className="landing-section landing-features">
-        <div className="landing-container">
-          <div className="section-header">
-            <span className="section-label">Features</span>
-            <h2 className="section-headline">Everything Your Barn Needs</h2>
-          </div>
-
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon">
-                <LayoutDashboard size={28} />
-              </div>
-              <h3>Barn & Horse Management</h3>
-              <p>Complete profiles, health records, documents, and ride logs for every horse in your care.</p>
             </div>
 
-            <div className="feature-card">
-              <div className="feature-icon">
-                <Users size={28} />
+            <div className="platform-card">
+              <div className="platform-icon">
+                <Users size={24} />
               </div>
-              <h3>Staff & Client Portals</h3>
-              <p>Role-based access ensures everyone sees exactly what they need — nothing more, nothing less.</p>
+              <h3>Team Coordination</h3>
+              <p>Role-based access for owners, managers, trainers, and boarders. Everyone sees exactly what they need.</p>
             </div>
 
-            <div className="feature-card">
-              <div className="feature-icon">
-                <CreditCard size={28} />
+            <div className="platform-card">
+              <div className="platform-icon">
+                <CreditCard size={24} />
               </div>
-              <h3>Billing & Payments</h3>
-              <p>Automated invoicing, payment tracking, and financial reporting built for equine operations.</p>
+              <h3>Automated Billing</h3>
+              <p>Generate invoices, track payments, and manage recurring charges without the manual work.</p>
             </div>
 
-            <div className="feature-card">
-              <div className="feature-icon">
-                <Bell size={28} />
+            <div className="platform-card">
+              <div className="platform-icon">
+                <Calendar size={24} />
               </div>
-              <h3>Tasks & Automation</h3>
-              <p>Schedule tasks, send reminders, and keep your entire team aligned without the chaos.</p>
+              <h3>Smart Scheduling</h3>
+              <p>Coordinate lessons, farrier visits, vet appointments, and daily tasks in one calendar.</p>
+            </div>
+
+            <div className="platform-card">
+              <div className="platform-icon">
+                <FileText size={24} />
+              </div>
+              <h3>Horse Records</h3>
+              <p>Complete profiles with health records, documents, and ride logs for every horse.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* How It Works Section */}
-      <section id="how-it-works" className="landing-section landing-how-it-works">
+      {/* Features Deep Dive */}
+      <section id="features" className="landing-section landing-section-alt">
         <div className="landing-container">
           <div className="section-header">
-            <span className="section-label">How It Works</span>
-            <h2 className="section-headline">Up and Running in Minutes</h2>
+            <span className="section-eyebrow">Features</span>
+            <h2 className="section-headline">Everything you need to<br />run a professional barn</h2>
           </div>
 
-          <div className="steps-grid">
-            <div className="step-card">
-              <div className="step-number">1</div>
-              <div className="step-visual">
-                <div className="step-placeholder"></div>
+          <div className="features-showcase">
+            <div className="feature-row">
+              <div className="feature-content">
+                <div className="feature-badge">Horse Management</div>
+                <h3>Complete horse profiles at your fingertips</h3>
+                <p>Store everything about each horse in one place—health records, documents, feeding schedules, and training notes. Access it all from any device.</p>
+                <ul className="feature-list">
+                  <li><Check size={18} /> Health & vaccination tracking</li>
+                  <li><Check size={18} /> Document storage</li>
+                  <li><Check size={18} /> Ride logs & training notes</li>
+                  <li><Check size={18} /> Owner information</li>
+                </ul>
               </div>
-              <h3>Create Your Barn</h3>
-              <p>Set up your barn profile with your details and preferences.</p>
-            </div>
-
-            <div className="step-connector">
-              <ChevronRight size={24} />
-            </div>
-
-            <div className="step-card">
-              <div className="step-number">2</div>
-              <div className="step-visual">
-                <div className="step-placeholder"></div>
-              </div>
-              <h3>Add Horses & People</h3>
-              <p>Invite staff, add clients, and create profiles for every horse.</p>
-            </div>
-
-            <div className="step-connector">
-              <ChevronRight size={24} />
-            </div>
-
-            <div className="step-card">
-              <div className="step-number">3</div>
-              <div className="step-visual">
-                <div className="step-placeholder"></div>
-              </div>
-              <h3>Manage Everything</h3>
-              <p>Run your entire operation from one unified dashboard.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Why OnStride Section */}
-      <section className="landing-section landing-why">
-        <div className="landing-container">
-          <div className="section-header">
-            <span className="section-label">Why OnStride</span>
-            <h2 className="section-headline">Built Specifically for the Equine Industry</h2>
-          </div>
-
-          <div className="why-grid">
-            <div className="why-item">
-              <Star size={24} className="why-icon" />
-              <div>
-                <h4>Designed Around Real Barn Workflows</h4>
-                <p>Every feature is built from the ground up for how barns actually operate.</p>
+              <div className="feature-visual">
+                <img src="/horseProfile.png" alt="Horse profile management" className="feature-image" />
               </div>
             </div>
 
-            <div className="why-item">
-              <Shield size={24} className="why-icon" />
-              <div>
-                <h4>Secure, Modern Infrastructure</h4>
-                <p>Enterprise-grade security with a modern SaaS architecture you can trust.</p>
+            <div className="feature-row feature-row-reverse">
+              <div className="feature-content">
+                <div className="feature-badge">Scheduling & Tasks</div>
+                <h3>Never miss an appointment again</h3>
+                <p>Manage lessons, coordinate vendors, and assign daily tasks to your team. Automated reminders keep everyone on track.</p>
+                <ul className="feature-list">
+                  <li><Check size={18} /> Lesson scheduling</li>
+                  <li><Check size={18} /> Task assignment</li>
+                  <li><Check size={18} /> Automated reminders</li>
+                  <li><Check size={18} /> Vendor coordination</li>
+                </ul>
+              </div>
+              <div className="feature-visual">
+                <img src="/calendar.png" alt="Calendar and scheduling" className="feature-image" />
               </div>
             </div>
 
-            <div className="why-item">
-              <Zap size={24} className="why-icon" />
-              <div>
-                <h4>Scales With Your Operation</h4>
-                <p>From small training barns to large boarding facilities — OnStride grows with you.</p>
+            <div className="feature-row">
+              <div className="feature-content">
+                <div className="feature-badge">Billing & Payments</div>
+                <h3>Get paid faster, stress less</h3>
+                <p>Automate invoicing, track payments, and manage recurring charges. Know exactly who owes what, and when.</p>
+                <ul className="feature-list">
+                  <li><Check size={18} /> Automated invoicing</li>
+                  <li><Check size={18} /> Payment tracking</li>
+                  <li><Check size={18} /> Recurring charges</li>
+                  <li><Check size={18} /> Financial reports</li>
+                </ul>
               </div>
-            </div>
-
-            <div className="why-item">
-              <Check size={24} className="why-icon" />
-              <div>
-                <h4>Eliminates Manual Processes</h4>
-                <p>No more blind spots, missed tasks, or lost paperwork.</p>
+              <div className="feature-visual">
+                <img src="/invoice.png" alt="Billing and invoices" className="feature-image" />
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Comparison Section */}
-      <section className="landing-section landing-comparison">
+      {/* Why OnStride */}
+      <section className="landing-section">
         <div className="landing-container">
           <div className="section-header">
-            <h2 className="section-headline">Why Barns Are Switching to OnStride</h2>
+            <span className="section-eyebrow">Why OnStride</span>
+            <h2 className="section-headline">Built for how barns<br />actually work</h2>
           </div>
 
-          <div className="comparison-table">
-            <div className="comparison-column comparison-old">
-              <h3>Traditional Tools</h3>
-              <ul>
-                <li><X size={18} /> Paper logs and binders</li>
-                <li><X size={18} /> Scattered spreadsheets</li>
-                <li><X size={18} /> Disconnected software</li>
-                <li><X size={18} /> Manual billing processes</li>
-                <li><X size={18} /> No real-time visibility</li>
-              </ul>
+          <div className="benefits-grid">
+            <div className="benefit-card">
+              <div className="benefit-icon">
+                <Zap size={24} />
+              </div>
+              <h4>Purpose-built for equine</h4>
+              <p>Not a generic tool adapted for horses. Every feature designed specifically for barn operations.</p>
             </div>
-
-            <div className="comparison-divider">
-              <span>vs</span>
+            <div className="benefit-card">
+              <div className="benefit-icon">
+                <Clock size={24} />
+              </div>
+              <h4>Save hours every week</h4>
+              <p>Automate the tedious work. Spend more time with horses and clients, less time on paperwork.</p>
             </div>
-
-            <div className="comparison-column comparison-new">
-              <h3>OnStride</h3>
-              <ul>
-                <li><Check size={18} /> Centralized system</li>
-                <li><Check size={18} /> Automated workflows</li>
-                <li><Check size={18} /> Role-based access</li>
-                <li><Check size={18} /> Integrated payments</li>
-                <li><Check size={18} /> AI-driven insights</li>
-              </ul>
+            <div className="benefit-card">
+              <div className="benefit-icon">
+                <Shield size={24} />
+              </div>
+              <h4>Secure & reliable</h4>
+              <p>Enterprise-grade security with 99.9% uptime. Your data is safe and always accessible.</p>
+            </div>
+            <div className="benefit-card">
+              <div className="benefit-icon">
+                <Users size={24} />
+              </div>
+              <h4>Happy clients</h4>
+              <p>Give boarders and lesson clients a professional experience with their own portal access.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="landing-section landing-pricing">
+      {/* Pricing - Webflow style */}
+      <section id="pricing" className="landing-section landing-section-alt">
         <div className="landing-container">
           <div className="section-header">
-            <span className="section-label">Pricing</span>
-            <h2 className="section-headline">Flexible Plans for Every Size Operation</h2>
-            <p className="section-description">Start free. Scale as your barn grows.</p>
+            <span className="section-eyebrow">Pricing</span>
+            <h2 className="section-headline">Simple, transparent pricing</h2>
+            <p className="section-description">Start free. Upgrade when you're ready.</p>
           </div>
 
           <div className="pricing-grid">
             <div className="pricing-card">
-              <div className="pricing-header">
-                <h3>Free</h3>
+              <div className="pricing-card-header">
+                <h3 className="pricing-tier">Free</h3>
+                <p className="pricing-tier-desc">For small operations getting started</p>
                 <div className="pricing-amount">
-                  <span className="price">$0</span>
-                  <span className="period">/month</span>
+                  <span className="pricing-currency">$</span>
+                  <span className="pricing-value">0</span>
+                  <span className="pricing-period">/month</span>
                 </div>
               </div>
-              <p className="pricing-description">Perfect for getting started</p>
-              <ul className="pricing-features">
-                <li><Check size={16} /> Core features</li>
-                <li><Check size={16} /> Up to 6 horses</li>
-                <li><Check size={16} /> Basic reporting</li>
-                <li><Check size={16} /> Email support</li>
-              </ul>
-              <a href="#demo" className="btn btn-outline btn-block" onClick={(e) => { e.preventDefault(); scrollToSection('demo'); }}>
-                Get Started
-              </a>
+              <div className="pricing-card-body">
+                <ul className="pricing-features">
+                  <li><Check size={18} /> Up to 6 horses</li>
+                  <li><Check size={18} /> Basic scheduling</li>
+                  <li><Check size={18} /> Horse profiles</li>
+                  <li><Check size={18} /> Email support</li>
+                </ul>
+                <a href="#demo" className="btn btn-outline btn-block" onClick={(e) => { e.preventDefault(); scrollToSection('demo'); }}>
+                  Get started free
+                </a>
+              </div>
             </div>
 
             <div className="pricing-card">
-              <div className="pricing-header">
-                <h3>Starter</h3>
+              <div className="pricing-card-header">
+                <h3 className="pricing-tier">Starter</h3>
+                <p className="pricing-tier-desc">For growing barns</p>
                 <div className="pricing-amount">
-                  <span className="price">$99</span>
-                  <span className="period">/month</span>
+                  <span className="pricing-currency">$</span>
+                  <span className="pricing-value">99</span>
+                  <span className="pricing-period">/month</span>
                 </div>
               </div>
-              <p className="pricing-description">For growing operations</p>
-              <ul className="pricing-features">
-                <li><Check size={16} /> Everything in Free</li>
-                <li><Check size={16} /> Up to 15 horses</li>
-                <li><Check size={16} /> Select AI features</li>
-                <li><Check size={16} /> Priority support</li>
-              </ul>
-              <a href="#demo" className="btn btn-outline btn-block" onClick={(e) => { e.preventDefault(); scrollToSection('demo'); }}>
-                Request Demo
-              </a>
+              <div className="pricing-card-body">
+                <ul className="pricing-features">
+                  <li><Check size={18} /> Up to 15 horses</li>
+                  <li><Check size={18} /> Full scheduling</li>
+                  <li><Check size={18} /> Invoicing & payments</li>
+                  <li><Check size={18} /> Client portal</li>
+                  <li><Check size={18} /> Priority support</li>
+                </ul>
+                <a href="#demo" className="btn btn-outline btn-block" onClick={(e) => { e.preventDefault(); scrollToSection('demo'); }}>
+                  Start trial
+                </a>
+              </div>
             </div>
 
-            <div className="pricing-card pricing-featured">
-              <div className="pricing-badge">Most Popular</div>
-              <div className="pricing-header">
-                <h3>Business</h3>
+            <div className="pricing-card pricing-card-featured">
+              <div className="pricing-badge">Most popular</div>
+              <div className="pricing-card-header">
+                <h3 className="pricing-tier">Pro</h3>
+                <p className="pricing-tier-desc">For growing operations</p>
                 <div className="pricing-amount">
-                  <span className="price-prefix">Starting at</span>
-                  <span className="price">$500</span>
-                  <span className="period">/month</span>
+                  <span className="pricing-currency">$</span>
+                  <span className="pricing-value">299</span>
+                  <span className="pricing-period">/month</span>
                 </div>
               </div>
-              <p className="pricing-description">Full-featured for serious operations</p>
-              <ul className="pricing-features">
-                <li><Check size={16} /> Everything in Starter</li>
-                <li><Check size={16} /> Unlimited horses & users</li>
-                <li><Check size={16} /> Full AI Smart Manager</li>
-                <li><Check size={16} /> Advanced automation</li>
-                <li><Check size={16} /> Custom integrations</li>
-              </ul>
-              <a href="#demo" className="btn btn-primary btn-block" onClick={(e) => { e.preventDefault(); scrollToSection('demo'); }}>
-                Book a Demo
-              </a>
+              <div className="pricing-card-body">
+                <ul className="pricing-features">
+                  <li><Check size={18} /> Up to 50 horses</li>
+                  <li><Check size={18} /> Unlimited users</li>
+                  <li><Check size={18} /> Advanced automation</li>
+                  <li><Check size={18} /> Custom reports</li>
+                  <li><Check size={18} /> Priority support</li>
+                  <li><Check size={18} /> API access</li>
+                </ul>
+                <a href="#demo" className="btn btn-primary btn-block" onClick={(e) => { e.preventDefault(); scrollToSection('demo'); }}>
+                  Get a demo
+                </a>
+              </div>
             </div>
 
-            <div className="pricing-card">
-              <div className="pricing-header">
-                <h3>Enterprise</h3>
+            <div className="pricing-card pricing-card-enterprise">
+              <div className="pricing-card-header">
+                <h3 className="pricing-tier">Enterprise</h3>
+                <p className="pricing-tier-desc">For large-scale operations</p>
                 <div className="pricing-amount">
-                  <span className="price">Custom</span>
+                  <span className="pricing-value pricing-custom">Custom</span>
                 </div>
               </div>
-              <p className="pricing-description">For large-scale operations</p>
-              <ul className="pricing-features">
-                <li><Check size={16} /> Everything in Business</li>
-                <li><Check size={16} /> Custom features</li>
-                <li><Check size={16} /> Dedicated support</li>
-                <li><Check size={16} /> SLA guarantees</li>
-                <li><Check size={16} /> On-premise options</li>
-              </ul>
-              <a href="#demo" className="btn btn-outline btn-block" onClick={(e) => { e.preventDefault(); scrollToSection('demo'); }}>
-                Contact Sales
-              </a>
+              <div className="pricing-card-body">
+                <ul className="pricing-features">
+                  <li><Check size={18} /> Unlimited everything</li>
+                  <li><Check size={18} /> Custom integrations</li>
+                  <li><Check size={18} /> SLA guarantees</li>
+                  <li><Check size={18} /> Dedicated onboarding</li>
+                  <li><Check size={18} /> Account manager</li>
+                  <li><Check size={18} /> White-glove support</li>
+                </ul>
+                <a href="#demo" className="btn btn-primary btn-block" onClick={(e) => { e.preventDefault(); scrollToSection('demo'); }}>
+                  Contact sales
+                </a>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Founders Program Section */}
-      <section id="founders" className="landing-section landing-founders">
+      {/* Founders Program */}
+      <section id="founders" className="landing-section">
         <div className="landing-container">
-          <div className="founders-card">
+          <div className="founders-banner">
             <div className="founders-content">
-              <span className="founders-label">Limited Availability</span>
-              <h2 className="founders-headline">OnStride Founders Program</h2>
-              <p className="founders-subheadline">Early partners shaping the future of OnStride.</p>
-
+              <div className="founders-eyebrow">
+                <Sparkles size={16} />
+                <span>Limited availability</span>
+              </div>
+              <h2 className="founders-headline">Join the Founders Program</h2>
               <p className="founders-description">
-                We're inviting a limited number of barns to join our Founders Program. As a founding member,
-                you'll receive full platform access as features launch, priority support, and exclusive benefits.
+                Be one of the first 50 barns to shape the future of OnStride. Get full platform access,
+                priority support, and exclusive benefits as an early partner.
               </p>
-
-              <ul className="founders-benefits">
-                <li><Check size={20} /> Full access to all new features while enrolled</li>
-                <li><Check size={20} /> Priority support and direct feedback channel</li>
-                <li><Check size={20} /> Invitations to future OnStride events</li>
-                <li><Check size={20} /> Automatic entry into giveaways</li>
+              <ul className="founders-perks">
+                <li><Check size={18} /> Full access to all features</li>
+                <li><Check size={18} /> Direct feedback channel</li>
+                <li><Check size={18} /> Priority support</li>
+                <li><Check size={18} /> Founding member pricing</li>
               </ul>
-
-              <p className="founders-scarcity">
-                <strong>Limited to 50 founding barns.</strong> Once full, this program closes.
-              </p>
-
               <a href="#demo" className="btn btn-primary btn-lg" onClick={(e) => { e.preventDefault(); scrollToSection('demo'); }}>
-                Apply for Founders Access
-                <ArrowRight size={20} />
+                Apply now
+                <ArrowRight size={18} />
               </a>
             </div>
-
             <div className="founders-visual">
-              <div className="founders-placeholder">
-                <Star size={48} />
-                <span>Founders</span>
+              <div className="founders-badge-large">
+                <Sparkles size={32} />
+                <span>Founder</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Final CTA Section */}
-      <section id="demo" className="landing-section landing-final-cta">
+      {/* Final CTA */}
+      <section id="demo" className="landing-section landing-cta">
         <div className="landing-container">
-          <div className="final-cta-content">
-            <h2>Ready to Modernize Your Barn?</h2>
-            <p>Join the next generation of equine operations.</p>
+          <div className="cta-content">
+            <div className="cta-eyebrow">
+              <Sparkles size={16} />
+              <span>See it in action</span>
+            </div>
+            <h2 className="cta-headline">Ready to transform your barn?</h2>
+            <p className="cta-description">Get a personalized demo and see how OnStride can streamline your entire operation.</p>
 
-            <form className="demo-form" onSubmit={(e) => { e.preventDefault(); alert('Demo request submitted! We\'ll be in touch soon.'); }}>
-              <div className="demo-form-row">
-                <input type="text" placeholder="Your Name" required className="form-input" />
-                <input type="email" placeholder="Email Address" required className="form-input" />
-              </div>
-              <div className="demo-form-row">
-                <input type="text" placeholder="Barn Name" className="form-input" />
+            <form className="cta-form" onSubmit={(e) => { e.preventDefault(); alert('Demo request submitted! We\'ll be in touch soon.'); }}>
+              <div className="cta-form-grid">
+                <input type="text" placeholder="Your name" required className="form-input" />
+                <input type="email" placeholder="Work email" required className="form-input" />
+                <input type="text" placeholder="Barn name" className="form-input" />
                 <select className="form-select" defaultValue="">
-                  <option value="" disabled>Number of Horses</option>
+                  <option value="" disabled>Number of horses</option>
                   <option value="1-10">1-10</option>
                   <option value="11-25">11-25</option>
                   <option value="26-50">26-50</option>
@@ -487,9 +505,9 @@ export default function LandingPage() {
                   <option value="100+">100+</option>
                 </select>
               </div>
-              <button type="submit" className="btn btn-primary btn-lg btn-block">
-                Request a Demo
-                <ArrowRight size={20} />
+              <button type="submit" className="btn btn-primary btn-lg">
+                Request a demo
+                <ArrowRight size={18} />
               </button>
             </form>
           </div>
@@ -499,41 +517,42 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="landing-footer">
         <div className="landing-container">
-          <div className="footer-main">
+          <div className="footer-grid">
             <div className="footer-brand">
-              <div className="landing-logo">
+              <Link to="/" className="landing-logo">
                 <span className="logo-text">OnStride</span>
-              </div>
-              <p>&copy; {new Date().getFullYear()} OnStride. All rights reserved.</p>
+              </Link>
+              <p className="footer-tagline">The operating system for modern horse barns.</p>
             </div>
 
-            <div className="footer-links">
+            <div className="footer-links-group">
               <div className="footer-column">
                 <h4>Product</h4>
+                <button onClick={() => scrollToSection('platform')}>Platform</button>
                 <button onClick={() => scrollToSection('features')}>Features</button>
                 <button onClick={() => scrollToSection('pricing')}>Pricing</button>
-                <button onClick={() => scrollToSection('how-it-works')}>How It Works</button>
               </div>
-
               <div className="footer-column">
                 <h4>Company</h4>
                 <a href="#">About</a>
                 <a href="#">Blog</a>
                 <a href="#">Careers</a>
               </div>
-
               <div className="footer-column">
-                <h4>Contact</h4>
-                <a href="mailto:hello@onstride.io">hello@onstride.io</a>
-                <a href="#">Support</a>
+                <h4>Support</h4>
+                <a href="mailto:hello@onstride.io">Contact</a>
+                <a href="#">Help Center</a>
+                <a href="#">Status</a>
               </div>
             </div>
           </div>
 
           <div className="footer-bottom">
-            <a href="#">Terms of Service</a>
-            <span className="footer-divider">|</span>
-            <a href="#">Privacy Policy</a>
+            <p>&copy; {new Date().getFullYear()} OnStride. All rights reserved.</p>
+            <div className="footer-legal">
+              <a href="#">Privacy</a>
+              <a href="#">Terms</a>
+            </div>
           </div>
         </div>
       </footer>

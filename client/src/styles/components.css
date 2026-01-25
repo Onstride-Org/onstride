@@ -1081,6 +1081,12 @@
   color: var(--color-text-secondary);
 }
 
+.invoice-card-date {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
 .invoice-card-amount {
   display: flex;
   align-items: center;
@@ -2722,6 +2728,12 @@
   gap: var(--spacing-3);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+}
+
+.invoice-card-date {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
 }
 
 .invoice-card-amount {
