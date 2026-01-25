@@ -1281,7 +1281,7 @@ function EditHorseModal({
   const [color, setColor] = useState(horse.color || '');
   const [status, setStatus] = useState(horse.status);
   const [notes, setNotes] = useState(horse.notes || '');
-  const [ownerId, setOwnerId] = useState(horse.boarder?.id || horse.boarder?._id || '');
+  const [ownerId, setOwnerId] = useState(horse.boarderId || '');
   const [users, setUsers] = useState<Array<{ id: string; _id?: string; name: string }>>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
