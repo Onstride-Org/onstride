@@ -94,31 +94,35 @@
 
 @media (max-width: 768px) {
   .announcement-bar {
-    padding: 10px 0;
-    height: 48px;
+    padding: 8px 0;
+    height: auto;
+    min-height: 40px;
   }
 
   .announcement-content {
-    flex-direction: column;
-    gap: 8px;
-    padding: 0 48px 0 20px;
-    text-align: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 40px 0 16px;
+    justify-content: center;
   }
 
   .announcement-text {
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .announcement-link {
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .announcement-close {
-    right: 16px;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
   }
 
-  .landing-nav {
-    top: 47px;
+  .landing-nav.with-announcement {
+    top: 40px;
   }
 }
 
@@ -130,7 +134,22 @@
 
 @media (max-width: 768px) {
   .landing-container {
-    padding: 0 20px;
+    padding: 0 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .landing-nav-container {
+    padding: 12px 16px;
+  }
+
+  .logo-text {
+    font-size: 20px;
+  }
+
+  .beta-badge {
+    font-size: 9px;
+    padding: 2px 6px;
   }
 }
 
@@ -467,36 +486,76 @@
 
 @media (max-width: 600px) {
   .landing-hero {
-    padding: 100px 0 60px;
-    margin-top: 64px;
+    padding: 80px 0 50px;
+    margin-top: 56px;
   }
 
   .landing-page.has-announcement .landing-hero {
-    margin-top: 104px;
+    margin-top: 96px;
+  }
+
+  .hero-content-wrapper {
+    gap: 32px;
+  }
+
+  .hero-content {
+    gap: 20px;
   }
 
   .hero-headline {
-    font-size: 36px;
-    letter-spacing: -1px;
+    font-size: 32px;
+    letter-spacing: -0.5px;
   }
 
   .hero-subheadline {
-    font-size: 17px;
+    font-size: 15px;
+    line-height: 1.5;
   }
 
   .hero-email-form {
     flex-direction: column;
+    gap: 10px;
   }
 
-  .hero-email-input,
+  .hero-email-input {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 15px;
+  }
+
   .hero-cta-button {
     width: 100%;
+    padding: 14px 20px;
+    font-size: 15px;
   }
 
   .hero-social-proof {
-    flex-direction: column;
-    gap: 16px;
+    flex-direction: row;
+    gap: 20px;
     align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .social-proof-item {
+    gap: 6px;
+  }
+
+  .social-proof-stars svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .social-proof-rating {
+    font-size: 14px;
+  }
+
+  .social-proof-label {
+    font-size: 12px;
+  }
+
+  .hero-image {
+    border-radius: 12px;
   }
 }
 
@@ -548,20 +607,27 @@
 
 @media (max-width: 768px) {
   .landing-section {
-    padding: 100px 0;
+    padding: 64px 0;
   }
 
   .section-header {
-    margin-bottom: 56px;
+    margin-bottom: 40px;
+  }
+
+  .section-eyebrow {
+    font-size: 11px;
+    margin-bottom: 12px;
   }
 
   .section-headline {
-    font-size: 36px;
-    letter-spacing: -1px;
+    font-size: 28px;
+    letter-spacing: -0.5px;
+    margin-bottom: 16px;
   }
 
   .section-description {
-    font-size: 17px;
+    font-size: 15px;
+    line-height: 1.6;
   }
 }
 
@@ -698,15 +764,48 @@
 @media (max-width: 600px) {
   .platform-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .platform-card {
+    padding: 24px;
+    border-radius: 14px;
   }
 
   .platform-card-featured {
     grid-column: span 1;
     grid-template-columns: 1fr;
+    padding: 28px;
+    gap: 24px;
   }
 
   .platform-card-visual {
-    display: none;
+    display: flex;
+    justify-content: center;
+  }
+
+  .platform-image {
+    max-width: 200px;
+    border-radius: 20px;
+  }
+
+  .platform-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+
+  .platform-card h3 {
+    font-size: 16px;
+  }
+
+  .platform-card p {
+    font-size: 13px;
+  }
+
+  .platform-features li {
+    font-size: 13px;
   }
 }
 
@@ -809,13 +908,13 @@
 
 @media (max-width: 900px) {
   .features-showcase {
-    gap: 80px;
+    gap: 56px;
   }
 
   .feature-row,
   .feature-row-reverse {
     grid-template-columns: 1fr;
-    gap: 40px;
+    gap: 32px;
     direction: ltr;
   }
 
@@ -830,7 +929,29 @@
   }
 
   .feature-content h3 {
-    font-size: 28px;
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+
+  .feature-content p {
+    font-size: 15px;
+    margin-bottom: 20px;
+  }
+
+  .feature-badge {
+    font-size: 11px;
+    padding: 5px 10px;
+    margin-bottom: 16px;
+  }
+
+  .feature-list li {
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .feature-image {
+    border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -892,6 +1013,28 @@
 @media (max-width: 600px) {
   .benefits-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .benefit-card {
+    padding: 24px;
+    border-radius: 14px;
+  }
+
+  .benefit-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+
+  .benefit-card h4 {
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+
+  .benefit-card p {
+    font-size: 13px;
   }
 }
 
@@ -1055,6 +1198,60 @@
 @media (max-width: 600px) {
   .pricing-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .pricing-card {
+    border-radius: 16px;
+  }
+
+  .pricing-badge {
+    top: 12px;
+    right: 12px;
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  .pricing-card-header {
+    padding: 28px 24px 20px;
+  }
+
+  .pricing-tier {
+    font-size: 18px;
+  }
+
+  .pricing-tier-desc {
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+
+  .pricing-currency {
+    font-size: 20px;
+  }
+
+  .pricing-value {
+    font-size: 40px;
+  }
+
+  .pricing-value.pricing-custom {
+    font-size: 30px;
+  }
+
+  .pricing-period {
+    font-size: 14px;
+  }
+
+  .pricing-card-body {
+    padding: 20px 24px 24px;
+  }
+
+  .pricing-features {
+    margin-bottom: 20px;
+  }
+
+  .pricing-features li {
+    font-size: 13px;
+    margin-bottom: 10px;
   }
 }
 
@@ -1158,27 +1355,60 @@
 @media (max-width: 900px) {
   .founders-banner {
     grid-template-columns: 1fr;
-    padding: 48px 32px;
+    padding: 40px 24px;
     text-align: center;
+    border-radius: 20px;
   }
 
   .founders-content {
     max-width: 100%;
   }
 
+  .founders-eyebrow {
+    font-size: 11px;
+    margin-bottom: 16px;
+  }
+
+  .founders-headline {
+    font-size: 28px;
+    margin-bottom: 16px;
+  }
+
+  .founders-description {
+    font-size: 15px;
+    margin-bottom: 24px;
+  }
+
   .founders-perks {
     display: inline-block;
     text-align: left;
+    margin-bottom: 24px;
+  }
+
+  .founders-perks li {
+    font-size: 14px;
+    margin-bottom: 10px;
   }
 
   .founders-visual {
     order: -1;
-    margin-bottom: 16px;
+    margin-bottom: 8px;
   }
 
   .founders-badge-large {
-    width: 140px;
-    height: 140px;
+    width: 100px;
+    height: 100px;
+    gap: 8px;
+  }
+
+  .founders-badge-large svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .founders-badge-large span {
+    font-size: 11px;
+    letter-spacing: 2px;
   }
 }
 
@@ -1271,21 +1501,44 @@
 }
 
 @media (max-width: 600px) {
+  .cta-eyebrow {
+    font-size: 12px;
+    padding: 5px 12px 5px 8px;
+    margin-bottom: 16px;
+  }
+
   .cta-headline {
-    font-size: 34px;
+    font-size: 26px;
     letter-spacing: -0.5px;
+    margin-bottom: 12px;
   }
 
   .cta-description {
-    font-size: 17px;
+    font-size: 15px;
+    margin-bottom: 32px;
   }
 
   .cta-form-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
   }
 
   .cta-form {
-    padding: 28px;
+    padding: 20px;
+    border-radius: 18px;
+  }
+
+  .cta-form .form-input,
+  .cta-form .form-select {
+    padding: 12px 14px;
+    font-size: 14px;
+    border-radius: 8px;
+  }
+
+  .cta-form .btn {
+    padding: 14px 20px;
+    font-size: 15px;
   }
 }
 
@@ -1381,24 +1634,66 @@
 }
 
 @media (max-width: 768px) {
+  .landing-footer {
+    padding: 48px 0 32px;
+  }
+
   .footer-grid {
     flex-direction: column;
-    gap: 48px;
+    gap: 36px;
+    margin-bottom: 36px;
+  }
+
+  .footer-brand .landing-logo {
+    margin-bottom: 12px;
+  }
+
+  .footer-brand .logo-text {
+    font-size: 20px;
+  }
+
+  .footer-tagline {
+    font-size: 13px;
   }
 
   .footer-links-group {
-    flex-wrap: wrap;
-    gap: 32px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
   }
 
   .footer-column {
-    min-width: 120px;
+    min-width: unset;
+  }
+
+  .footer-column h4 {
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+
+  .footer-column a,
+  .footer-column button {
+    font-size: 13px;
+    margin-bottom: 10px;
   }
 
   .footer-bottom {
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     text-align: center;
+    padding-top: 24px;
+  }
+
+  .footer-bottom p {
+    font-size: 12px;
+  }
+
+  .footer-legal {
+    gap: 20px;
+  }
+
+  .footer-legal a {
+    font-size: 12px;
   }
 }
 
@@ -1484,4 +1779,31 @@
 
 .founders-content .btn-primary:hover {
   background: var(--color-neutral-100);
+}
+
+/* Mobile button adjustments */
+@media (max-width: 600px) {
+  .landing-page .btn {
+    padding: 11px 20px;
+    font-size: 14px;
+    border-radius: 8px;
+  }
+
+  .landing-page .btn-lg {
+    padding: 13px 22px;
+    font-size: 15px;
+  }
+
+  .landing-mobile-menu {
+    padding: 16px 16px 24px;
+  }
+
+  .mobile-nav-link {
+    padding: 12px 0;
+    font-size: 15px;
+  }
+
+  .mobile-menu-divider {
+    margin: 12px 0;
+  }
 }
