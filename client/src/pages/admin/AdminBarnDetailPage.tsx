@@ -31,7 +31,7 @@ export default function AdminBarnDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   if (user?.accountType !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/app/dashboard" replace />;
   }
 
   useEffect(() => {

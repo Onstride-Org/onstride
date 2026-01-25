@@ -28,7 +28,7 @@ export default function LoginPage() {
     try {
       const result = await login(email, password);
       if (!result?.requiresTwoFactor) {
-        navigate('/dashboard');
+        navigate('/app/dashboard');
       }
     } catch (err: any) {
       // Check for email not verified error
@@ -48,7 +48,7 @@ export default function LoginPage() {
 
     try {
       await verify2FA(verificationCode);
-      navigate('/dashboard');
+      navigate('/app/dashboard');
     } catch {
       // Error is handled by the store
     }

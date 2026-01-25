@@ -237,7 +237,7 @@ export default function StablePage() {
       )}
 
       <div className="stable-footer">
-        <button className="btn btn-primary btn-block" onClick={() => navigate('/')}>
+        <button className="btn btn-primary btn-block" onClick={() => navigate('/app/dashboard')}>
           Save
         </button>
       </div>

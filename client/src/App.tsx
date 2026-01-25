@@ -6,6 +6,9 @@ import { useAuthStore } from './stores/authStore';
 import AuthLayout from './layouts/AuthLayout';
 import AppLayout from './layouts/AppLayout';
 
+// Landing Page
+import LandingPage from './pages/LandingPage';
+
 // Auth Pages
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
@@ -49,13 +52,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
 }
 
-// Public Route Component (redirects to dashboard if already logged in)
+// Public Route Component (redirects to app dashboard if already logged in)
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuthStore();
 
@@ -68,7 +71,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/app/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -83,6 +86,9 @@ function App() {
 
   return (
     <Routes>
+      {/* Landing Page - Public */}
+      <Route path="/" element={<LandingPage />} />
+
       {/* Public Routes */}
       <Route
         path="/login"
@@ -151,14 +157,14 @@ function App() {
 
       {/* Protected Routes */}
       <Route
-        path="/"
+        path="/app"
         element={
           <ProtectedRoute>
             <AppLayout />
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route index element={<Navigate to="/app/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
 
         {/* Horses */}
@@ -173,8 +179,8 @@ function App() {
         <Route path="calendar" element={<CalendarPage />} />
 
         {/* Legacy routes redirect to calendar */}
-        <Route path="tasks" element={<Navigate to="/calendar" replace />} />
-        <Route path="lessons" element={<Navigate to="/calendar" replace />} />
+        <Route path="tasks" element={<Navigate to="/app/calendar" replace />} />
+        <Route path="lessons" element={<Navigate to="/app/calendar" replace />} />
 
         {/* Stable */}
         <Route path="stable" element={<StablePage />} />
@@ -200,8 +206,8 @@ function App() {
         <Route path="admin/users/:id" element={<AdminUserDetailPage />} />
       </Route>
 
-      {/* Catch all */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      {/* Catch all - redirect to landing page */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

@@ -26,7 +26,7 @@ export default function HorseDetailPage() {
       setHorse(response);
     } catch (error) {
       console.error('Failed to load horse:', error);
-      navigate('/horses');
+      navigate('/app/horses');
     } finally {
       setIsLoading(false);
     }
@@ -53,7 +53,7 @@ export default function HorseDetailPage() {
 
     try {
       await horsesApi.delete(id);
-      navigate('/horses');
+      navigate('/app/horses');
     } catch (error) {
       console.error('Failed to delete horse:', error);
     }
@@ -103,7 +103,7 @@ export default function HorseDetailPage() {
       <div className="page">
         <div className="empty-state">
           <h3>Horse not found</h3>
-          <Link to="/horses" className="btn btn-primary">Back to Horses</Link>
+          <Link to="/app/horses" className="btn btn-primary">Back to Horses</Link>
         </div>
       </div>
     );
@@ -113,7 +113,7 @@ export default function HorseDetailPage() {
     <div className="page horse-detail-page">
       {/* Header */}
       <div className="detail-header">
-        <Link to="/horses" className="back-link">
+        <Link to="/app/horses" className="back-link">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
             <polyline points="15,18 9,12 15,6" />
           </svg>
@@ -488,7 +488,7 @@ function ScheduleTab({ horse }: { horse: Horse }) {
       <section className="schedule-section">
         <div className="schedule-section-header">
           <h3><CheckSquare size={18} /> Tasks ({tasks.length})</h3>
-          <Link to="/calendar" className="btn btn-outline btn-sm">
+          <Link to="/app/calendar" className="btn btn-outline btn-sm">
             View Calendar
           </Link>
         </div>

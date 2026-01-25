@@ -29,7 +29,7 @@ export default function AdminUserDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   if (currentUser?.accountType !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/app/dashboard" replace />;
   }
 
   useEffect(() => {

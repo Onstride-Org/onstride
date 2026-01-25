@@ -61,7 +61,7 @@ export default function SecurityPage() {
   return (
     <div className="page security-page">
       <div className="page-header">
-        <Link to="/settings" className="back-link">
+        <Link to="/app/settings" className="back-link">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
             <polyline points="15,18 9,12 15,6" />
           </svg>
@@ -138,7 +138,7 @@ export default function SecurityPage() {
                     <AlertCircle size={20} />
                     <span>
                       Please add a phone number to your profile before enabling 2FA.{' '}
-                      <Link to="/settings/profile" className="link">Update Profile</Link>
+                      <Link to="/app/settings/profile" className="link">Update Profile</Link>
                     </span>
                   </div>
                 ) : (

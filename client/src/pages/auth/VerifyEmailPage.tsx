@@ -44,7 +44,7 @@ export default function VerifyEmailPage() {
           });
 
           // Redirect to dashboard after brief success message
-          setTimeout(() => navigate('/dashboard'), 2000);
+          setTimeout(() => navigate('/app/dashboard'), 2000);
         } else {
           // Fallback to login if no tokens
           setTimeout(() => navigate('/login'), 3000);
@@ -84,7 +84,7 @@ export default function VerifyEmailPage() {
           <p className="auth-form-subtitle">
             Your email has been successfully verified. Taking you to your dashboard...
           </p>
-          <Link to="/dashboard" className="btn btn-primary btn-block mt-4">
+          <Link to="/app/dashboard" className="btn btn-primary btn-block mt-4">
             Go to Dashboard
           </Link>
         </div>

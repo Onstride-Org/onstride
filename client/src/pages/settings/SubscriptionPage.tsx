@@ -65,7 +65,7 @@ export default function SubscriptionPage() {
   return (
     <div className="page subscription-page">
       <div className="page-header">
-        <Link to="/settings" className="back-link">
+        <Link to="/app/settings" className="back-link">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
             <polyline points="15,18 9,12 15,6" />
           </svg>

@@ -101,19 +101,19 @@ export default function DashboardPage() {
 
       {/* Stats Row */}
       <div className="dashboard-stats">
-        <Link to="/horses" className="dashboard-stat">
+        <Link to="/app/horses" className="dashboard-stat">
           <span className="dashboard-stat-value">{stats.horses}</span>
           <span className="dashboard-stat-label">Horses</span>
         </Link>
-        <Link to="/calendar" className="dashboard-stat">
+        <Link to="/app/calendar" className="dashboard-stat">
           <span className="dashboard-stat-value">{stats.tasks}</span>
           <span className="dashboard-stat-label">Tasks Due</span>
         </Link>
-        <Link to="/calendar" className="dashboard-stat">
+        <Link to="/app/calendar" className="dashboard-stat">
           <span className="dashboard-stat-value">{stats.lessons}</span>
           <span className="dashboard-stat-label">Lessons Today</span>
         </Link>
-        <Link to="/invoices" className="dashboard-stat">
+        <Link to="/app/invoices" className="dashboard-stat">
           <span className="dashboard-stat-value">{stats.pendingInvoices}</span>
           <span className="dashboard-stat-label">Invoices</span>
         </Link>
@@ -128,13 +128,13 @@ export default function DashboardPage() {
         <section className="dashboard-section">
           <div className="dashboard-section-header">
             <h2 className="dashboard-section-title">My horses</h2>
-            <Link to="/horses" className="btn btn-icon btn-ghost btn-sm">
+            <Link to="/app/horses" className="btn btn-icon btn-ghost btn-sm">
               <Plus size={20} />
             </Link>
           </div>
           <div className="dashboard-horses-scroll">
             {recentHorses.map((horse) => (
-              <Link key={horse.id} to={`/horses/${horse.id}`} className="dashboard-horse-card">
+              <Link key={horse.id} to={`/app/horses/${horse.id}`} className="dashboard-horse-card">
                 <div className="dashboard-horse-avatar">
                   {horse.photoUrl ? (
                     <img src={horse.photoUrl} alt={horse.name} className="dashboard-horse-avatar-img" />
@@ -154,7 +154,7 @@ export default function DashboardPage() {
         <section className="dashboard-section">
           <div className="dashboard-section-header">
             <h2 className="dashboard-section-title">Today's Schedule</h2>
-            <Link to="/calendar" className="link text-secondary">View calendar</Link>
+            <Link to="/app/calendar" className="link text-secondary">View calendar</Link>
           </div>
 
           {/* Today's Tasks */}
@@ -223,7 +223,7 @@ export default function DashboardPage() {
         <section className="dashboard-section">
           <div className="dashboard-section-header">
             <h2 className="dashboard-section-title">My staff</h2>
-            <Link to="/users" className="btn btn-icon btn-ghost btn-sm">
+            <Link to="/app/users" className="btn btn-icon btn-ghost btn-sm">
               <Plus size={20} />
             </Link>
           </div>

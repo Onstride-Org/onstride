@@ -24,14 +24,14 @@ export default function AppLayout() {
 
   // Base nav items for all users
   const allNavItems = [
-    { path: '/dashboard', icon: 'home', label: 'Dashboard', staffOnly: false },
-    { path: '/horses', icon: 'horse', label: 'Horses', staffOnly: false },
-    { path: '/calendar', icon: 'calendar', label: 'Calendar', staffOnly: false },
-    { path: '/invoices', icon: 'invoice', label: 'Invoices', staffOnly: false },
-    // { path: '/stable', icon: 'stable', label: 'Stable', staffOnly: true }, // Hidden until feature is complete
-    { path: '/vendors', icon: 'vendor', label: 'Vendors', staffOnly: true },
-    { path: '/users', icon: 'users', label: 'Users', staffOnly: true },
-    { path: '/settings', icon: 'settings', label: 'Settings', staffOnly: false },
+    { path: '/app/dashboard', icon: 'home', label: 'Dashboard', staffOnly: false },
+    { path: '/app/horses', icon: 'horse', label: 'Horses', staffOnly: false },
+    { path: '/app/calendar', icon: 'calendar', label: 'Calendar', staffOnly: false },
+    { path: '/app/invoices', icon: 'invoice', label: 'Invoices', staffOnly: false },
+    // { path: '/app/stable', icon: 'stable', label: 'Stable', staffOnly: true }, // Hidden until feature is complete
+    { path: '/app/vendors', icon: 'vendor', label: 'Vendors', staffOnly: true },
+    { path: '/app/users', icon: 'users', label: 'Users', staffOnly: true },
+    { path: '/app/settings', icon: 'settings', label: 'Settings', staffOnly: false },
   ];
 
   // Filter nav items based on role

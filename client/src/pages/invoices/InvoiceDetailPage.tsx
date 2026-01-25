@@ -27,7 +27,7 @@ export default function InvoiceDetailPage() {
       setInvoice(response);
     } catch (error) {
       console.error('Failed to load invoice:', error);
-      navigate('/invoices');
+      navigate('/app/invoices');
     } finally {
       setIsLoading(false);
     }
@@ -157,7 +157,7 @@ export default function InvoiceDetailPage() {
       <div className="page">
         <div className="empty-state">
           <h3>Invoice not found</h3>
-          <Link to="/invoices" className="btn btn-primary">Back to Invoices</Link>
+          <Link to="/app/invoices" className="btn btn-primary">Back to Invoices</Link>
         </div>
       </div>
     );
@@ -179,7 +179,7 @@ export default function InvoiceDetailPage() {
     <div className="page invoice-detail-page">
       {/* Header */}
       <div className="detail-header">
-        <Link to="/invoices" className="back-link">
+        <Link to="/app/invoices" className="back-link">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
             <polyline points="15,18 9,12 15,6" />
           </svg>

@@ -82,7 +82,7 @@ export default function AcceptInvitePage() {
           setCurrentBarn(response.barnId);
         }
         await loadUser();
-        navigate('/dashboard');
+        navigate('/app/dashboard');
       } else {
         // New user - create account
         const response = await invitationsApi.accept(token, {
@@ -100,7 +100,7 @@ export default function AcceptInvitePage() {
         }
 
         await loadUser();
-        navigate('/dashboard');
+        navigate('/app/dashboard');
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to accept invitation');

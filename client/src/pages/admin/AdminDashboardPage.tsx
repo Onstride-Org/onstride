@@ -33,7 +33,7 @@ export default function AdminDashboardPage() {
 
   // Only allow super admins
   if (user?.accountType !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/app/dashboard" replace />;
   }
 
   useEffect(() => {

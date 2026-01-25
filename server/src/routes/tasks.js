@@ -111,7 +111,7 @@ router.post('/', [
         title: 'New Task Assigned',
         body: `You have been assigned to: ${name}`,
         data: { taskId: task._id.toString() },
-        action: `/calendar`
+        action: `/app/calendar`
       }));
 
       await Notification.insertMany(notifications);
