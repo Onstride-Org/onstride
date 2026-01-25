@@ -26,9 +26,9 @@ export default function AppLayout() {
   const allNavItems = [
     { path: '/dashboard', icon: 'home', label: 'Dashboard', staffOnly: false },
     { path: '/horses', icon: 'horse', label: 'Horses', staffOnly: false },
-    { path: '/stable', icon: 'stable', label: 'Stable', staffOnly: true },
-    { path: '/invoices', icon: 'invoice', label: 'Invoices', staffOnly: false },
     { path: '/calendar', icon: 'calendar', label: 'Calendar', staffOnly: false },
+    { path: '/invoices', icon: 'invoice', label: 'Invoices', staffOnly: false },
+    // { path: '/stable', icon: 'stable', label: 'Stable', staffOnly: true }, // Hidden until feature is complete
     { path: '/vendors', icon: 'vendor', label: 'Vendors', staffOnly: true },
     { path: '/users', icon: 'users', label: 'Users', staffOnly: true },
     { path: '/settings', icon: 'settings', label: 'Settings', staffOnly: false },

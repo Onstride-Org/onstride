@@ -164,6 +164,7 @@ export default function HorseDetailPage() {
               {horse.breed?.label || 'Unknown breed'}
               {horse.age && ` • ${horse.age} years old`}
               {horse.color && ` • ${horse.color}`}
+              {(horse.owner || horse.boarder) && ` • Owner: ${horse.owner?.name || horse.boarder?.name}`}
             </p>
             <span className={`badge badge-${horse.status === 'active' ? 'success' : 'neutral'}`}>
               {horse.status}
@@ -1280,8 +1281,25 @@ function EditHorseModal({
   const [color, setColor] = useState(horse.color || '');
   const [status, setStatus] = useState(horse.status);
   const [notes, setNotes] = useState(horse.notes || '');
+  const [ownerId, setOwnerId] = useState(horse.boarder?.id || horse.boarder?._id || '');
+  const [users, setUsers] = useState<Array<{ id: string; _id?: string; name: string }>>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const response = await usersApi.getAll({ limit: 100 });
+        setUsers(response.data || []);
+      } catch (err) {
+        console.error('Failed to load users:', err);
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    };
+    loadUsers();
+  }, []);
 
   // Calculate age from birthday
   const calculateAge = (birthDate: string) => {
@@ -1311,6 +1329,7 @@ function EditHorseModal({
         color: color || undefined,
         status,
         notes: notes || '',
+        ownerId: ownerId || undefined,
       });
       onSuccess();
     } catch (err: any) {
@@ -1397,6 +1416,26 @@ function EditHorseModal({
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Owner / Responsible User</label>
+              {isLoadingUsers ? (
+                <div className="form-input-loading">Loading users...</div>
+              ) : (
+                <select
+                  className="form-select"
+                  value={ownerId}
+                  onChange={(e) => setOwnerId(e.target.value)}
+                >
+                  <option value="">Select owner (optional)...</option>
+                  {users.map((user) => (
+                    <option key={user.id || user._id} value={user.id || user._id}>
+                      {user.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div className="form-group">

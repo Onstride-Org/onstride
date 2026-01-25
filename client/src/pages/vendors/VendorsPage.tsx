@@ -21,10 +21,19 @@ export default function VendorsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<VendorType | 'all'>('all');
   const [search, setSearch] = useState('');
+  const [showWipNotice, setShowWipNotice] = useState(() => {
+    // Show notice if not dismissed before
+    return !sessionStorage.getItem('vendors_wip_dismissed');
+  });
 
   // Modal states
   const [showVendorDetail, setShowVendorDetail] = useState<VendorProfile | null>(null);
   const [showBookingModal, setShowBookingModal] = useState<VendorProfile | null>(null);
+
+  const dismissWipNotice = () => {
+    sessionStorage.setItem('vendors_wip_dismissed', 'true');
+    setShowWipNotice(false);
+  };
 
   const isStaff = user?.accountType && ['owner', 'admin', 'manager'].includes(user.accountType);
 
@@ -134,6 +143,42 @@ export default function VendorsPage() {
 
   return (
     <div className="page vendors-page">
+      {/* Work in Progress Notice */}
+      {showWipNotice && (
+        <div className="modal-overlay" onClick={dismissWipNotice}>
+          <div className="modal modal-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Coming Soon</h2>
+              <button className="btn btn-ghost modal-close" onClick={dismissWipNotice}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginBottom: '1rem' }}>
+                The <strong>Vendors</strong> feature is currently a work in progress.
+              </p>
+              <p style={{ marginBottom: '1rem' }}>
+                When completed, this section will allow you to:
+              </p>
+              <ul style={{ paddingLeft: '1.5rem', marginBottom: '1rem' }}>
+                <li>Browse and search for veterinarians, farriers, and other service providers</li>
+                <li>Connect with vendors and manage your preferred provider list</li>
+                <li>Schedule and track appointments for your horses</li>
+                <li>View appointment history and upcoming visits</li>
+              </ul>
+              <p className="text-secondary">
+                Thank you for your patience as we build out this feature!
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={dismissWipNotice}>
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="page-header">
         <div>
           <h1 className="page-title">Vendors</h1>

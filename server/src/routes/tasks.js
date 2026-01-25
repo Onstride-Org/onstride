@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const Task = require('../models/Task');
+const { Notification } = require('../models/Notification');
 const { authenticate, loadBarnContext, requireBarn, hasPermission, isStaff } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 
@@ -101,6 +102,20 @@ router.post('/', [
       reminderMinutesBefore: reminderMinutesBefore || 60,
       createdById: req.userId
     });
+
+    // Send notifications to assigned users
+    if (assignees && assignees.length > 0) {
+      const notifications = assignees.map(assignee => ({
+        userId: assignee.id,
+        type: 'task_assigned',
+        title: 'New Task Assigned',
+        body: `You have been assigned to: ${name}`,
+        data: { taskId: task._id.toString() },
+        action: `/calendar`
+      }));
+
+      await Notification.insertMany(notifications);
+    }
 
     res.status(201).json(task);
   } catch (error) {

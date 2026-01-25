@@ -71,9 +71,10 @@ export default function CalendarPage() {
       const lessonEvents: CalendarEvent[] = lessons.map((lesson) => {
         const startDate = new Date(lesson.scheduledDate);
         const endDate = new Date(startDate.getTime() + (lesson.durationMinutes || 60) * 60 * 1000);
+        const horseName = lesson.horse?.name ? ` on ${lesson.horse.name}` : '';
         return {
           id: `lesson-${lesson.id}`,
-          title: `${lesson.client?.name || 'Lesson'} - ${lesson.type}`,
+          title: `${lesson.client?.name || 'Lesson'} - ${lesson.type}${horseName}`,
           start: startDate,
           end: endDate,
           type: 'lesson' as const,
@@ -401,7 +402,7 @@ function EventDetailModal({
           <div className="event-detail-header">
             <h3 className="event-detail-title">{event.title}</h3>
             <span className={`badge badge-${getStatusBadge()}`}>
-              {isTask ? task?.status : lesson?.status}
+              {isTask ? (task?.status === 'notStarted' ? 'pending' : task?.status) : lesson?.status}
             </span>
           </div>
 
