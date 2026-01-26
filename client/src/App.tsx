@@ -22,7 +22,6 @@ import VerificationRequiredPage from './pages/auth/VerificationRequiredPage';
 import DashboardPage from './pages/DashboardPage';
 import HorsesPage from './pages/horses/HorsesPage';
 import HorseDetailPage from './pages/horses/HorseDetailPage';
-import InvoicesPage from './pages/invoices/InvoicesPage';
 import InvoiceDetailPage from './pages/invoices/InvoiceDetailPage';
 import CalendarPage from './pages/calendar/CalendarPage';
 import VendorsPage from './pages/vendors/VendorsPage';
