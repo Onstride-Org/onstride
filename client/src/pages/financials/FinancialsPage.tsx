@@ -12,7 +12,6 @@ import {
 } from '../../types';
 import { format } from 'date-fns';
 import {
-  DollarSign,
   TrendingUp,
   TrendingDown,
   FileText,
@@ -488,9 +487,9 @@ function OverviewTab({
 // Invoices Tab Component
 function InvoicesTab({
   localInvoices,
-  qbInvoices,
+  qbInvoices: _qbInvoices,
   formatCurrency,
-  isConnected,
+  isConnected: _isConnected,
   isStaff,
 }: {
   localInvoices: Invoice[];
@@ -499,6 +498,9 @@ function InvoicesTab({
   isConnected?: boolean;
   isStaff: boolean | null;
 }) {
+  // Note: qbInvoices and isConnected reserved for future QuickBooks invoice display
+  void _qbInvoices;
+  void _isConnected;
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const filteredInvoices =
