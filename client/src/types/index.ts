@@ -378,6 +378,140 @@ export interface Notification {
   createdAt: string;
 }
 
+// QuickBooks/Financials types
+export interface QBConnectionStatus {
+  connected: boolean;
+  companyInfo?: QBCompanyInfo;
+}
+
+export interface QBCompanyInfo {
+  CompanyName?: string;
+  LegalName?: string;
+  CompanyAddr?: {
+    Line1?: string;
+    City?: string;
+    CountrySubDivisionCode?: string;
+    PostalCode?: string;
+  };
+  Email?: { Address?: string };
+  WebAddr?: { URI?: string };
+  FiscalYearStartMonth?: string;
+}
+
+export interface QBInvoice {
+  Id: string;
+  DocNumber?: string;
+  TxnDate: string;
+  DueDate?: string;
+  TotalAmt: number;
+  Balance: number;
+  CustomerRef?: { name: string; value: string };
+  Line?: QBInvoiceLine[];
+  EmailStatus?: string;
+  PrintStatus?: string;
+}
+
+export interface QBInvoiceLine {
+  Id?: string;
+  Description?: string;
+  Amount: number;
+  DetailType?: string;
+  SalesItemLineDetail?: {
+    ItemRef?: { name: string; value: string };
+    Qty?: number;
+    UnitPrice?: number;
+  };
+}
+
+export interface QBPayment {
+  Id: string;
+  TxnDate: string;
+  TotalAmt: number;
+  CustomerRef?: { name: string; value: string };
+  PaymentMethodRef?: { name: string; value: string };
+  DepositToAccountRef?: { name: string; value: string };
+}
+
+export interface QBExpense {
+  Id: string;
+  TxnDate: string;
+  TotalAmt: number;
+  PaymentType?: string;
+  AccountRef?: { name: string; value: string };
+  EntityRef?: { name: string; value: string };
+  Line?: QBExpenseLine[];
+}
+
+export interface QBExpenseLine {
+  Id?: string;
+  Description?: string;
+  Amount: number;
+  DetailType?: string;
+  AccountBasedExpenseLineDetail?: {
+    AccountRef?: { name: string; value: string };
+  };
+}
+
+export interface QBCustomer {
+  Id: string;
+  DisplayName: string;
+  GivenName?: string;
+  FamilyName?: string;
+  PrimaryEmailAddr?: { Address: string };
+  PrimaryPhone?: { FreeFormNumber: string };
+  Balance?: number;
+  Active?: boolean;
+}
+
+export interface QBAccount {
+  Id: string;
+  Name: string;
+  AccountType: string;
+  AccountSubType?: string;
+  CurrentBalance?: number;
+  Active?: boolean;
+}
+
+export interface FinancialDashboard {
+  totalReceivables: number;
+  monthlyRevenue: number;
+  monthlyExpenses: number;
+  netIncome: number;
+  pendingInvoices: number;
+  overdueInvoices: number;
+  recentInvoices: QBInvoice[];
+  recentPayments: QBPayment[];
+  recentExpenses: QBExpense[];
+  profitLossMonth?: QBReport;
+  profitLossYear?: QBReport;
+  arAging?: QBReport;
+}
+
+export interface QBReport {
+  Header?: {
+    ReportName?: string;
+    DateMacro?: string;
+    StartPeriod?: string;
+    EndPeriod?: string;
+    Currency?: string;
+  };
+  Columns?: { Column: QBReportColumn[] };
+  Rows?: { Row: QBReportRow[] };
+}
+
+export interface QBReportColumn {
+  ColTitle?: string;
+  ColType?: string;
+}
+
+export interface QBReportRow {
+  ColData?: Array<{ value: string; id?: string }>;
+  Rows?: { Row: QBReportRow[] };
+  Summary?: { ColData: Array<{ value: string }> };
+  Header?: { ColData: Array<{ value: string }> };
+  type?: string;
+}
+
 // API response types
 export interface PaginatedResponse<T> {
   data: T[];

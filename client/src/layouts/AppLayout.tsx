@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { Home, FileText, CheckSquare, Calendar, UserCheck, Users, Settings, Menu, X, LogOut, Warehouse } from 'lucide-react';
+import { Home, FileText, CheckSquare, Calendar, UserCheck, Users, Settings, Menu, X, LogOut, Warehouse, DollarSign } from 'lucide-react';
 import { HorseIcon } from '../components/icons/HorseIcon';
 
 export default function AppLayout() {
@@ -27,7 +27,7 @@ export default function AppLayout() {
     { path: '/app/dashboard', icon: 'home', label: 'Dashboard', staffOnly: false },
     { path: '/app/horses', icon: 'horse', label: 'Horses', staffOnly: false },
     { path: '/app/calendar', icon: 'calendar', label: 'Calendar', staffOnly: false },
-    { path: '/app/invoices', icon: 'invoice', label: 'Invoices', staffOnly: false },
+    { path: '/app/financials', icon: 'financials', label: 'Financials', staffOnly: false },
     // { path: '/app/stable', icon: 'stable', label: 'Stable', staffOnly: true }, // Hidden until feature is complete
     { path: '/app/vendors', icon: 'vendor', label: 'Vendors', staffOnly: true },
     { path: '/app/users', icon: 'users', label: 'Users', staffOnly: true },
@@ -46,6 +46,8 @@ export default function AppLayout() {
         return <HorseIcon {...iconProps} />;
       case 'invoice':
         return <FileText {...iconProps} />;
+      case 'financials':
+        return <DollarSign {...iconProps} />;
       case 'tasks':
         return <CheckSquare {...iconProps} />;
       case 'calendar':

@@ -938,6 +938,84 @@ export const stablesApi = {
   },
 };
 
+// ============ QuickBooks/Financials API ============
+export const financialsApi = {
+  // Connection management
+  getAuthUrl: async () => {
+    const response = await api.get('/quickbooks/auth-url');
+    return response.data;
+  },
+
+  getConnectionStatus: async () => {
+    const response = await api.get('/quickbooks/status');
+    return response.data;
+  },
+
+  disconnect: async () => {
+    const response = await api.post('/quickbooks/disconnect');
+    return response.data;
+  },
+
+  // Dashboard
+  getDashboard: async () => {
+    const response = await api.get('/quickbooks/dashboard');
+    return response.data;
+  },
+
+  // Reports
+  getProfitAndLoss: async (startDate: string, endDate: string) => {
+    const response = await api.get('/quickbooks/profit-loss', { params: { startDate, endDate } });
+    return response.data;
+  },
+
+  getBalanceSheet: async (asOfDate?: string) => {
+    const response = await api.get('/quickbooks/balance-sheet', { params: { asOfDate } });
+    return response.data;
+  },
+
+  getARAgingReport: async () => {
+    const response = await api.get('/quickbooks/ar-aging');
+    return response.data;
+  },
+
+  getAPAgingReport: async () => {
+    const response = await api.get('/quickbooks/ap-aging');
+    return response.data;
+  },
+
+  // Data
+  getInvoices: async () => {
+    const response = await api.get('/quickbooks/invoices');
+    return response.data;
+  },
+
+  getPayments: async () => {
+    const response = await api.get('/quickbooks/payments');
+    return response.data;
+  },
+
+  getExpenses: async () => {
+    const response = await api.get('/quickbooks/expenses');
+    return response.data;
+  },
+
+  getCustomers: async () => {
+    const response = await api.get('/quickbooks/customers');
+    return response.data;
+  },
+
+  getAccounts: async () => {
+    const response = await api.get('/quickbooks/accounts');
+    return response.data;
+  },
+
+  // Sync
+  syncInvoice: async (invoiceData: object) => {
+    const response = await api.post('/quickbooks/sync-invoice', { invoiceData });
+    return response.data;
+  },
+};
+
 // ============ Auth API additional methods ============
 (authApi as any).changePassword = async (currentPassword: string, newPassword: string) => {
   const response = await api.post('/auth/change-password', { currentPassword, newPassword });

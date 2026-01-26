@@ -38,6 +38,7 @@ import AdminBarnDetailPage from './pages/admin/AdminBarnDetailPage';
 import AdminUserDetailPage from './pages/admin/AdminUserDetailPage';
 import BillingTemplatesPage from './pages/billing/BillingTemplatesPage';
 import StablePage from './pages/stable/StablePage';
+import FinancialsPage from './pages/financials/FinancialsPage';
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -171,8 +172,11 @@ function App() {
         <Route path="horses" element={<HorsesPage />} />
         <Route path="horses/:id" element={<HorseDetailPage />} />
 
-        {/* Invoices */}
-        <Route path="invoices" element={<InvoicesPage />} />
+        {/* Financials */}
+        <Route path="financials" element={<FinancialsPage />} />
+
+        {/* Invoices (legacy & detail views) */}
+        <Route path="invoices" element={<Navigate to="/app/financials" replace />} />
         <Route path="invoices/:id" element={<InvoiceDetailPage />} />
 
         {/* Calendar (combined Tasks & Lessons) */}
