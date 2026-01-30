@@ -13,7 +13,7 @@ export default function VerificationRequiredPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isChecking, setIsChecking] = useState(false);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Poll to check if email has been verified on another device
   useEffect(() => {
