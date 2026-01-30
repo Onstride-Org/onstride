@@ -6,7 +6,7 @@ import { getTokens, getCurrentBarn } from '../../services/api';
 import {
   Users, Building2, CreditCard, Activity,
   AlertTriangle, TrendingUp, Shield, Database,
-  BarChart3, DollarSign, ChevronRight
+  BarChart3, DollarSign, ChevronRight, Calendar
 } from 'lucide-react';
 
 interface AdminStats {
@@ -236,6 +236,12 @@ export default function AdminDashboardPage() {
           <TrendingUp size={32} />
           <h3>Reports & Analytics</h3>
           <p>Platform usage and revenue reports</p>
+        </Link>
+
+        <Link to="/app/admin/demo-requests" className="admin-nav-card">
+          <Calendar size={32} />
+          <h3>Demo Requests</h3>
+          <p>View and manage demo booking requests</p>
         </Link>
       </div>
 

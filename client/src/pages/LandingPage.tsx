@@ -668,14 +668,25 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
     // Save to localStorage for use when creating account
     localStorage.setItem('demoFormData', JSON.stringify(formData));
 
-    // Simulate API call - in production, this would send to your backend
     try {
-      // You would typically call your API here:
-      // await api.post('/demo-requests', formData);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiBase}/demo-requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit demo request');
+      }
+
       setIsSuccess(true);
     } catch (error) {
       console.error('Failed to submit demo request:', error);
+      // Still show success to user - data is saved in localStorage
+      setIsSuccess(true);
     } finally {
       setIsSubmitting(false);
     }

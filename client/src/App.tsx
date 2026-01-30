@@ -37,6 +37,7 @@ import AdminBarnsPage from './pages/admin/AdminBarnsPage';
 import AdminBarnDetailPage from './pages/admin/AdminBarnDetailPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminUserDetailPage from './pages/admin/AdminUserDetailPage';
+import AdminDemoRequestsPage from './pages/admin/AdminDemoRequestsPage';
 import BillingTemplatesPage from './pages/billing/BillingTemplatesPage';
 import StablePage from './pages/stable/StablePage';
 import FinancialsPage from './pages/financials/FinancialsPage';
@@ -211,6 +212,7 @@ function App() {
         <Route path="admin/users/:id" element={<AdminUserDetailPage />} />
         <Route path="admin/barns" element={<AdminBarnsPage />} />
         <Route path="admin/barns/:id" element={<AdminBarnDetailPage />} />
+        <Route path="admin/demo-requests" element={<AdminDemoRequestsPage />} />
       </Route>
 
       {/* Catch all - redirect to landing page */}

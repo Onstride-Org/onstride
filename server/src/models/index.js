@@ -19,6 +19,7 @@ const BarnLayout = require('./BarnLayout');
 const { BreedingSuggestion, SchedulingSuggestion, ScannedDocument, HorseWorkload } = require('./AI');
 const { DocumentTemplate, GeneratedDocument } = require('./Document');
 const MerchantApplication = require('./MerchantApplication');
+const DemoRequest = require('./DemoRequest');
 
 module.exports = {
   User,
@@ -51,5 +52,6 @@ module.exports = {
   HorseWorkload,
   DocumentTemplate,
   GeneratedDocument,
-  MerchantApplication
+  MerchantApplication,
+  DemoRequest
 };

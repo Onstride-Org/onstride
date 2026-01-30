@@ -5,6 +5,7 @@ const Horse = require('../models/Horse');
 const UserBarnRole = require('../models/UserBarnRole');
 const { BarnSubscription } = require('../models/Subscription');
 const Invoice = require('../models/Invoice');
+const DemoRequest = require('../models/DemoRequest');
 const { authenticate, hasRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -469,6 +470,121 @@ router.delete('/barns/:id', async (req, res, next) => {
     }
 
     res.json({ message: 'Barn deleted' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==================== Demo Requests ====================
+
+// Get all demo requests (with pagination)
+router.get('/demo-requests', async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, status, search } = req.query;
+
+    const filter = {};
+    if (status) filter.status = status;
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { barnName: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const demoRequests = await DemoRequest.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    const total = await DemoRequest.countDocuments(filter);
+
+    res.json({
+      data: demoRequests,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get demo request stats
+router.get('/demo-requests/stats', async (req, res, next) => {
+  try {
+    const [total, newCount, contactedCount, scheduledCount, completedCount] = await Promise.all([
+      DemoRequest.countDocuments(),
+      DemoRequest.countDocuments({ status: 'new' }),
+      DemoRequest.countDocuments({ status: 'contacted' }),
+      DemoRequest.countDocuments({ status: 'scheduled' }),
+      DemoRequest.countDocuments({ status: 'completed' })
+    ]);
+
+    res.json({
+      total,
+      new: newCount,
+      contacted: contactedCount,
+      scheduled: scheduledCount,
+      completed: completedCount
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get single demo request
+router.get('/demo-requests/:id', async (req, res, next) => {
+  try {
+    const demoRequest = await DemoRequest.findById(req.params.id);
+
+    if (!demoRequest) {
+      return res.status(404).json({ error: 'Demo request not found' });
+    }
+
+    res.json(demoRequest);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update demo request status/notes
+router.put('/demo-requests/:id', async (req, res, next) => {
+  try {
+    const { status, notes } = req.body;
+
+    const demoRequest = await DemoRequest.findByIdAndUpdate(
+      req.params.id,
+      {
+        ...(status && { status }),
+        ...(notes !== undefined && { notes })
+      },
+      { new: true }
+    );
+
+    if (!demoRequest) {
+      return res.status(404).json({ error: 'Demo request not found' });
+    }
+
+    res.json(demoRequest);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete demo request
+router.delete('/demo-requests/:id', async (req, res, next) => {
+  try {
+    const demoRequest = await DemoRequest.findByIdAndDelete(req.params.id);
+
+    if (!demoRequest) {
+      return res.status(404).json({ error: 'Demo request not found' });
+    }
+
+    res.json({ message: 'Demo request deleted' });
   } catch (error) {
     next(error);
   }
