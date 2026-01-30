@@ -5,6 +5,7 @@ import { useAuthStore } from './stores/authStore';
 // Layouts
 import AuthLayout from './layouts/AuthLayout';
 import AppLayout from './layouts/AppLayout';
+import AdminLayout from './layouts/AdminLayout';
 
 // Landing Page
 import LandingPage from './pages/LandingPage';
@@ -38,6 +39,11 @@ import AdminBarnDetailPage from './pages/admin/AdminBarnDetailPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminUserDetailPage from './pages/admin/AdminUserDetailPage';
 import AdminDemoRequestsPage from './pages/admin/AdminDemoRequestsPage';
+import AdminLoginPage from './pages/admin/AdminLoginPage';
+import AdminHomePage from './pages/admin/AdminHomePage';
+import AdminDemoPage from './pages/admin/AdminDemoPage';
+import AdminUsersListPage from './pages/admin/AdminUsersListPage';
+import AdminBarnsListPage from './pages/admin/AdminBarnsListPage';
 import BillingTemplatesPage from './pages/billing/BillingTemplatesPage';
 import StablePage from './pages/stable/StablePage';
 import FinancialsPage from './pages/financials/FinancialsPage';
@@ -213,6 +219,16 @@ function App() {
         <Route path="admin/barns" element={<AdminBarnsPage />} />
         <Route path="admin/barns/:id" element={<AdminBarnDetailPage />} />
         <Route path="admin/demo-requests" element={<AdminDemoRequestsPage />} />
+      </Route>
+
+      {/* Standalone Admin Portal */}
+      <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="dashboard" element={<AdminHomePage />} />
+        <Route path="demo-requests" element={<AdminDemoPage />} />
+        <Route path="users" element={<AdminUsersListPage />} />
+        <Route path="barns" element={<AdminBarnsListPage />} />
       </Route>
 
       {/* Catch all - redirect to landing page */}

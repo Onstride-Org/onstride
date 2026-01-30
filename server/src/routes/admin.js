@@ -1,4 +1,5 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Barn = require('../models/Barn');
 const Horse = require('../models/Horse');
@@ -10,7 +11,39 @@ const { authenticate, hasRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// All admin routes require authentication and admin role
+// Hardcoded admin credentials
+const ADMIN_EMAIL = 'admin@onstrideapp.com';
+const ADMIN_PASSWORD = '3yh73';
+
+// Admin login - no auth required
+router.post('/login', async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate admin token
+    const token = jwt.sign(
+      { email: ADMIN_EMAIL, role: 'admin' },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token,
+      user: {
+        email: ADMIN_EMAIL,
+        name: 'Admin'
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// All other admin routes require authentication and admin role
 router.use(authenticate);
 router.use(hasRole('admin'));
 

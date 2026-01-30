@@ -552,7 +552,7 @@ export default function LandingPage() {
           </div>
 
           <div className="footer-bottom">
-            <p>&copy; {new Date().getFullYear()} OnStride. All rights reserved. <a href="/login?admin=true" style={{ color: 'inherit', opacity: 0.4, textDecoration: 'none', fontSize: '12px' }}>Admin</a></p>
+            <p>&copy; {new Date().getFullYear()} OnStride. All rights reserved. <a href="/admin/login" style={{ color: 'inherit', opacity: 0.4, textDecoration: 'none', fontSize: '12px' }}>Admin</a></p>
             <div className="footer-legal">
               <a href="#">Privacy</a>
               <a href="#">Terms</a>
