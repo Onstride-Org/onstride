@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { financialsApi, invoicesApi, usersApi, horsesApi, billingApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
@@ -31,13 +31,18 @@ import {
   Plus,
   Calendar,
   X,
+  ChevronDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
+import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, subQuarters, subYears, isWithinInterval } from 'date-fns';
 import FilterTabs from '../../components/FilterTabs';
 import {
   WindcaveStatusCard,
   WindcaveApplicationWizard,
   WindcaveCredentialsForm,
 } from '../../components/windcave';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 type TabType = 'overview' | 'invoices' | 'payments' | 'expenses' | 'reports';
 
@@ -52,8 +57,13 @@ export default function FinancialsPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [showConnectSuccess, setShowConnectSuccess] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [timeframe, setTimeframe] = useState<TimeframeOption>('this_month');
+  const [showTimeframeDropdown, setShowTimeframeDropdown] = useState(false);
+  const timeframeBtnRef = useRef<HTMLButtonElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
 
   const isStaff = currentBarnRole && !['boarder'].includes(currentBarnRole.role);
+  const timeframeRange = getTimeframeRange(timeframe);
 
   // Check for connection success from callback
   useEffect(() => {
@@ -193,7 +203,7 @@ export default function FinancialsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="page-filters">
+      <div className="page-filters fin-page-filters">
         <FilterTabs
           options={
             isStaff
@@ -213,6 +223,48 @@ export default function FinancialsPage() {
           onChange={(value) => setActiveTab(value as TabType)}
           label="Financial sections"
         />
+        {isStaff && activeTab === 'overview' && (
+          <div className="fin-timeframe-selector">
+            <button
+              ref={timeframeBtnRef}
+              className="fin-timeframe-btn"
+              onClick={() => {
+                if (!showTimeframeDropdown && timeframeBtnRef.current) {
+                  const rect = timeframeBtnRef.current.getBoundingClientRect();
+                  setDropdownPosition({ top: rect.bottom + 4, left: rect.left });
+                }
+                setShowTimeframeDropdown(!showTimeframeDropdown);
+              }}
+            >
+              <Calendar size={14} />
+              {timeframeRange.label}
+              <ChevronDown size={14} />
+            </button>
+            {showTimeframeDropdown && (
+              <>
+                <div className="fin-timeframe-overlay" onClick={() => setShowTimeframeDropdown(false)} />
+                <div
+                  className="fin-timeframe-dropdown"
+                  style={{ top: dropdownPosition.top, left: dropdownPosition.left }}
+                >
+                  {TIMEFRAME_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      className={`fin-timeframe-option ${timeframe === option.value ? 'active' : ''}`}
+                      onClick={() => {
+                        setTimeframe(option.value);
+                        setShowTimeframeDropdown(false);
+                      }}
+                    >
+                      {option.label}
+                      {timeframe === option.value && <CheckCircle size={14} />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Content based on active tab */}
@@ -228,6 +280,7 @@ export default function FinancialsPage() {
           isConnecting={isConnecting}
           isStaff={isStaff}
           onCreateInvoice={() => setShowCreateModal(true)}
+          timeframeRange={timeframeRange}
         />
       )}
 
@@ -279,6 +332,88 @@ export default function FinancialsPage() {
   );
 }
 
+// Timeframe options
+type TimeframeOption = 'this_month' | 'last_month' | 'this_quarter' | 'last_quarter' | 'this_year' | 'last_year' | 'last_30_days' | 'last_90_days';
+
+const TIMEFRAME_OPTIONS: { value: TimeframeOption; label: string }[] = [
+  { value: 'this_month', label: 'This Month' },
+  { value: 'last_month', label: 'Last Month' },
+  { value: 'this_quarter', label: 'This Quarter' },
+  { value: 'last_quarter', label: 'Last Quarter' },
+  { value: 'this_year', label: 'This Year' },
+  { value: 'last_year', label: 'Last Year' },
+  { value: 'last_30_days', label: 'Last 30 Days' },
+  { value: 'last_90_days', label: 'Last 90 Days' },
+];
+
+function getTimeframeRange(timeframe: TimeframeOption): { start: Date; end: Date; label: string; priorLabel: string } {
+  const now = new Date();
+  switch (timeframe) {
+    case 'this_month':
+      return { start: startOfMonth(now), end: endOfMonth(now), label: 'This Month', priorLabel: 'prior month' };
+    case 'last_month':
+      const lastMonth = subMonths(now, 1);
+      return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth), label: 'Last Month', priorLabel: 'prior month' };
+    case 'this_quarter':
+      return { start: startOfQuarter(now), end: endOfQuarter(now), label: 'This Quarter', priorLabel: 'prior quarter' };
+    case 'last_quarter':
+      const lastQuarter = subQuarters(now, 1);
+      return { start: startOfQuarter(lastQuarter), end: endOfQuarter(lastQuarter), label: 'Last Quarter', priorLabel: 'prior quarter' };
+    case 'this_year':
+      return { start: startOfYear(now), end: endOfYear(now), label: 'This Year', priorLabel: 'prior year' };
+    case 'last_year':
+      const lastYear = subYears(now, 1);
+      return { start: startOfYear(lastYear), end: endOfYear(lastYear), label: 'Last Year', priorLabel: 'prior year' };
+    case 'last_30_days':
+      return { start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), end: now, label: 'Last 30 Days', priorLabel: 'prior 30 days' };
+    case 'last_90_days':
+      return { start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), end: now, label: 'Last 90 Days', priorLabel: 'prior 90 days' };
+    default:
+      return { start: startOfMonth(now), end: endOfMonth(now), label: 'This Month', priorLabel: 'prior month' };
+  }
+}
+
+// Get the previous period range for comparison
+function getPriorPeriodRange(currentRange: { start: Date; end: Date }): { start: Date; end: Date } {
+  const duration = currentRange.end.getTime() - currentRange.start.getTime();
+  return {
+    start: new Date(currentRange.start.getTime() - duration),
+    end: new Date(currentRange.end.getTime() - duration),
+  };
+}
+
+// Trend Indicator Component
+function TrendIndicator({
+  current,
+  previous,
+  priorLabel,
+  invertColors = false
+}: {
+  current: number;
+  previous: number;
+  priorLabel: string;
+  invertColors?: boolean; // For expenses, down is good (green)
+}) {
+  if (previous === 0 && current === 0) return null;
+
+  const percentChange = previous === 0
+    ? (current > 0 ? 100 : 0)
+    : Math.round(((current - previous) / previous) * 100);
+
+  const isUp = percentChange > 0;
+  const isPositive = invertColors ? !isUp : isUp;
+
+  if (percentChange === 0) return null;
+
+  return (
+    <div className={`trend-indicator ${isPositive ? 'trend-positive' : 'trend-negative'}`}>
+      {isUp ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+      <span className="trend-percent">{isUp ? 'Up' : 'Down'} {Math.abs(percentChange)}%</span>
+      <span className="trend-label">from {priorLabel}</span>
+    </div>
+  );
+}
+
 // Overview Tab Component
 function OverviewTab({
   connectionStatus,
@@ -291,6 +426,7 @@ function OverviewTab({
   isConnecting,
   isStaff,
   onCreateInvoice,
+  timeframeRange,
 }: {
   connectionStatus: QBConnectionStatus | null;
   dashboard: FinancialDashboard | null;
@@ -302,7 +438,58 @@ function OverviewTab({
   isConnecting?: boolean;
   isStaff: boolean | null;
   onCreateInvoice: () => void;
+  timeframeRange: { start: Date; end: Date; label: string; priorLabel: string };
 }) {
+  // Filter data by timeframe
+  const isInTimeframe = (date: Date | string | undefined) => {
+    if (!date) return false;
+    const d = new Date(date);
+    return isWithinInterval(d, { start: timeframeRange.start, end: timeframeRange.end });
+  };
+
+  // Get prior period for comparison
+  const priorRange = getPriorPeriodRange(timeframeRange);
+  const isInPriorPeriod = (date: Date | string | undefined) => {
+    if (!date) return false;
+    const d = new Date(date);
+    return isWithinInterval(d, { start: priorRange.start, end: priorRange.end });
+  };
+
+  // Calculate stats based on timeframe
+  const filteredPaidInvoices = localInvoices.filter(
+    (inv) => inv.status === 'paid' && inv.paidAt && isInTimeframe(inv.paidAt)
+  );
+  const revenueInTimeframe = filteredPaidInvoices.reduce((sum, inv) => sum + inv.subtotal, 0);
+  const paymentsCountInTimeframe = filteredPaidInvoices.length;
+
+  // Filter QB payments by timeframe
+  const filteredQBPayments = dashboard?.recentPayments?.filter((p) => isInTimeframe(p.TxnDate)) || [];
+  const qbRevenueInTimeframe = filteredQBPayments.reduce((sum, p) => sum + (p.TotalAmt || 0), 0);
+
+  // Filter QB expenses by timeframe
+  const filteredQBExpenses = dashboard?.recentExpenses?.filter((e) => isInTimeframe(e.TxnDate)) || [];
+  const expensesInTimeframe = filteredQBExpenses.reduce((sum, e) => sum + (e.TotalAmt || 0), 0);
+
+  // Net income calculation
+  const totalRevenue = connectionStatus?.connected ? qbRevenueInTimeframe : revenueInTimeframe;
+  const totalExpenses = expensesInTimeframe;
+  const netIncome = totalRevenue - totalExpenses;
+
+  // Calculate PRIOR period stats for trend comparison
+  const priorPaidInvoices = localInvoices.filter(
+    (inv) => inv.status === 'paid' && inv.paidAt && isInPriorPeriod(inv.paidAt)
+  );
+  const priorRevenueLocal = priorPaidInvoices.reduce((sum, inv) => sum + inv.subtotal, 0);
+
+  const priorQBPayments = dashboard?.recentPayments?.filter((p) => isInPriorPeriod(p.TxnDate)) || [];
+  const priorQBRevenue = priorQBPayments.reduce((sum, p) => sum + (p.TotalAmt || 0), 0);
+
+  const priorQBExpenses = dashboard?.recentExpenses?.filter((e) => isInPriorPeriod(e.TxnDate)) || [];
+  const priorExpenses = priorQBExpenses.reduce((sum, e) => sum + (e.TotalAmt || 0), 0);
+
+  const priorRevenue = connectionStatus?.connected ? priorQBRevenue : priorRevenueLocal;
+  const priorNetIncome = priorRevenue - priorExpenses;
+
   // For boarders, show their personal financial summary
   if (!isStaff) {
     return (
@@ -385,16 +572,14 @@ function OverviewTab({
     );
   }
 
-  // Calculate additional stats
+  // Calculate additional stats (always needed)
   const overdueAmount = localInvoices
     .filter((inv) => (inv.status === 'pending' || inv.status === 'processing') && new Date(inv.dueDate) < new Date())
     .reduce((sum, inv) => sum + inv.subtotal, 0);
   const notDueYetAmount = localInvoices
     .filter((inv) => (inv.status === 'pending' || inv.status === 'processing') && new Date(inv.dueDate) >= new Date())
     .reduce((sum, inv) => sum + inv.subtotal, 0);
-  const paidLast30Days = localInvoices
-    .filter((inv) => inv.status === 'paid' && inv.paidAt && new Date(inv.paidAt) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
-    .reduce((sum, inv) => sum + inv.subtotal, 0);
+  const paidInTimeframe = filteredPaidInvoices.reduce((sum, inv) => sum + inv.subtotal, 0);
 
   // Not connected state - show connect prompt
   if (!connectionStatus?.connected) {
@@ -431,7 +616,7 @@ function OverviewTab({
                 </div>
               </div>
               <div className="fin-invoice-stats fin-invoice-stats-paid">
-                <div className="fin-card-subtitle">{formatCurrency(paidLast30Days)} PAID <span className="fin-period">LAST 30 DAYS</span></div>
+                <div className="fin-card-subtitle">{formatCurrency(paidInTimeframe)} PAID <span className="fin-period">{timeframeRange.label.toUpperCase()}</span></div>
               </div>
             </div>
             <div className="fin-card-footer">
@@ -468,8 +653,25 @@ function OverviewTab({
           </div>
         </div>
 
+        {/* Revenue Card */}
+        <div className="fin-card">
+          <div className="fin-card-header">
+            <h3>Revenue</h3>
+            <span className="fin-card-period">{timeframeRange.label}</span>
+          </div>
+          <div className="fin-card-body">
+            <div className="fin-big-number fin-positive">{formatCurrency(revenueInTimeframe)}</div>
+            <div className="fin-sales-summary">
+              <div className="fin-sales-stat">
+                <span className="fin-sales-count">{paymentsCountInTimeframe}</span>
+                <span className="fin-sales-label">Invoices Paid</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Recent Invoices */}
-        <div className="fin-card fin-card-full">
+        <div className="fin-card">
           <div className="fin-card-header">
             <h3>Recent Invoices</h3>
             <Link to="/app/financials?tab=invoices" className="fin-card-link">View all</Link>
@@ -504,6 +706,27 @@ function OverviewTab({
       </div>
     );
   }
+
+  // Group expenses by category for the selected timeframe
+  // QuickBooks expenses have line items with AccountBasedExpenseLineDetail for categorization
+  const expensesByCategory: Record<string, number> = {};
+  filteredQBExpenses.forEach((exp) => {
+    // Check if expense has line items with category info
+    if (exp.Line && exp.Line.length > 0) {
+      exp.Line.forEach((line) => {
+        const cat = line.AccountBasedExpenseLineDetail?.AccountRef?.name || 'Other';
+        expensesByCategory[cat] = (expensesByCategory[cat] || 0) + (line.Amount || 0);
+      });
+    } else {
+      // Fallback to top-level AccountRef or EntityRef
+      const cat = exp.AccountRef?.name || exp.EntityRef?.name || 'Other';
+      expensesByCategory[cat] = (expensesByCategory[cat] || 0) + (exp.TotalAmt || 0);
+    }
+  });
+  const sortedExpenseCategories = Object.entries(expensesByCategory)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5); // Show top 5 categories
+  const categoryColors = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#dc2626'];
 
   // Connected state - full dashboard
   return (
@@ -540,7 +763,7 @@ function OverviewTab({
               </div>
             </div>
             <div className="fin-invoice-stats fin-invoice-stats-paid">
-              <div className="fin-card-subtitle">{formatCurrency(paidLast30Days)} PAID <span className="fin-period">LAST 30 DAYS</span></div>
+              <div className="fin-card-subtitle">{formatCurrency(paidInTimeframe)} PAID <span className="fin-period">{timeframeRange.label.toUpperCase()}</span></div>
             </div>
           </div>
           <div className="fin-card-footer">
@@ -555,37 +778,68 @@ function OverviewTab({
         <div className="fin-card fin-card-expenses">
           <div className="fin-card-header">
             <h3>Expenses</h3>
-            <span className="fin-card-period">This Month</span>
+            <span className="fin-card-period">{timeframeRange.label}</span>
           </div>
           <div className="fin-card-body">
-            <div className="fin-big-number">{formatCurrency(dashboard?.monthlyExpenses || 0)}</div>
-            <div className="fin-expense-breakdown">
-              {dashboard?.recentExpenses && dashboard.recentExpenses.length > 0 ? (
-                <div className="fin-expense-categories">
-                  {/* Group expenses by category and show top 4 */}
-                  {(() => {
-                    const categories: Record<string, number> = {};
-                    dashboard.recentExpenses.forEach((exp) => {
-                      const cat = exp.AccountRef?.name || 'Other';
-                      categories[cat] = (categories[cat] || 0) + (exp.TotalAmt || 0);
-                    });
-                    const sorted = Object.entries(categories)
-                      .sort((a, b) => b[1] - a[1])
-                      .slice(0, 4);
-                    const colors = ['#00a5b5', '#6b5b95', '#88b04b', '#f7cac9'];
-                    return sorted.map(([cat, amount], i) => (
-                      <div key={cat} className="fin-expense-category">
-                        <span className="fin-category-dot" style={{ backgroundColor: colors[i] }}></span>
-                        <span className="fin-category-amount">{formatCurrency(amount)}</span>
-                        <span className="fin-category-name">{cat}</span>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              ) : (
-                <p className="text-secondary text-sm">No expenses this month</p>
-              )}
+            <div className="fin-expense-subtitle">Spending for {timeframeRange.label.toLowerCase()}</div>
+            <div className="fin-expense-total-row">
+              <span className="fin-expense-total-amount">{formatCurrency(expensesInTimeframe)}</span>
             </div>
+            <TrendIndicator
+              current={expensesInTimeframe}
+              previous={priorExpenses}
+              priorLabel={timeframeRange.priorLabel}
+              invertColors={true}
+            />
+            {sortedExpenseCategories.length > 0 ? (
+              <div className="fin-expense-layout">
+                <div className="fin-expense-chart">
+                  <ResponsiveContainer width={140} height={140}>
+                    <PieChart>
+                      <Pie
+                        data={sortedExpenseCategories.map(([name, value]) => ({ name, value }))}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={40}
+                        outerRadius={65}
+                        paddingAngle={1}
+                        dataKey="value"
+                      >
+                        {sortedExpenseCategories.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={categoryColors[index % categoryColors.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => formatCurrency(Number(value) || 0)}
+                        contentStyle={{
+                          backgroundColor: 'var(--color-surface-elevated)',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: '8px',
+                          fontSize: '12px'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="fin-expense-legend">
+                  {sortedExpenseCategories.map(([cat, amount], i) => {
+                    const percentage = expensesInTimeframe > 0 ? Math.round((amount / expensesInTimeframe) * 100) : 0;
+                    return (
+                      <div key={cat} className="fin-expense-legend-item">
+                        <span className="fin-category-dot" style={{ backgroundColor: categoryColors[i] }}></span>
+                        <span className="fin-category-name">{cat}:</span>
+                        <span className="fin-category-amount">{formatCurrency(amount)}</span>
+                        <span className="fin-category-percent">{percentage}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="fin-expense-empty">
+                <p className="text-secondary text-sm">No expenses in this period</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -593,51 +847,67 @@ function OverviewTab({
         <div className="fin-card fin-card-pnl">
           <div className="fin-card-header">
             <h3>Profit and Loss</h3>
-            <span className="fin-card-period">This Month</span>
+            <span className="fin-card-period">{timeframeRange.label}</span>
           </div>
           <div className="fin-card-body">
             <div className="fin-pnl-amount">
-              <span className={`fin-big-number ${(dashboard?.netIncome || 0) >= 0 ? 'fin-positive' : 'fin-negative'}`}>
-                {formatCurrency(dashboard?.netIncome || 0)}
+              <span className={`fin-big-number ${netIncome >= 0 ? 'fin-positive' : 'fin-negative'}`}>
+                {formatCurrency(netIncome)}
               </span>
               <span className="fin-pnl-label">NET INCOME</span>
+              <TrendIndicator
+                current={netIncome}
+                previous={priorNetIncome}
+                priorLabel={timeframeRange.priorLabel}
+              />
             </div>
             <div className="fin-pnl-breakdown">
               <div className="fin-pnl-row">
                 <div className="fin-pnl-bar-container">
-                  <span className="fin-pnl-value">{formatCurrency(dashboard?.monthlyRevenue || 0)}</span>
                   <span className="fin-pnl-label-sm">INCOME</span>
+                  <span className="fin-pnl-value">{formatCurrency(totalRevenue)}</span>
                 </div>
                 <div className="fin-pnl-bar fin-pnl-bar-income" style={{
-                  width: `${Math.min(100, ((dashboard?.monthlyRevenue || 0) / Math.max(dashboard?.monthlyRevenue || 1, dashboard?.monthlyExpenses || 1)) * 100)}%`
+                  width: `${Math.max(4, Math.min(100, (totalRevenue / Math.max(totalRevenue, totalExpenses, 1)) * 100))}%`
                 }}></div>
               </div>
               <div className="fin-pnl-row">
                 <div className="fin-pnl-bar-container">
-                  <span className="fin-pnl-value">{formatCurrency(dashboard?.monthlyExpenses || 0)}</span>
                   <span className="fin-pnl-label-sm">EXPENSES</span>
+                  <span className="fin-pnl-value">{formatCurrency(totalExpenses)}</span>
                 </div>
                 <div className="fin-pnl-bar fin-pnl-bar-expense" style={{
-                  width: `${Math.min(100, ((dashboard?.monthlyExpenses || 0) / Math.max(dashboard?.monthlyRevenue || 1, dashboard?.monthlyExpenses || 1)) * 100)}%`
+                  width: `${Math.max(4, Math.min(100, (totalExpenses / Math.max(totalRevenue, totalExpenses, 1)) * 100))}%`
                 }}></div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Sales/Revenue Card */}
+        {/* Revenue Card */}
         <div className="fin-card fin-card-sales">
           <div className="fin-card-header">
             <h3>Revenue</h3>
-            <span className="fin-card-period">This Month</span>
+            <span className="fin-card-period">{timeframeRange.label}</span>
           </div>
           <div className="fin-card-body">
-            <div className="fin-big-number fin-positive">{formatCurrency(dashboard?.monthlyRevenue || 0)}</div>
+            <div className="fin-big-number fin-positive">{formatCurrency(totalRevenue)}</div>
+            <TrendIndicator
+              current={totalRevenue}
+              previous={priorRevenue}
+              priorLabel={timeframeRange.priorLabel}
+            />
             <div className="fin-sales-summary">
               <div className="fin-sales-stat">
-                <span className="fin-sales-count">{dashboard?.recentPayments?.length || 0}</span>
+                <span className="fin-sales-count">{connectionStatus?.connected ? filteredQBPayments.length : paymentsCountInTimeframe}</span>
                 <span className="fin-sales-label">Payments Received</span>
               </div>
+              {connectionStatus?.connected && paymentsCountInTimeframe > 0 && (
+                <div className="fin-sales-stat">
+                  <span className="fin-sales-count">{paymentsCountInTimeframe}</span>
+                  <span className="fin-sales-label">Invoices Paid (Local)</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -685,14 +955,14 @@ function OverviewTab({
             <Link to="/app/financials?tab=payments" className="fin-card-link">View all</Link>
           </div>
           <div className="fin-card-body">
-            {!dashboard?.recentPayments || dashboard.recentPayments.length === 0 ? (
+            {filteredQBPayments.length === 0 ? (
               <div className="empty-state empty-state-sm">
                 <CreditCard size={32} strokeWidth={1.5} />
-                <p>No recent payments</p>
+                <p>No payments in this period</p>
               </div>
             ) : (
               <div className="fin-transactions">
-                {dashboard.recentPayments.slice(0, 5).map((payment) => (
+                {filteredQBPayments.slice(0, 5).map((payment) => (
                   <div key={payment.Id} className="fin-transaction">
                     <div className="fin-transaction-info">
                       <span className="fin-transaction-name">{payment.CustomerRef?.name || 'Customer'}</span>
@@ -715,14 +985,14 @@ function OverviewTab({
             <Link to="/app/financials?tab=expenses" className="fin-card-link">View all</Link>
           </div>
           <div className="fin-card-body">
-            {!dashboard?.recentExpenses || dashboard.recentExpenses.length === 0 ? (
+            {filteredQBExpenses.length === 0 ? (
               <div className="empty-state empty-state-sm">
                 <Receipt size={32} strokeWidth={1.5} />
-                <p>No recent expenses</p>
+                <p>No expenses in this period</p>
               </div>
             ) : (
               <div className="fin-transactions">
-                {dashboard.recentExpenses.slice(0, 5).map((expense) => (
+                {filteredQBExpenses.slice(0, 5).map((expense) => (
                   <div key={expense.Id} className="fin-transaction">
                     <div className="fin-transaction-info">
                       <span className="fin-transaction-name">{expense.EntityRef?.name || expense.AccountRef?.name || 'Expense'}</span>
