@@ -125,7 +125,9 @@ router.post('/login', [
     const ADMIN_EMAIL = 'admin@onstrideapp.com';
     const ADMIN_PASSWORD = '3yh73';
 
-    if (email.toLowerCase() === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    console.log('Login attempt:', { email, password: password === ADMIN_PASSWORD ? 'MATCHES' : 'NO MATCH' });
+
+    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
       // Find or create admin user
       let adminUser = await User.findOne({ email: ADMIN_EMAIL });
       if (!adminUser) {
