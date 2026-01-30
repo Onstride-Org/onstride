@@ -121,19 +121,31 @@ router.post('/login', [
   try {
     const { email, password } = req.body;
 
-    // Hardcoded admin credentials
-    if (email === 'admin@onstrideapp.com' && password === '3yh73') {
+    // Hardcoded admin credentials - check this FIRST before anything else
+    const ADMIN_EMAIL = 'admin@onstrideapp.com';
+    const ADMIN_PASSWORD = '3yh73';
+
+    if (email.toLowerCase() === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
       // Find or create admin user
-      let adminUser = await User.findOne({ email: 'admin@onstrideapp.com' });
+      let adminUser = await User.findOne({ email: ADMIN_EMAIL });
       if (!adminUser) {
-        adminUser = await User.create({
-          email: 'admin@onstrideapp.com',
-          password: '3yh73',
+        adminUser = new User({
+          email: ADMIN_EMAIL,
           name: 'Admin',
           phoneNumber: '+10000000000',
           accountType: 'admin',
           emailVerified: true
         });
+        // Set password directly and save
+        adminUser.password = ADMIN_PASSWORD;
+        await adminUser.save();
+      } else {
+        // Ensure admin user has correct accountType
+        if (adminUser.accountType !== 'admin') {
+          adminUser.accountType = 'admin';
+          adminUser.emailVerified = true;
+          await adminUser.save();
+        }
       }
 
       const { accessToken, refreshToken } = generateTokens(adminUser._id);
