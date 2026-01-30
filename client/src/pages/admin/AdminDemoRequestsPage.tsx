@@ -5,8 +5,7 @@ import axios from 'axios';
 import { getTokens, getCurrentBarn } from '../../services/api';
 import {
   Calendar, Mail, Phone, Building2, Users, Clock,
-  Check, X, MessageSquare, ChevronDown, Search,
-  Filter, RefreshCw
+  X, MessageSquare, Search, Filter, RefreshCw
 } from 'lucide-react';
 
 interface DemoRequest {
