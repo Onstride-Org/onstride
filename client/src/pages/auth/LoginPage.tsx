@@ -84,6 +84,17 @@ export default function LoginPage() {
   if (twoFactor.required) {
     return (
       <div className="auth-form-container">
+        <button
+          type="button"
+          className="auth-close-btn"
+          onClick={handleBackToLogin}
+          aria-label="Back to login"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="24" height="24">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
         <h2 className="auth-form-title">Verify Your Identity</h2>
         <p className="auth-form-subtitle">
           We sent a verification code to your phone ending in {twoFactor.phoneLastFour}

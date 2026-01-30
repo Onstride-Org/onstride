@@ -254,7 +254,7 @@ export default function CalendarPage() {
             events={events}
             startAccessor="start"
             endAccessor="end"
-            style={{ height: 700 }}
+            style={{ height: 'calc(100vh - 280px)', minHeight: 500 }}
             onSelectEvent={handleSelectEvent}
             onNavigate={handleNavigate}
             onView={handleViewChange}

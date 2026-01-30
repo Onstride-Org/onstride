@@ -32,15 +32,30 @@ router.get('/auth-url', authenticate, loadBarnContext, requireBarn, async (req, 
 router.get('/callback', async (req, res) => {
   try {
     const barnId = req.query.state;
+    const realmId = req.query.realmId;
     const url = req.url;
 
-    await quickbooksService.exchangeCodeForTokens(url, barnId);
+    console.log('QuickBooks callback - barnId:', barnId, 'realmId:', realmId);
+
+    await quickbooksService.exchangeCodeForTokens(url, barnId, realmId);
+
+    // Ensure CLIENT_URL has protocol
+    let clientUrl = process.env.CLIENT_URL || '';
+    if (clientUrl && !clientUrl.startsWith('http')) {
+      clientUrl = `https://${clientUrl}`;
+    }
 
     // Redirect to frontend financials page with success
-    res.redirect(`${process.env.CLIENT_URL}/app/financials?connected=true`);
+    res.redirect(`${clientUrl}/app/financials?connected=true`);
   } catch (error) {
     console.error('OAuth callback error:', error);
-    res.redirect(`${process.env.CLIENT_URL}/app/financials?error=connection_failed`);
+
+    let clientUrl = process.env.CLIENT_URL || '';
+    if (clientUrl && !clientUrl.startsWith('http')) {
+      clientUrl = `https://${clientUrl}`;
+    }
+
+    res.redirect(`${clientUrl}/app/financials?error=connection_failed`);
   }
 });
 
@@ -52,7 +67,7 @@ router.get('/callback', async (req, res) => {
 router.get('/status', authenticate, loadBarnContext, requireBarn, async (req, res) => {
   try {
     const barnId = req.barnId;
-    const isConnected = quickbooksService.isConnected(barnId);
+    const isConnected = await quickbooksService.isConnected(barnId);
 
     let companyInfo = null;
     if (isConnected) {
@@ -60,7 +75,7 @@ router.get('/status', authenticate, loadBarnContext, requireBarn, async (req, re
         companyInfo = await quickbooksService.getCompanyInfo(barnId);
       } catch (e) {
         // Token might be invalid
-        quickbooksService.disconnect(barnId);
+        await quickbooksService.disconnect(barnId);
         return res.json({ connected: false, companyInfo: null });
       }
     }
@@ -80,7 +95,7 @@ router.get('/status', authenticate, loadBarnContext, requireBarn, async (req, re
 router.post('/disconnect', authenticate, loadBarnContext, requireBarn, async (req, res) => {
   try {
     const barnId = req.barnId;
-    quickbooksService.disconnect(barnId);
+    await quickbooksService.disconnect(barnId);
     res.json({ success: true });
   } catch (error) {
     console.error('Error disconnecting:', error);
@@ -97,7 +112,7 @@ router.get('/dashboard', authenticate, loadBarnContext, requireBarn, async (req,
   try {
     const barnId = req.barnId;
 
-    if (!quickbooksService.isConnected(barnId)) {
+    if (!await quickbooksService.isConnected(barnId)) {
       return res.status(400).json({ error: 'QuickBooks not connected' });
     }
 
@@ -119,7 +134,7 @@ router.get('/profit-loss', authenticate, loadBarnContext, requireBarn, async (re
     const barnId = req.barnId;
     const { startDate, endDate } = req.query;
 
-    if (!quickbooksService.isConnected(barnId)) {
+    if (!await quickbooksService.isConnected(barnId)) {
       return res.status(400).json({ error: 'QuickBooks not connected' });
     }
 
@@ -141,7 +156,7 @@ router.get('/balance-sheet', authenticate, loadBarnContext, requireBarn, async (
     const barnId = req.barnId;
     const { asOfDate } = req.query;
 
-    if (!quickbooksService.isConnected(barnId)) {
+    if (!await quickbooksService.isConnected(barnId)) {
       return res.status(400).json({ error: 'QuickBooks not connected' });
     }
 
@@ -162,7 +177,7 @@ router.get('/invoices', authenticate, loadBarnContext, requireBarn, async (req, 
   try {
     const barnId = req.barnId;
 
-    if (!quickbooksService.isConnected(barnId)) {
+    if (!await quickbooksService.isConnected(barnId)) {
       return res.status(400).json({ error: 'QuickBooks not connected' });
     }
 
@@ -183,7 +198,7 @@ router.get('/payments', authenticate, loadBarnContext, requireBarn, async (req, 
   try {
     const barnId = req.barnId;
 
-    if (!quickbooksService.isConnected(barnId)) {
+    if (!await quickbooksService.isConnected(barnId)) {
       return res.status(400).json({ error: 'QuickBooks not connected' });
     }
 
@@ -204,7 +219,7 @@ router.get('/expenses', authenticate, loadBarnContext, requireBarn, async (req, 
   try {
     const barnId = req.barnId;
 
-    if (!quickbooksService.isConnected(barnId)) {
+    if (!await quickbooksService.isConnected(barnId)) {
       return res.status(400).json({ error: 'QuickBooks not connected' });
     }
 
@@ -225,7 +240,7 @@ router.get('/customers', authenticate, loadBarnContext, requireBarn, async (req,
   try {
     const barnId = req.barnId;
 
-    if (!quickbooksService.isConnected(barnId)) {
+    if (!await quickbooksService.isConnected(barnId)) {
       return res.status(400).json({ error: 'QuickBooks not connected' });
     }
 
@@ -246,7 +261,7 @@ router.get('/accounts', authenticate, loadBarnContext, requireBarn, async (req, 
   try {
     const barnId = req.barnId;
 
-    if (!quickbooksService.isConnected(barnId)) {
+    if (!await quickbooksService.isConnected(barnId)) {
       return res.status(400).json({ error: 'QuickBooks not connected' });
     }
 
@@ -267,7 +282,7 @@ router.get('/ar-aging', authenticate, loadBarnContext, requireBarn, async (req, 
   try {
     const barnId = req.barnId;
 
-    if (!quickbooksService.isConnected(barnId)) {
+    if (!await quickbooksService.isConnected(barnId)) {
       return res.status(400).json({ error: 'QuickBooks not connected' });
     }
 
@@ -288,7 +303,7 @@ router.get('/ap-aging', authenticate, loadBarnContext, requireBarn, async (req, 
   try {
     const barnId = req.barnId;
 
-    if (!quickbooksService.isConnected(barnId)) {
+    if (!await quickbooksService.isConnected(barnId)) {
       return res.status(400).json({ error: 'QuickBooks not connected' });
     }
 
@@ -310,7 +325,7 @@ router.post('/sync-invoice', authenticate, loadBarnContext, requireBarn, async (
     const barnId = req.barnId;
     const { invoiceData } = req.body;
 
-    if (!quickbooksService.isConnected(barnId)) {
+    if (!await quickbooksService.isConnected(barnId)) {
       return res.status(400).json({ error: 'QuickBooks not connected' });
     }
 

@@ -4,6 +4,7 @@
  */
 
 const OAuthClient = require('intuit-oauth');
+const Barn = require('../models/Barn');
 
 // Initialize OAuth client
 const getOAuthClient = () => {
@@ -14,9 +15,6 @@ const getOAuthClient = () => {
     redirectUri: process.env.QUICKBOOKS_REDIRECT_URI,
   });
 };
-
-// Store tokens per barn (in production, store in database)
-const tokenStore = new Map();
 
 const quickbooksService = {
   /**
@@ -32,20 +30,28 @@ const quickbooksService = {
   },
 
   /**
-   * Exchange authorization code for tokens
+   * Exchange authorization code for tokens and store in database
    */
-  exchangeCodeForTokens: async (url, barnId) => {
+  exchangeCodeForTokens: async (url, barnId, realmId) => {
     const oauthClient = getOAuthClient();
     const authResponse = await oauthClient.createToken(url);
     const tokens = authResponse.getJson();
 
-    // Store tokens with barnId
-    tokenStore.set(barnId, {
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      realmId: tokens.realmId,
-      expiresAt: Date.now() + (tokens.expires_in * 1000),
-      refreshExpiresAt: Date.now() + (tokens.x_refresh_token_expires_in * 1000),
+    // realmId comes from callback URL query param, not token response
+    const companyRealmId = realmId || tokens.realmId;
+
+    console.log('Storing QuickBooks tokens for barn:', barnId, 'realmId:', companyRealmId);
+
+    // Store tokens in database
+    await Barn.findByIdAndUpdate(barnId, {
+      quickbooks: {
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        realmId: companyRealmId,
+        expiresAt: new Date(Date.now() + (tokens.expires_in * 1000)),
+        refreshExpiresAt: new Date(Date.now() + (tokens.x_refresh_token_expires_in * 1000)),
+        connectedAt: new Date(),
+      }
     });
 
     return tokens;
@@ -55,50 +61,64 @@ const quickbooksService = {
    * Get valid access token (refresh if needed)
    */
   getValidToken: async (barnId) => {
-    const stored = tokenStore.get(barnId);
-    if (!stored) {
+    const barn = await Barn.findById(barnId).select('+quickbooks.accessToken +quickbooks.refreshToken');
+
+    if (!barn?.quickbooks?.accessToken) {
       return null;
     }
 
+    const { quickbooks } = barn;
+
     // Check if token is expired or about to expire (5 min buffer)
-    if (Date.now() >= stored.expiresAt - 300000) {
+    if (new Date() >= new Date(quickbooks.expiresAt.getTime() - 300000)) {
       const oauthClient = getOAuthClient();
       oauthClient.setToken({
-        access_token: stored.accessToken,
-        refresh_token: stored.refreshToken,
-        realmId: stored.realmId,
+        access_token: quickbooks.accessToken,
+        refresh_token: quickbooks.refreshToken,
+        realmId: quickbooks.realmId,
       });
 
-      const refreshResponse = await oauthClient.refresh();
-      const tokens = refreshResponse.getJson();
+      try {
+        const refreshResponse = await oauthClient.refresh();
+        const tokens = refreshResponse.getJson();
 
-      tokenStore.set(barnId, {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        realmId: stored.realmId,
-        expiresAt: Date.now() + (tokens.expires_in * 1000),
-        refreshExpiresAt: Date.now() + (tokens.x_refresh_token_expires_in * 1000),
-      });
+        // Update tokens in database
+        await Barn.findByIdAndUpdate(barnId, {
+          'quickbooks.accessToken': tokens.access_token,
+          'quickbooks.refreshToken': tokens.refresh_token,
+          'quickbooks.expiresAt': new Date(Date.now() + (tokens.expires_in * 1000)),
+          'quickbooks.refreshExpiresAt': new Date(Date.now() + (tokens.x_refresh_token_expires_in * 1000)),
+        });
 
-      return { accessToken: tokens.access_token, realmId: stored.realmId };
+        return { accessToken: tokens.access_token, realmId: quickbooks.realmId };
+      } catch (error) {
+        console.error('Failed to refresh QuickBooks token:', error);
+        // Clear invalid tokens
+        await quickbooksService.disconnect(barnId);
+        return null;
+      }
     }
 
-    return { accessToken: stored.accessToken, realmId: stored.realmId };
+    return { accessToken: quickbooks.accessToken, realmId: quickbooks.realmId };
   },
 
   /**
    * Check if barn is connected to QuickBooks
    */
-  isConnected: (barnId) => {
-    const stored = tokenStore.get(barnId);
-    return stored && Date.now() < stored.refreshExpiresAt;
+  isConnected: async (barnId) => {
+    const barn = await Barn.findById(barnId);
+    return barn?.quickbooks?.realmId &&
+           barn?.quickbooks?.refreshExpiresAt &&
+           new Date() < new Date(barn.quickbooks.refreshExpiresAt);
   },
 
   /**
    * Disconnect QuickBooks
    */
-  disconnect: (barnId) => {
-    tokenStore.delete(barnId);
+  disconnect: async (barnId) => {
+    await Barn.findByIdAndUpdate(barnId, {
+      $unset: { quickbooks: 1 }
+    });
   },
 
   /**
@@ -143,10 +163,25 @@ const quickbooksService = {
    * Get company info
    */
   getCompanyInfo: async (barnId) => {
+    const barn = await Barn.findById(barnId);
+    const realmId = barn?.quickbooks?.realmId;
+
+    if (!realmId) {
+      throw new Error('Not connected to QuickBooks');
+    }
+
     const response = await quickbooksService.makeApiRequest(
       barnId,
-      '/companyinfo/' + tokenStore.get(barnId)?.realmId
+      '/companyinfo/' + realmId
     );
+
+    // Store company name for display
+    if (response.CompanyInfo?.CompanyName) {
+      await Barn.findByIdAndUpdate(barnId, {
+        'quickbooks.companyName': response.CompanyInfo.CompanyName
+      });
+    }
+
     return response.CompanyInfo;
   },
 

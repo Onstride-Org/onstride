@@ -271,6 +271,13 @@ export default function HorseDetailPage() {
   );
 }
 
+const OVERVIEW_STAT_ITEMS: { key: string; valueKey: keyof NonNullable<Horse['rideStats']>; label: string }[] = [
+  { key: 'totalRides', valueKey: 'totalRides', label: 'Total Rides' },
+  { key: 'totalMinutes', valueKey: 'totalMinutes', label: 'Total Minutes' },
+  { key: 'ridesThisMonth', valueKey: 'ridesThisMonth', label: 'This Month' },
+  { key: 'ridesThisWeek', valueKey: 'ridesThisWeek', label: 'This Week' },
+];
+
 function OverviewTab({ horse, rideLogs }: { horse: Horse; rideLogs: RideLog[] }) {
   const stats = horse.rideStats;
 
@@ -280,23 +287,41 @@ function OverviewTab({ horse, rideLogs }: { horse: Horse; rideLogs: RideLog[] })
       <section className="horse-section">
         <h3 className="horse-section-title">Ride Statistics</h3>
         <div className="horse-stats-grid">
-          <div className="horse-stat-item">
-            <span className="horse-stat-value">{stats?.totalRides || 0}</span>
-            <span className="horse-stat-label">Total Rides</span>
-          </div>
-          <div className="horse-stat-item">
-            <span className="horse-stat-value">{stats?.totalMinutes || 0}</span>
-            <span className="horse-stat-label">Total Minutes</span>
-          </div>
-          <div className="horse-stat-item">
-            <span className="horse-stat-value">{stats?.ridesThisMonth || 0}</span>
-            <span className="horse-stat-label">This Month</span>
-          </div>
-          <div className="horse-stat-item">
-            <span className="horse-stat-value">{stats?.ridesThisWeek || 0}</span>
-            <span className="horse-stat-label">This Week</span>
-          </div>
+          {OVERVIEW_STAT_ITEMS.map((item) => (
+            <div key={item.key} className="horse-stat-item">
+              <span className="horse-stat-value">{stats?.[item.valueKey] ?? 0}</span>
+              <span className="horse-stat-label">{item.label}</span>
+            </div>
+          ))}
         </div>
+      </section>
+
+      {/* Recent Rides */}
+      <section className="horse-section">
+        <h3 className="horse-section-title">Recent Rides</h3>
+        {rideLogs.length === 0 ? (
+          <div className="horse-empty-card">
+            <p className="horse-empty-text">No ride logs yet</p>
+          </div>
+        ) : (
+          <div className="horse-rides-list">
+            {rideLogs.slice(0, 5).map((log, index) => (
+              <div key={log.id || `ride-${index}`} className="horse-ride-item">
+                <div className="horse-ride-date">
+                  <span className="horse-ride-day">{format(new Date(log.date), 'd')}</span>
+                  <span className="horse-ride-month">{format(new Date(log.date), 'MMM')}</span>
+                </div>
+                <div className="horse-ride-content">
+                  <span className="horse-ride-type">{log.type}</span>
+                  <span className="horse-ride-rider">
+                    {log.rider?.name || log.riderName || 'Unknown rider'}
+                  </span>
+                </div>
+                <span className="horse-ride-duration">{log.durationMinutes} min</span>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Horse Details */}
@@ -395,34 +420,6 @@ function OverviewTab({ horse, rideLogs }: { horse: Horse; rideLogs: RideLog[] })
           </div>
         </section>
       )}
-
-      {/* Recent Rides */}
-      <section className="horse-section">
-        <h3 className="horse-section-title">Recent Rides</h3>
-        {rideLogs.length === 0 ? (
-          <div className="horse-empty-card">
-            <p className="horse-empty-text">No ride logs yet</p>
-          </div>
-        ) : (
-          <div className="horse-rides-list">
-            {rideLogs.slice(0, 5).map((log) => (
-              <div key={log.id} className="horse-ride-item">
-                <div className="horse-ride-date">
-                  <span className="horse-ride-day">{format(new Date(log.date), 'd')}</span>
-                  <span className="horse-ride-month">{format(new Date(log.date), 'MMM')}</span>
-                </div>
-                <div className="horse-ride-content">
-                  <span className="horse-ride-type">{log.type}</span>
-                  <span className="horse-ride-rider">
-                    {log.rider?.name || log.riderName || 'Unknown rider'}
-                  </span>
-                </div>
-                <span className="horse-ride-duration">{log.durationMinutes} min</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }

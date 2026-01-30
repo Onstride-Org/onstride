@@ -44,6 +44,16 @@ const barnSchema = new mongoose.Schema({
     default: new Map()
   },
   connectedAccountId: String, // Stripe Connect account
+  // QuickBooks integration
+  quickbooks: {
+    accessToken: { type: String, select: false },
+    refreshToken: { type: String, select: false },
+    realmId: String,
+    expiresAt: Date,
+    refreshExpiresAt: Date,
+    companyName: String,
+    connectedAt: Date
+  },
   address: String,
   city: String,
   state: String,

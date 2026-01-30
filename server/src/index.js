@@ -23,6 +23,7 @@ const documentRoutes = require('./routes/documents');
 const adminRoutes = require('./routes/admin');
 const stableRoutes = require('./routes/stables');
 const quickbooksRoutes = require('./routes/quickbooks');
+const windcaveRoutes = require('./routes/windcave');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -79,6 +80,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/stables', stableRoutes);
 app.use('/api/quickbooks', quickbooksRoutes);
+app.use('/api/windcave', windcaveRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

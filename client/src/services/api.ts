@@ -1022,6 +1022,91 @@ export const financialsApi = {
   },
 };
 
+// ============ Windcave/Merchant API ============
+export const windcaveApi = {
+  // Get merchant application for current barn
+  getApplication: async () => {
+    const response = await api.get('/windcave/application');
+    return response.data;
+  },
+
+  // Create new merchant application
+  createApplication: async () => {
+    const response = await api.post('/windcave/application');
+    return response.data;
+  },
+
+  // Update merchant application (save progress)
+  updateApplication: async (data: object) => {
+    const response = await api.put('/windcave/application', data);
+    return response.data;
+  },
+
+  // Upload document
+  uploadDocument: async (file: File, documentType: string) => {
+    const formData = new FormData();
+    formData.append('document', file);
+    formData.append('documentType', documentType);
+    const response = await api.post('/windcave/application/documents', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  // Delete document
+  deleteDocument: async (documentType: string, index?: number) => {
+    const url = index !== undefined
+      ? `/windcave/application/documents/${documentType}/${index}`
+      : `/windcave/application/documents/${documentType}`;
+    const response = await api.delete(url);
+    return response.data;
+  },
+
+  // Save signature
+  saveSignature: async (signatureType: string, signature: string, printedName: string) => {
+    const response = await api.post('/windcave/application/signature', {
+      signatureType,
+      signature,
+      printedName,
+    });
+    return response.data;
+  },
+
+  // Accept terms
+  acceptTerms: async () => {
+    const response = await api.post('/windcave/application/accept-terms');
+    return response.data;
+  },
+
+  // Submit application
+  submitApplication: async () => {
+    const response = await api.post('/windcave/application/submit');
+    return response.data;
+  },
+
+  // Save Windcave credentials (after approval)
+  saveCredentials: async (merchantId: string, apiKey: string, apiSecret: string) => {
+    const response = await api.post('/windcave/credentials', {
+      merchantId,
+      apiKey,
+      apiSecret,
+    });
+    return response.data;
+  },
+
+  // Test Windcave connection
+  testConnection: async () => {
+    const response = await api.post('/windcave/test-connection');
+    return response.data;
+  },
+
+  // Get credential status
+  getCredentialStatus: async () => {
+    const response = await api.get('/windcave/credentials/status');
+    return response.data;
+  },
+};
+
 // ============ Auth API additional methods ============
 (authApi as any).changePassword = async (currentPassword: string, newPassword: string) => {
   const response = await api.post('/auth/change-password', { currentPassword, newPassword });
