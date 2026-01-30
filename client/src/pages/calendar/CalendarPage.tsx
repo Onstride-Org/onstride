@@ -320,9 +320,14 @@ function EventDetailModal({
   const isTask = event.type === 'task';
   const task = isTask ? (event.resource as Task) : null;
   const lesson = !isTask ? (event.resource as Lesson) : null;
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleNotes, setRescheduleNotes] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleToggleTaskStatus = async () => {
     if (!task) return;
+    setIsProcessing(true);
     const newStatus: TaskStatus = task.status === 'completed' ? 'notStarted' : 'completed';
     try {
       await tasksApi.updateStatus(task.id, newStatus);
@@ -330,39 +335,96 @@ function EventDetailModal({
       onClose();
     } catch (error) {
       console.error('Failed to update task:', error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleDeleteTask = async () => {
     if (!task || !confirm('Delete this task?')) return;
+    setIsProcessing(true);
     try {
       await tasksApi.delete(task.id);
       onUpdate();
       onClose();
     } catch (error) {
       console.error('Failed to delete task:', error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleApproveLesson = async () => {
     if (!lesson) return;
+    setIsProcessing(true);
     try {
       await lessonsApi.approve(lesson.id);
       onUpdate();
       onClose();
     } catch (error) {
       console.error('Failed to approve lesson:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRejectLesson = async () => {
+    if (!lesson) return;
+    const reason = prompt('Enter a reason for rejecting this lesson (optional):');
+    if (reason === null) return; // User cancelled
+    setIsProcessing(true);
+    try {
+      await lessonsApi.reject(lesson.id, reason || undefined);
+      onUpdate();
+      onClose();
+    } catch (error) {
+      console.error('Failed to reject lesson:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRescheduleLesson = async () => {
+    if (!lesson || !rescheduleDate) return;
+    setIsProcessing(true);
+    try {
+      await lessonsApi.counter(lesson.id, new Date(rescheduleDate).toISOString(), rescheduleNotes || undefined);
+      onUpdate();
+      onClose();
+    } catch (error) {
+      console.error('Failed to reschedule lesson:', error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleCancelLesson = async () => {
-    if (!lesson || !confirm('Cancel this lesson?')) return;
+    if (!lesson) return;
+    const reason = prompt('Enter a reason for cancelling this lesson (optional):');
+    if (reason === null) return; // User cancelled
+    setIsProcessing(true);
     try {
-      await lessonsApi.cancel(lesson.id);
+      await lessonsApi.cancel(lesson.id, reason || undefined);
       onUpdate();
       onClose();
     } catch (error) {
       console.error('Failed to cancel lesson:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCompleteLesson = async () => {
+    if (!lesson) return;
+    setIsProcessing(true);
+    try {
+      await lessonsApi.complete(lesson.id);
+      onUpdate();
+      onClose();
+    } catch (error) {
+      console.error('Failed to complete lesson:', error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -476,26 +538,92 @@ function EventDetailModal({
                 <button
                   className={`btn ${task.status === 'completed' ? 'btn-outline' : 'btn-primary'}`}
                   onClick={handleToggleTaskStatus}
+                  disabled={isProcessing}
                 >
                   <Check size={18} />
                   {task.status === 'completed' ? 'Mark Incomplete' : 'Mark Complete'}
                 </button>
-                <button className="btn btn-outline btn-danger" onClick={handleDeleteTask}>
+                <button className="btn btn-outline btn-danger" onClick={handleDeleteTask} disabled={isProcessing}>
                   Delete
                 </button>
               </>
             )}
             {!isTask && lesson && (
               <>
-                {lesson.status === 'requested' && (
-                  <button className="btn btn-primary" onClick={handleApproveLesson}>
-                    Approve
-                  </button>
-                )}
-                {(lesson.status === 'requested' || lesson.status === 'approved') && (
-                  <button className="btn btn-outline btn-danger" onClick={handleCancelLesson}>
-                    Cancel
-                  </button>
+                {/* Reschedule Form */}
+                {showReschedule ? (
+                  <div className="reschedule-form">
+                    <div className="form-group">
+                      <label className="form-label">New Date & Time</label>
+                      <input
+                        type="datetime-local"
+                        className="form-input"
+                        value={rescheduleDate}
+                        onChange={(e) => setRescheduleDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Notes (optional)</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Reason for rescheduling..."
+                        value={rescheduleNotes}
+                        onChange={(e) => setRescheduleNotes(e.target.value)}
+                      />
+                    </div>
+                    <div className="reschedule-actions">
+                      <button className="btn btn-outline" onClick={() => setShowReschedule(false)} disabled={isProcessing}>
+                        Cancel
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleRescheduleLesson}
+                        disabled={!rescheduleDate || isProcessing}
+                      >
+                        {isProcessing ? 'Saving...' : 'Confirm Reschedule'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="lesson-actions">
+                    {lesson.status === 'requested' && (
+                      <>
+                        <button className="btn btn-primary" onClick={handleApproveLesson} disabled={isProcessing}>
+                          Approve
+                        </button>
+                        <button className="btn btn-outline" onClick={() => setShowReschedule(true)} disabled={isProcessing}>
+                          Reschedule
+                        </button>
+                        <button className="btn btn-outline btn-danger" onClick={handleRejectLesson} disabled={isProcessing}>
+                          Reject
+                        </button>
+                      </>
+                    )}
+                    {lesson.status === 'approved' && (
+                      <>
+                        <button className="btn btn-primary" onClick={handleCompleteLesson} disabled={isProcessing}>
+                          Mark Complete
+                        </button>
+                        <button className="btn btn-outline" onClick={() => setShowReschedule(true)} disabled={isProcessing}>
+                          Reschedule
+                        </button>
+                        <button className="btn btn-outline btn-danger" onClick={handleCancelLesson} disabled={isProcessing}>
+                          Cancel
+                        </button>
+                      </>
+                    )}
+                    {lesson.status === 'countered' && (
+                      <>
+                        <button className="btn btn-primary" onClick={handleApproveLesson} disabled={isProcessing}>
+                          Approve New Time
+                        </button>
+                        <button className="btn btn-outline btn-danger" onClick={handleRejectLesson} disabled={isProcessing}>
+                          Reject
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )}
               </>
             )}

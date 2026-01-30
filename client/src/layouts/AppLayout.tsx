@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { Home, FileText, CheckSquare, Calendar, UserCheck, Users, Settings, Menu, X, LogOut, Warehouse, DollarSign } from 'lucide-react';
+import { Home, FileText, CheckSquare, Calendar, UserCheck, Users, Settings, Menu, X, LogOut, Warehouse, DollarSign, Building2, ChevronDown } from 'lucide-react';
 import { HorseIcon } from '../components/icons/HorseIcon';
 
 export default function AppLayout() {
@@ -105,27 +105,33 @@ export default function AppLayout() {
         </div>
 
         {/* Barn selector */}
-        {barns.length > 1 && (
-          <div className="barn-selector">
-            <select
-              value={currentBarnId || ''}
-              onChange={(e) => switchBarn(e.target.value)}
-              className="form-select"
-            >
-              {barns.map((barn) => (
-                <option key={barn.id} value={barn.id}>
-                  {barn.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {barns.length === 1 && (
-          <div className="barn-selector">
-            <div className="current-barn">{currentBarn?.name}</div>
-          </div>
-        )}
+        <div className="barn-selector">
+          <span className="barn-selector-label">
+            <Building2 size={14} />
+            Barn
+          </span>
+          {barns.length > 1 ? (
+            <div className="barn-selector-dropdown">
+              <select
+                value={currentBarnId || ''}
+                onChange={(e) => switchBarn(e.target.value)}
+                className="barn-select"
+                aria-label="Switch barn"
+              >
+                {barns.map((barn) => (
+                  <option key={barn.id} value={barn.id}>
+                    {barn.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={16} className="barn-select-chevron" aria-hidden />
+            </div>
+          ) : (
+            <div className="current-barn" title={currentBarn?.name}>
+              <span className="current-barn-name">{currentBarn?.name}</span>
+            </div>
+          )}
+        </div>
 
         <nav className="sidebar-nav">
           {navItems.map((item) => (

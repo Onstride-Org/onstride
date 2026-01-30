@@ -7,13 +7,13 @@ export default function SettingsPage() {
       title: 'Account',
       items: [
         {
-          path: '/settings/profile',
+          path: '/app/settings/profile',
           icon: 'user',
           title: 'Profile',
           description: 'Update your personal information and password',
         },
         {
-          path: '/settings/security',
+          path: '/app/settings/security',
           icon: 'shield',
           title: 'Security',
           description: 'Manage two-factor authentication and security settings',
@@ -24,13 +24,13 @@ export default function SettingsPage() {
       title: 'Barn',
       items: [
         {
-          path: '/settings/barn',
+          path: '/app/settings/barn',
           icon: 'barn',
           title: 'Barn Settings',
           description: 'Configure barn name, stall layout, and other settings',
         },
         {
-          path: '/settings/branding',
+          path: '/app/settings/branding',
           icon: 'palette',
           title: 'Branding',
           description: 'Customize colors, logo, and appearance',
@@ -41,13 +41,13 @@ export default function SettingsPage() {
       title: 'Billing',
       items: [
         {
-          path: '/settings/subscription',
+          path: '/app/settings/subscription',
           icon: 'credit-card',
           title: 'Subscription',
           description: 'Manage your plan and billing information',
         },
         {
-          path: '/settings/billing-templates',
+          path: '/app/settings/billing-templates',
           icon: 'file-text',
           title: 'Billing Templates',
           description: 'Create reusable templates for recurring charges',

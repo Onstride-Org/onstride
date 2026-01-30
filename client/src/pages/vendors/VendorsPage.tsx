@@ -1,68 +1,432 @@
-import { useState, useEffect } from 'react';
-import { vendorsApi, horsesApi } from '../../services/api';
-import { VendorProfile, VendorType, VendorAppointment, Horse } from '../../types';
+/// <reference types="google.maps" />
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { vendorsApi } from '../../services/api';
+import { VendorAppointment } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { format } from 'date-fns';
 import {
-  Search, UserCheck, MapPin, Phone, Star, X, Calendar, Clock,
-  CheckCircle, XCircle
+  Search, MapPin, Phone, Star, X, Calendar, Clock,
+  CheckCircle, XCircle, Navigation, Bookmark, BookmarkCheck, ExternalLink,
+  Globe, List, Map as MapIcon, Loader2
 } from 'lucide-react';
 import FilterTabs from '../../components/FilterTabs';
-import { formatPhoneNumber } from '../../utils/formatters';
 
-type TabType = 'directory' | 'connections' | 'appointments';
+const GOOGLE_API_KEY = 'AIzaSyBnb_xqz6XEYPtPd9CENY75fmWD4BdcoRE';
+
+type TabType = 'find' | 'saved' | 'appointments';
+
+interface PlaceResult {
+  place_id: string;
+  name: string;
+  formatted_address: string;
+  formatted_phone_number?: string;
+  website?: string;
+  rating?: number;
+  user_ratings_total?: number;
+  opening_hours?: {
+    open_now?: boolean;
+    weekday_text?: string[];
+  };
+  geometry: {
+    location: {
+      lat: () => number;
+      lng: () => number;
+    };
+  };
+  photos?: google.maps.places.PlacePhoto[];
+  types?: string[];
+  business_status?: string;
+}
+
+interface SavedVendor {
+  id: string;
+  placeId: string;
+  name: string;
+  address: string;
+  phone?: string;
+  website?: string;
+  rating?: number;
+  reviewCount?: number;
+  serviceType: string;
+  savedAt: string;
+  notes?: string;
+  lat: number;
+  lng: number;
+}
+
+const SERVICE_TYPES = [
+  { value: 'equine_veterinarian', label: 'Veterinarian', query: 'equine veterinarian' },
+  { value: 'farrier', label: 'Farrier', query: 'farrier horse' },
+  { value: 'equine_dentist', label: 'Equine Dentist', query: 'equine dentist' },
+  { value: 'horse_trainer', label: 'Trainer', query: 'horse trainer' },
+  { value: 'equine_massage', label: 'Bodyworker', query: 'equine massage therapist' },
+  { value: 'horse_transport', label: 'Transport', query: 'horse transport hauling' },
+  { value: 'equine_photographer', label: 'Photographer', query: 'equine photographer horse' },
+  { value: 'tack_shop', label: 'Tack Shop', query: 'tack shop horse supplies' },
+  { value: 'feed_store', label: 'Feed Store', query: 'horse feed store' },
+];
 
 export default function VendorsPage() {
-  const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<TabType>('directory');
-  const [vendors, setVendors] = useState<VendorProfile[]>([]);
-  const [connections, setConnections] = useState<any[]>([]);
+  const { user, currentBarnId } = useAuthStore();
+  const [activeTab, setActiveTab] = useState<TabType>('find');
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedServiceType, setSelectedServiceType] = useState(SERVICE_TYPES[0]);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+
+  // Location state
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [manualAddress, setManualAddress] = useState('');
+
+  // Places results
+  const [places, setPlaces] = useState<PlaceResult[]>([]);
+  const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null);
+
+  // Saved vendors
+  const [savedVendors, setSavedVendors] = useState<SavedVendor[]>([]);
+
+  // Appointments (existing functionality)
   const [appointments, setAppointments] = useState<VendorAppointment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [typeFilter, setTypeFilter] = useState<VendorType | 'all'>('all');
-  const [search, setSearch] = useState('');
-  const [showWipNotice, setShowWipNotice] = useState(() => {
-    // Show notice if not dismissed before
-    return !sessionStorage.getItem('vendors_wip_dismissed');
-  });
 
-  // Modal states
-  const [showVendorDetail, setShowVendorDetail] = useState<VendorProfile | null>(null);
-  const [showBookingModal, setShowBookingModal] = useState<VendorProfile | null>(null);
-
-  const dismissWipNotice = () => {
-    sessionStorage.setItem('vendors_wip_dismissed', 'true');
-    setShowWipNotice(false);
-  };
+  // Google Maps refs
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   const isStaff = user?.accountType && ['owner', 'admin', 'manager'].includes(user.accountType);
 
-  const loadVendors = async () => {
-    try {
-      setIsLoading(true);
-      const params: any = {};
-      if (typeFilter !== 'all') params.type = typeFilter;
-      if (search) params.search = search;
+  // Load saved vendors from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(`savedVendors_${currentBarnId}`);
+    if (saved) {
+      setSavedVendors(JSON.parse(saved));
+    }
+  }, [currentBarnId]);
 
-      const response = await vendorsApi.search(params);
-      setVendors(response.vendors || response.data || []);
-    } catch (error) {
-      console.error('Failed to load vendors:', error);
-    } finally {
-      setIsLoading(false);
+  // Save vendors to localStorage when updated
+  const saveSavedVendors = (vendors: SavedVendor[]) => {
+    setSavedVendors(vendors);
+    localStorage.setItem(`savedVendors_${currentBarnId}`, JSON.stringify(vendors));
+  };
+
+  // Load Google Maps script
+  useEffect(() => {
+    if (window.google?.maps) return;
+
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      console.log('Google Maps loaded');
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      // Cleanup if needed
+    };
+  }, []);
+
+  // Initialize map when view mode changes to map
+  useEffect(() => {
+    if (viewMode === 'map' && mapRef.current && window.google?.maps && userLocation) {
+      initializeMap();
+    }
+  }, [viewMode, userLocation]);
+
+  // Initialize Google Places Autocomplete for address input
+  useEffect(() => {
+    if (!window.google?.maps?.places || !addressInputRef.current || autocompleteRef.current) return;
+
+    const autocomplete = new google.maps.places.Autocomplete(addressInputRef.current, {
+      types: ['geocode', 'establishment'],
+      fields: ['geometry', 'formatted_address'],
+    });
+
+    autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+      if (place.geometry?.location) {
+        const location = {
+          lat: place.geometry.location.lat(),
+          lng: place.geometry.location.lng(),
+        };
+        setManualAddress(place.formatted_address || '');
+        setUserLocation(location);
+        searchPlaces(location);
+      }
+    });
+
+    autocompleteRef.current = autocomplete;
+  }, [selectedServiceType]);
+
+  // Re-check for Google Maps loaded (for autocomplete init)
+  useEffect(() => {
+    const checkGoogleMaps = setInterval(() => {
+      if (window.google?.maps?.places && addressInputRef.current && !autocompleteRef.current) {
+        const autocomplete = new google.maps.places.Autocomplete(addressInputRef.current, {
+          types: ['geocode', 'establishment'],
+          fields: ['geometry', 'formatted_address'],
+        });
+
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          if (place.geometry?.location) {
+            const location = {
+              lat: place.geometry.location.lat(),
+              lng: place.geometry.location.lng(),
+            };
+            setManualAddress(place.formatted_address || '');
+            setUserLocation(location);
+            searchPlaces(location);
+          }
+        });
+
+        autocompleteRef.current = autocomplete;
+        clearInterval(checkGoogleMaps);
+      }
+    }, 500);
+
+    return () => clearInterval(checkGoogleMaps);
+  }, []);
+
+  const initializeMap = useCallback(() => {
+    if (!mapRef.current || !window.google?.maps || !userLocation) return;
+
+    const map = new google.maps.Map(mapRef.current, {
+      center: userLocation,
+      zoom: 12,
+      styles: [
+        { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }
+      ],
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+    });
+
+    mapInstanceRef.current = map;
+    placesServiceRef.current = new google.maps.places.PlacesService(map);
+
+    // Add user location marker
+    new google.maps.Marker({
+      position: userLocation,
+      map,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: '#4285F4',
+        fillOpacity: 1,
+        strokeColor: '#fff',
+        strokeWeight: 2,
+      },
+      title: 'Your Location',
+    });
+
+    // Search for places if we have results
+    if (places.length > 0) {
+      addPlaceMarkers(map, places);
+    }
+  }, [userLocation, places]);
+
+  const addPlaceMarkers = (map: google.maps.Map, placeResults: PlaceResult[]) => {
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.setMap(null));
+    markersRef.current = [];
+
+    const bounds = new google.maps.LatLngBounds();
+    if (userLocation) {
+      bounds.extend(userLocation);
+    }
+
+    placeResults.forEach((place, index) => {
+      const position = {
+        lat: place.geometry.location.lat(),
+        lng: place.geometry.location.lng(),
+      };
+
+      const marker = new google.maps.Marker({
+        position,
+        map,
+        title: place.name,
+        label: {
+          text: String(index + 1),
+          color: '#fff',
+          fontWeight: 'bold',
+        },
+        icon: {
+          path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
+          fillColor: isSaved(place.place_id) ? '#22C55E' : '#171717',
+          fillOpacity: 1,
+          strokeColor: '#fff',
+          strokeWeight: 1,
+          scale: 1.5,
+          anchor: new google.maps.Point(12, 24),
+          labelOrigin: new google.maps.Point(12, 10),
+        },
+      });
+
+      marker.addListener('click', () => {
+        setSelectedPlace(place);
+      });
+
+      markersRef.current.push(marker);
+      bounds.extend(position);
+    });
+
+    if (placeResults.length > 0) {
+      map.fitBounds(bounds, 50);
     }
   };
 
-  const loadConnections = async () => {
-    try {
-      setIsLoading(true);
-      const response = await vendorsApi.getBarnConnections();
-      setConnections(response || []);
-    } catch (error) {
-      console.error('Failed to load connections:', error);
-    } finally {
-      setIsLoading(false);
+  const getLocation = async () => {
+    setIsGettingLocation(true);
+    setLocationError(null);
+
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser');
+      setIsGettingLocation(false);
+      return;
     }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const location = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        setUserLocation(location);
+        setIsGettingLocation(false);
+        // Auto-search after getting location
+        searchPlaces(location);
+      },
+      (error) => {
+        let errorMessage = 'Unable to get your location';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Location permission denied. Please enable location access.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Location information unavailable';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Location request timed out';
+            break;
+        }
+        setLocationError(errorMessage);
+        setIsGettingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  };
+
+  const searchPlaces = async (location: { lat: number; lng: number }) => {
+    if (!window.google?.maps) {
+      console.error('Google Maps not loaded');
+      return;
+    }
+
+    setIsLoading(true);
+    setPlaces([]);
+
+    // Create a temporary div for PlacesService if map isn't initialized
+    let service: google.maps.places.PlacesService;
+    if (placesServiceRef.current) {
+      service = placesServiceRef.current;
+    } else {
+      const tempDiv = document.createElement('div');
+      service = new google.maps.places.PlacesService(tempDiv);
+    }
+
+    const request: google.maps.places.TextSearchRequest = {
+      query: selectedServiceType.query,
+      location: new google.maps.LatLng(location.lat, location.lng),
+      radius: 50000, // 50km radius
+    };
+
+    service.textSearch(request, (results, status) => {
+      setIsLoading(false);
+      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+        // Get detailed info for each place
+        const detailedPlaces: PlaceResult[] = [];
+        let completed = 0;
+
+        results.slice(0, 20).forEach((result) => {
+          service.getDetails(
+            {
+              placeId: result.place_id!,
+              fields: [
+                'place_id', 'name', 'formatted_address', 'formatted_phone_number',
+                'website', 'rating', 'user_ratings_total', 'opening_hours',
+                'geometry', 'photos', 'types', 'business_status'
+              ],
+            },
+            (place, detailStatus) => {
+              completed++;
+              if (detailStatus === google.maps.places.PlacesServiceStatus.OK && place) {
+                detailedPlaces.push(place as PlaceResult);
+              }
+              if (completed === Math.min(results.length, 20)) {
+                // Sort by rating and then by number of reviews
+                detailedPlaces.sort((a, b) => {
+                  const ratingDiff = (b.rating || 0) - (a.rating || 0);
+                  if (ratingDiff !== 0) return ratingDiff;
+                  return (b.user_ratings_total || 0) - (a.user_ratings_total || 0);
+                });
+                setPlaces(detailedPlaces);
+
+                // Update map markers if map is visible
+                if (mapInstanceRef.current) {
+                  addPlaceMarkers(mapInstanceRef.current, detailedPlaces);
+                }
+              }
+            }
+          );
+        });
+
+        if (results.length === 0) {
+          setPlaces([]);
+        }
+      } else {
+        console.error('Places search failed:', status);
+      }
+    });
+  };
+
+  const isSaved = (placeId: string) => {
+    return savedVendors.some(v => v.placeId === placeId);
+  };
+
+  const toggleSaveVendor = (place: PlaceResult) => {
+    if (isSaved(place.place_id)) {
+      // Remove from saved
+      const updated = savedVendors.filter(v => v.placeId !== place.place_id);
+      saveSavedVendors(updated);
+    } else {
+      // Add to saved
+      const newVendor: SavedVendor = {
+        id: `${Date.now()}`,
+        placeId: place.place_id,
+        name: place.name,
+        address: place.formatted_address,
+        phone: place.formatted_phone_number,
+        website: place.website,
+        rating: place.rating,
+        reviewCount: place.user_ratings_total,
+        serviceType: selectedServiceType.value,
+        savedAt: new Date().toISOString(),
+        lat: place.geometry.location.lat(),
+        lng: place.geometry.location.lng(),
+      };
+      saveSavedVendors([...savedVendors, newVendor]);
+    }
+  };
+
+  const removeSavedVendor = (id: string) => {
+    const updated = savedVendors.filter(v => v.id !== id);
+    saveSavedVendors(updated);
   };
 
   const loadAppointments = async () => {
@@ -78,51 +442,10 @@ export default function VendorsPage() {
   };
 
   useEffect(() => {
-    if (activeTab === 'directory') {
-      loadVendors();
-    } else if (activeTab === 'connections') {
-      loadConnections();
-    } else if (activeTab === 'appointments') {
+    if (activeTab === 'appointments') {
       loadAppointments();
     }
-  }, [activeTab, typeFilter]);
-
-  useEffect(() => {
-    if (activeTab === 'directory') {
-      const debounce = setTimeout(() => {
-        loadVendors();
-      }, 300);
-      return () => clearTimeout(debounce);
-    }
-  }, [search]);
-
-  const handleConnectVendor = async (vendorId: string) => {
-    try {
-      await vendorsApi.connectToBarn(vendorId);
-      alert('Connection request sent!');
-      loadVendors();
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to connect');
-    }
-  };
-
-  const vendorTypes: { value: VendorType | 'all'; label: string }[] = [
-    { value: 'all', label: 'All Types' },
-    { value: 'vet', label: 'Veterinarian' },
-    { value: 'farrier', label: 'Farrier' },
-    { value: 'dentist', label: 'Equine Dentist' },
-    { value: 'bodyworker', label: 'Bodyworker' },
-    { value: 'trainer', label: 'Trainer' },
-    { value: 'supplier', label: 'Supplier' },
-    { value: 'transport', label: 'Transport' },
-    { value: 'photographer', label: 'Photographer' },
-    { value: 'other', label: 'Other' },
-  ];
-
-  const getTypeLabel = (type: VendorType) => {
-    const found = vendorTypes.find(t => t.value === type);
-    return found?.label || type;
-  };
+  }, [activeTab]);
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -132,57 +455,16 @@ export default function VendorsPage() {
       completed: 'success',
       cancelled: 'neutral',
       noShow: 'error',
-      pendingVendor: 'warning',
-      pendingBarn: 'warning',
-      active: 'success',
-      inactive: 'neutral',
-      suspended: 'error',
     };
     return styles[status] || 'neutral';
   };
 
   return (
     <div className="page vendors-page">
-      {/* Work in Progress Notice */}
-      {showWipNotice && (
-        <div className="modal-overlay" onClick={dismissWipNotice}>
-          <div className="modal modal-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">Coming Soon</h2>
-              <button className="btn btn-ghost modal-close" onClick={dismissWipNotice}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <p style={{ marginBottom: '1rem' }}>
-                The <strong>Vendors</strong> feature is currently a work in progress.
-              </p>
-              <p style={{ marginBottom: '1rem' }}>
-                When completed, this section will allow you to:
-              </p>
-              <ul style={{ paddingLeft: '1.5rem', marginBottom: '1rem' }}>
-                <li>Browse and search for veterinarians, farriers, and other service providers</li>
-                <li>Connect with vendors and manage your preferred provider list</li>
-                <li>Schedule and track appointments for your horses</li>
-                <li>View appointment history and upcoming visits</li>
-              </ul>
-              <p className="text-secondary">
-                Thank you for your patience as we build out this feature!
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-primary" onClick={dismissWipNotice}>
-                Got it
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="page-header">
         <div>
-          <h1 className="page-title">Vendors</h1>
-          <p className="page-subtitle">Find and manage service providers</p>
+          <h1 className="page-title">Find Vendors</h1>
+          <p className="page-subtitle">Discover equine service providers near you</p>
         </div>
       </div>
 
@@ -190,8 +472,8 @@ export default function VendorsPage() {
       <div className="page-filters">
         <FilterTabs
           options={[
-            { value: 'directory', label: 'Vendor Directory' },
-            { value: 'connections', label: 'My Vendors' },
+            { value: 'find', label: 'Find Services' },
+            { value: 'saved', label: `My Vendors (${savedVendors.length})` },
             { value: 'appointments', label: 'Appointments' },
           ]}
           value={activeTab}
@@ -200,181 +482,233 @@ export default function VendorsPage() {
         />
       </div>
 
-      {/* Directory Tab */}
-      {activeTab === 'directory' && (
-        <>
-          <div className="page-filters" style={{ marginTop: '1rem' }}>
-            <div className="search-input">
-              <Search size={20} />
-              <input
-                type="text"
-                placeholder="Search vendors..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="form-input"
-              />
+      {/* Find Services Tab */}
+      {activeTab === 'find' && (
+        <div className="vendors-find-container">
+          {/* Location & Service Selection */}
+          <div className="vendors-search-bar">
+            <div className="vendors-search-controls">
+              {/* Service Type Dropdown */}
+              <div className="service-type-select">
+                <select
+                  className="form-select"
+                  value={selectedServiceType.value}
+                  onChange={(e) => {
+                    const type = SERVICE_TYPES.find(s => s.value === e.target.value);
+                    if (type) {
+                      setSelectedServiceType(type);
+                      if (userLocation) {
+                        searchPlaces(userLocation);
+                      }
+                    }
+                  }}
+                >
+                  {SERVICE_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Location Button */}
+              <button
+                className={`btn ${userLocation ? 'btn-outline' : 'btn-primary'}`}
+                onClick={getLocation}
+                disabled={isGettingLocation}
+              >
+                {isGettingLocation ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Navigation size={18} />
+                )}
+                <span className="btn-text-desktop">
+                  {isGettingLocation ? 'Getting Location...' : userLocation ? 'Update Location' : 'Share Location'}
+                </span>
+              </button>
+
+              {/* Search Button */}
+              {userLocation && (
+                <button
+                  className="btn btn-primary vendors-search-btn"
+                  onClick={() => searchPlaces(userLocation)}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Search size={18} />
+                  )}
+                  <span className="btn-text-desktop">
+                    {isLoading ? 'Searching...' : 'Search'}
+                  </span>
+                </button>
+              )}
             </div>
-            <select
-              className="form-select"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as VendorType | 'all')}
-            >
-              {vendorTypes.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
+
+            {/* Manual Address Input with Autocomplete */}
+            <div className="vendors-address-input">
+              <div className="address-input-group">
+                <MapPin size={18} className="address-input-icon" />
+                <input
+                  ref={addressInputRef}
+                  type="text"
+                  className="form-input"
+                  placeholder="Or enter address..."
+                  defaultValue={manualAddress}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* View Mode Toggle */}
+            {places.length > 0 && (
+              <div className="view-mode-toggle">
+                <button
+                  className={`btn btn-sm ${viewMode === 'list' ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setViewMode('list')}
+                >
+                  <List size={16} />
+                  List
+                </button>
+                <button
+                  className={`btn btn-sm ${viewMode === 'map' ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setViewMode('map')}
+                >
+                  <MapIcon size={16} />
+                  Map
+                </button>
+              </div>
+            )}
           </div>
 
-          {isLoading ? (
-            <div className="page-loading">
-              <div className="spinner spinner-lg"></div>
-            </div>
-          ) : vendors.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">
-                <UserCheck size={64} strokeWidth={1.5} />
-              </div>
-              <h3>No vendors found</h3>
-              <p>
-                {search || typeFilter !== 'all'
-                  ? 'Try adjusting your search or filters'
-                  : 'No vendors available at this time'}
-              </p>
-            </div>
-          ) : (
-            <div className="vendor-grid">
-              {vendors.map((vendor) => (
-                <div key={vendor.id} className="vendor-card">
-                  <div className="vendor-card-header">
-                    <div className="vendor-avatar">
-                      {vendor.businessName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="vendor-header-info">
-                      <h3 className="vendor-name">{vendor.businessName}</h3>
-                      <span className="badge badge-outline">{getTypeLabel(vendor.primaryType)}</span>
-                    </div>
-                  </div>
-
-                  <div className="vendor-card-body">
-                    {vendor.description && (
-                      <p className="vendor-description">{vendor.description}</p>
-                    )}
-
-                    <div className="vendor-details">
-                      {(vendor.city || vendor.state) && (
-                        <div className="vendor-location">
-                          <MapPin size={14} />
-                          {[vendor.city, vendor.state].filter(Boolean).join(', ')}
-                        </div>
-                      )}
-
-                      {vendor.businessPhone && (
-                        <div className="vendor-phone">
-                          <Phone size={14} />
-                          {formatPhoneNumber(vendor.businessPhone)}
-                        </div>
-                      )}
-
-                      <div className="vendor-rating">
-                        <Star size={14} fill="currentColor" />
-                        {vendor.rating.toFixed(1)} ({vendor.reviewCount} reviews)
-                      </div>
-                    </div>
-
-                    <div className="vendor-badges">
-                      {vendor.acceptingNewClients && (
-                        <span className="badge badge-success">Accepting Clients</span>
-                      )}
-                      {vendor.emergencyAvailable && (
-                        <span className="badge badge-warning">Emergency Available</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="vendor-card-actions">
-                    <button
-                      className="btn btn-outline btn-sm"
-                      onClick={() => setShowVendorDetail(vendor)}
-                    >
-                      View Profile
-                    </button>
-                    {isStaff && (
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => setShowBookingModal(vendor)}
-                      >
-                        Book Appointment
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+          {locationError && (
+            <div className="alert alert-error">
+              <span>{locationError}</span>
             </div>
           )}
-        </>
-      )}
 
-      {/* Connections Tab */}
-      {activeTab === 'connections' && (
-        <>
-          {isLoading ? (
-            <div className="page-loading">
-              <div className="spinner spinner-lg"></div>
-            </div>
-          ) : connections.length === 0 ? (
+          {/* No Location State */}
+          {!userLocation && !isGettingLocation && (
             <div className="empty-state">
               <div className="empty-icon">
-                <UserCheck size={64} strokeWidth={1.5} />
+                <Navigation size={64} strokeWidth={1.5} />
               </div>
-              <h3>No vendor connections</h3>
-              <p>Browse the vendor directory to connect with service providers</p>
+              <h3>Share Your Location</h3>
+              <p>Allow location access to find {selectedServiceType.label.toLowerCase()}s near you</p>
+              <button className="btn btn-primary btn-lg" onClick={getLocation}>
+                <Navigation size={20} />
+                Enable Location
+              </button>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {isLoading && (
+            <div className="page-loading">
+              <div className="spinner spinner-lg"></div>
+              <p>Searching for {selectedServiceType.label.toLowerCase()}s nearby...</p>
+            </div>
+          )}
+
+          {/* Results */}
+          {!isLoading && userLocation && places.length > 0 && (
+            <>
+              <div className="vendors-results-header">
+                <span className="results-count">{places.length} {selectedServiceType.label}s found nearby</span>
+              </div>
+
+              {viewMode === 'list' ? (
+                <div className="vendor-grid">
+                  {places.map((place, index) => (
+                    <PlaceCard
+                      key={place.place_id}
+                      place={place}
+                      index={index + 1}
+                      isSaved={isSaved(place.place_id)}
+                      onToggleSave={() => toggleSaveVendor(place)}
+                      onSelect={() => setSelectedPlace(place)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="vendors-map-container">
+                  <div ref={mapRef} className="vendors-map" />
+                  {selectedPlace && (
+                    <div className="map-place-detail">
+                      <PlaceCard
+                        place={selectedPlace}
+                        index={places.findIndex(p => p.place_id === selectedPlace.place_id) + 1}
+                        isSaved={isSaved(selectedPlace.place_id)}
+                        onToggleSave={() => toggleSaveVendor(selectedPlace)}
+                        onSelect={() => {}}
+                        expanded
+                      />
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setSelectedPlace(null)}
+                      >
+                        <X size={16} /> Close
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* No Results */}
+          {!isLoading && userLocation && places.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-icon">
+                <Search size={64} strokeWidth={1.5} />
+              </div>
+              <h3>No Results Found</h3>
+              <p>No {selectedServiceType.label.toLowerCase()}s found in your area. Try a different service type.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Saved Vendors Tab */}
+      {activeTab === 'saved' && (
+        <>
+          {savedVendors.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">
+                <Bookmark size={64} strokeWidth={1.5} />
+              </div>
+              <h3>No Saved Vendors</h3>
+              <p>Save vendors from search results to build your contact list</p>
+              <button className="btn btn-primary" onClick={() => setActiveTab('find')}>
+                Find Vendors
+              </button>
             </div>
           ) : (
-            <div className="table-container" style={{ marginTop: '1rem' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Vendor</th>
-                    <th>Type</th>
-                    <th>Services</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {connections.map((conn) => (
-                    <tr key={conn._id || conn.id}>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <div className="vendor-avatar" style={{ width: 32, height: 32, fontSize: 14 }}>
-                            {conn.vendorId?.businessName?.charAt(0) || 'V'}
-                          </div>
-                          <span className="font-medium">{conn.vendorId?.businessName || 'Unknown'}</span>
-                        </div>
-                      </td>
-                      <td>{getTypeLabel(conn.vendorId?.primaryType)}</td>
-                      <td>{conn.services?.join(', ') || '-'}</td>
-                      <td>
-                        <span className={`badge badge-${getStatusBadge(conn.status)}`}>
-                          {conn.status}
-                        </span>
-                      </td>
-                      <td>
-                        {conn.status === 'active' && isStaff && (
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => conn.vendorId && setShowBookingModal(conn.vendorId)}
-                          >
-                            Book
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="saved-vendors-list">
+              {SERVICE_TYPES.map((serviceType) => {
+                const vendorsOfType = savedVendors.filter(v => v.serviceType === serviceType.value);
+                if (vendorsOfType.length === 0) return null;
+
+                return (
+                  <div key={serviceType.value} className="saved-vendor-group">
+                    <h3 className="saved-vendor-group-title">{serviceType.label}s</h3>
+                    <div className="vendor-grid">
+                      {vendorsOfType.map((vendor) => (
+                        <SavedVendorCard
+                          key={vendor.id}
+                          vendor={vendor}
+                          onRemove={() => removeSavedVendor(vendor.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </>
@@ -392,8 +726,8 @@ export default function VendorsPage() {
               <div className="empty-icon">
                 <Calendar size={64} strokeWidth={1.5} />
               </div>
-              <h3>No appointments</h3>
-              <p>Book an appointment from the vendor directory</p>
+              <h3>No Appointments</h3>
+              <p>Schedule appointments with your saved vendors</p>
             </div>
           ) : (
             <div className="table-container" style={{ marginTop: '1rem' }}>
@@ -437,376 +771,239 @@ export default function VendorsPage() {
           )}
         </>
       )}
-
-      {/* Vendor Detail Modal */}
-      {showVendorDetail && (
-        <VendorDetailModal
-          vendor={showVendorDetail}
-          onClose={() => setShowVendorDetail(null)}
-          onConnect={() => {
-            handleConnectVendor(showVendorDetail.id);
-            setShowVendorDetail(null);
-          }}
-          onBook={() => {
-            setShowBookingModal(showVendorDetail);
-            setShowVendorDetail(null);
-          }}
-          isStaff={isStaff || false}
-        />
-      )}
-
-      {/* Booking Modal */}
-      {showBookingModal && (
-        <BookAppointmentModal
-          vendor={showBookingModal}
-          onClose={() => setShowBookingModal(null)}
-          onSuccess={() => {
-            setShowBookingModal(null);
-            setActiveTab('appointments');
-            loadAppointments();
-          }}
-        />
-      )}
     </div>
   );
 }
 
-function VendorDetailModal({
-  vendor,
-  onClose,
-  onConnect,
-  onBook,
-  isStaff,
+// Place Card Component
+function PlaceCard({
+  place,
+  index,
+  isSaved,
+  onToggleSave,
+  onSelect,
+  expanded = false,
 }: {
-  vendor: VendorProfile;
-  onClose: () => void;
-  onConnect: () => void;
-  onBook: () => void;
-  isStaff: boolean;
+  place: PlaceResult;
+  index: number;
+  isSaved: boolean;
+  onToggleSave: () => void;
+  onSelect: () => void;
+  expanded?: boolean;
 }) {
-  const vendorTypes: Record<string, string> = {
-    vet: 'Veterinarian',
-    farrier: 'Farrier',
-    dentist: 'Equine Dentist',
-    bodyworker: 'Bodyworker',
-    trainer: 'Trainer',
-    supplier: 'Supplier',
-    transport: 'Transport',
-    photographer: 'Photographer',
-    other: 'Other',
-  };
+  const photoUrl = place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 });
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 className="modal-title">{vendor.businessName}</h2>
-          <button className="btn btn-ghost modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
+    <div className={`vendor-card ${expanded ? 'expanded' : ''}`} onClick={onSelect}>
+      {photoUrl && (
+        <div className="vendor-card-image">
+          <img src={photoUrl} alt={place.name} />
+          <span className="vendor-card-index">{index}</span>
         </div>
+      )}
+      {!photoUrl && (
+        <div className="vendor-card-index-badge">{index}</div>
+      )}
 
-        <div className="modal-body">
-          <div className="vendor-detail-grid">
-            <div className="vendor-detail-section">
-              <h4>Business Information</h4>
-              <div className="detail-item">
-                <label>Type:</label>
-                <span>{vendorTypes[vendor.primaryType] || vendor.primaryType}</span>
-              </div>
-              {vendor.additionalTypes && vendor.additionalTypes.length > 0 && (
-                <div className="detail-item">
-                  <label>Additional Services:</label>
-                  <span>{vendor.additionalTypes.map(t => vendorTypes[t] || t).join(', ')}</span>
-                </div>
-              )}
-              {vendor.description && (
-                <div className="detail-item">
-                  <label>Description:</label>
-                  <span>{vendor.description}</span>
-                </div>
+      <div className="vendor-card-header">
+        <div className="vendor-header-info">
+          <h3 className="vendor-name">{place.name}</h3>
+          {place.rating && (
+            <div className="vendor-rating">
+              <Star size={14} fill="currentColor" />
+              <span>{place.rating.toFixed(1)}</span>
+              {place.user_ratings_total && (
+                <span className="rating-count">({place.user_ratings_total})</span>
               )}
             </div>
+          )}
+        </div>
+        <button
+          className={`btn btn-icon btn-sm ${isSaved ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSave();
+          }}
+          title={isSaved ? 'Remove from saved' : 'Save vendor'}
+        >
+          {isSaved ? <BookmarkCheck size={18} /> : <Bookmark size={18} />}
+        </button>
+      </div>
 
-            <div className="vendor-detail-section">
-              <h4>Contact</h4>
-              {vendor.businessEmail && (
-                <div className="detail-item">
-                  <label>Email:</label>
-                  <span>{vendor.businessEmail}</span>
-                </div>
-              )}
-              {vendor.businessPhone && (
-                <div className="detail-item">
-                  <label>Phone:</label>
-                  <span>{formatPhoneNumber(vendor.businessPhone)}</span>
-                </div>
-              )}
-              {(vendor.city || vendor.state) && (
-                <div className="detail-item">
-                  <label>Location:</label>
-                  <span>{[vendor.city, vendor.state].filter(Boolean).join(', ')}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="vendor-detail-section">
-              <h4>Rating & Availability</h4>
-              <div className="detail-item">
-                <label>Rating:</label>
-                <span className="flex items-center gap-1">
-                  <Star size={16} fill="var(--warning)" stroke="var(--warning)" />
-                  {vendor.rating.toFixed(1)} ({vendor.reviewCount} reviews)
-                </span>
-              </div>
-              <div className="detail-item">
-                <label>Accepting Clients:</label>
-                <span>{vendor.acceptingNewClients ? 'Yes' : 'No'}</span>
-              </div>
-              <div className="detail-item">
-                <label>Emergency Available:</label>
-                <span>{vendor.emergencyAvailable ? 'Yes' : 'No'}</span>
-              </div>
-            </div>
+      <div className="vendor-card-body">
+        <div className="vendor-details">
+          <div className="vendor-location">
+            <MapPin size={14} />
+            <span>{place.formatted_address}</span>
           </div>
-        </div>
 
-        <div className="modal-footer">
-          <button className="btn btn-outline" onClick={onClose}>
-            Close
-          </button>
-          {isStaff && (
-            <>
-              <button className="btn btn-outline" onClick={onConnect}>
-                Connect to Barn
-              </button>
-              <button className="btn btn-primary" onClick={onBook}>
-                Book Appointment
-              </button>
-            </>
+          {place.formatted_phone_number && (
+            <a
+              href={`tel:${place.formatted_phone_number}`}
+              className="vendor-phone"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Phone size={14} />
+              <span>{place.formatted_phone_number}</span>
+            </a>
+          )}
+
+          {place.website && (
+            <a
+              href={place.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="vendor-website"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Globe size={14} />
+              <span>Website</span>
+              <ExternalLink size={12} />
+            </a>
+          )}
+
+          {place.opening_hours && (
+            <div className={`vendor-hours ${place.opening_hours.open_now ? 'open' : 'closed'}`}>
+              <Clock size={14} />
+              <span>{place.opening_hours.open_now ? 'Open Now' : 'Closed'}</span>
+            </div>
           )}
         </div>
       </div>
-    </div>
-  );
-}
 
-function BookAppointmentModal({
-  vendor,
-  onClose,
-  onSuccess,
-}: {
-  vendor: VendorProfile;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [horses, setHorses] = useState<Horse[]>([]);
-  const [horseId, setHorseId] = useState('');
-  const [scheduledDate, setScheduledDate] = useState('');
-  const [scheduledTime, setScheduledTime] = useState('09:00');
-  const [durationMinutes, setDurationMinutes] = useState('60');
-  const [type, setType] = useState<string>(vendor.primaryType);
-  const [price, setPrice] = useState('');
-  const [notes, setNotes] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingHorses, setIsLoadingHorses] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const loadHorses = async () => {
-      try {
-        const response = await horsesApi.getAll({ limit: 100 });
-        setHorses(response.data || []);
-      } catch (err) {
-        console.error('Failed to load horses:', err);
-      } finally {
-        setIsLoadingHorses(false);
-      }
-    };
-    loadHorses();
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (!scheduledDate) {
-      setError('Please select a date');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const dateTime = new Date(`${scheduledDate}T${scheduledTime}`);
-
-      await vendorsApi.createAppointment({
-        vendorId: vendor.id,
-        horseId: horseId || undefined,
-        scheduledDate: dateTime.toISOString(),
-        durationMinutes: parseInt(durationMinutes),
-        type,
-        price: price ? parseFloat(price) : undefined,
-        notes: notes || undefined,
-      });
-      onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to book appointment');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const appointmentTypes = [
-    { value: 'vet', label: 'Veterinary Visit' },
-    { value: 'farrier', label: 'Farrier Service' },
-    { value: 'dentist', label: 'Dental Work' },
-    { value: 'bodyworker', label: 'Bodywork Session' },
-    { value: 'trainer', label: 'Training Session' },
-    { value: 'transport', label: 'Transport' },
-    { value: 'photographer', label: 'Photography' },
-    { value: 'other', label: 'Other' },
-  ];
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 className="modal-title">Book Appointment</h2>
-          <button className="btn btn-ghost modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body">
-            {error && (
-              <div className="alert alert-error mb-4">
-                <span>{error}</span>
-              </div>
-            )}
-
-            <div className="form-group">
-              <label className="form-label">Vendor</label>
-              <input
-                type="text"
-                className="form-input"
-                value={vendor.businessName}
-                disabled
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Horse (Optional)</label>
-              <select
-                className="form-select"
-                value={horseId}
-                onChange={(e) => setHorseId(e.target.value)}
-                disabled={isLoadingHorses}
-              >
-                <option value="">No specific horse</option>
-                {horses.map((horse) => (
-                  <option key={horse.id} value={horse.id}>
-                    {horse.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Date *</label>
-                <input
-                  type="date"
-                  className="form-input"
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                  min={format(new Date(), 'yyyy-MM-dd')}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Time *</label>
-                <input
-                  type="time"
-                  className="form-input"
-                  value={scheduledTime}
-                  onChange={(e) => setScheduledTime(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Duration (minutes)</label>
-                <select
-                  className="form-select"
-                  value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(e.target.value)}
-                >
-                  <option value="30">30 minutes</option>
-                  <option value="60">1 hour</option>
-                  <option value="90">1.5 hours</option>
-                  <option value="120">2 hours</option>
-                  <option value="180">3 hours</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Service Type</label>
-                <select
-                  className="form-select"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                >
-                  {appointmentTypes.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Estimated Price (Optional)</label>
-              <input
-                type="number"
-                className="form-input"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="0.00"
-                min="0"
-                step="0.01"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Notes (Optional)</label>
-              <textarea
-                className="form-textarea"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                placeholder="Any special instructions or details..."
-              />
-            </div>
-          </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn btn-outline" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={isLoading}>
-              {isLoading ? 'Booking...' : 'Book Appointment'}
-            </button>
-          </div>
-        </form>
+      <div className="vendor-card-actions">
+        {place.formatted_phone_number && (
+          <a
+            href={`tel:${place.formatted_phone_number}`}
+            className="btn btn-outline btn-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Phone size={16} />
+            Call
+          </a>
+        )}
+        <a
+          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place.formatted_address)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-outline btn-sm"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Navigation size={16} />
+          Directions
+        </a>
+        <button
+          className={`btn btn-sm ${isSaved ? 'btn-success' : 'btn-primary'}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSave();
+          }}
+        >
+          {isSaved ? (
+            <>
+              <BookmarkCheck size={16} />
+              Saved
+            </>
+          ) : (
+            <>
+              <Bookmark size={16} />
+              Save
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
 }
 
+// Saved Vendor Card Component
+function SavedVendorCard({
+  vendor,
+  onRemove,
+}: {
+  vendor: SavedVendor;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="vendor-card saved">
+      <div className="vendor-card-header">
+        <div className="vendor-header-info">
+          <h3 className="vendor-name">{vendor.name}</h3>
+          {vendor.rating && (
+            <div className="vendor-rating">
+              <Star size={14} fill="currentColor" />
+              <span>{vendor.rating.toFixed(1)}</span>
+              {vendor.reviewCount && (
+                <span className="rating-count">({vendor.reviewCount})</span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="vendor-card-body">
+        <div className="vendor-details">
+          <div className="vendor-location">
+            <MapPin size={14} />
+            <span>{vendor.address}</span>
+          </div>
+
+          {vendor.phone && (
+            <a href={`tel:${vendor.phone}`} className="vendor-phone">
+              <Phone size={14} />
+              <span>{vendor.phone}</span>
+            </a>
+          )}
+
+          {vendor.website && (
+            <a
+              href={vendor.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="vendor-website"
+            >
+              <Globe size={14} />
+              <span>Website</span>
+              <ExternalLink size={12} />
+            </a>
+          )}
+        </div>
+
+        <div className="vendor-saved-meta">
+          <span>Saved {format(new Date(vendor.savedAt), 'MMM d, yyyy')}</span>
+        </div>
+      </div>
+
+      <div className="vendor-card-actions">
+        <div className="saved-actions-row">
+          {vendor.phone ? (
+            <a href={`tel:${vendor.phone}`} className="btn btn-outline btn-sm">
+              <Phone size={16} />
+              Call
+            </a>
+          ) : (
+            <span></span>
+          )}
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(vendor.address)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-outline btn-sm"
+          >
+            <Navigation size={16} />
+            Directions
+          </a>
+        </div>
+        <button className="remove-link" onClick={onRemove}>
+          <X size={14} />
+          Remove from saved
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Appointment Actions Component
 function AppointmentActions({
   appointment,
   onUpdate,

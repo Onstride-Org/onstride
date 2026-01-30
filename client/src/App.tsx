@@ -33,7 +33,9 @@ import BarnSettingsPage from './pages/settings/BarnSettingsPage';
 import BrandingPage from './pages/settings/BrandingPage';
 import SubscriptionPage from './pages/settings/SubscriptionPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AdminBarnsPage from './pages/admin/AdminBarnsPage';
 import AdminBarnDetailPage from './pages/admin/AdminBarnDetailPage';
+import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminUserDetailPage from './pages/admin/AdminUserDetailPage';
 import BillingTemplatesPage from './pages/billing/BillingTemplatesPage';
 import StablePage from './pages/stable/StablePage';
@@ -205,8 +207,10 @@ function App() {
 
         {/* Admin */}
         <Route path="admin" element={<AdminDashboardPage />} />
-        <Route path="admin/barns/:id" element={<AdminBarnDetailPage />} />
+        <Route path="admin/users" element={<AdminUsersPage />} />
         <Route path="admin/users/:id" element={<AdminUserDetailPage />} />
+        <Route path="admin/barns" element={<AdminBarnsPage />} />
+        <Route path="admin/barns/:id" element={<AdminBarnDetailPage />} />
       </Route>
 
       {/* Catch all - redirect to landing page */}

@@ -104,8 +104,8 @@
   --color-text-link: var(--color-neutral-900);
 
   /* Borders - very subtle */
-  --color-border: var(--color-neutral-200);
-  --color-border-light: var(--color-neutral-150);
+  --color-border: var(--color-neutral-300);
+  --color-border-light: var(--color-neutral-200); /* #E5E5E5 */
   --color-divider: var(--color-neutral-200);
 
   /* ============ Typography ============ */
@@ -170,6 +170,15 @@
   --transition-normal: 200ms ease;
   --transition-slow: 300ms ease;
 
+  /* ============ Hierarchy (Dashboard polish) ============ */
+  --color-surface-kpi: var(--color-neutral-50);
+  --color-label-muted: rgba(23, 23, 23, 0.65);
+  --font-size-kpi-value: 1.75rem;
+  --font-size-kpi-label: 0.75rem;
+  --font-weight-kpi-value: 700;
+  --radius-card: var(--radius-lg);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.06);
+
   /* ============ Z-Index ============ */
   --z-dropdown: 1000;
   --z-sticky: 1020;
@@ -190,6 +199,8 @@
 
 /* ============ Dark Mode ============ */
 [data-theme="dark"] {
+  --color-surface-kpi: var(--color-neutral-800);
+  --color-label-muted: rgba(255, 255, 255, 0.6);
   --color-primary: var(--color-neutral-0);
   --color-primary-hover: var(--color-neutral-100);
   --color-primary-light: var(--color-neutral-800);

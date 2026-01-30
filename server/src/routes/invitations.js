@@ -283,6 +283,21 @@ router.post('/', [
   try {
     const { email, accountType, permissions, expiresInDays } = req.body;
 
+    // Check if an active invitation already exists for this email in this barn
+    if (email) {
+      const existingInvitation = await Invitation.findOne({
+        barnId: req.barnId,
+        email: email.toLowerCase(),
+        active: true
+      });
+
+      if (existingInvitation) {
+        return res.status(400).json({
+          error: 'An active invitation already exists for this email. You can resend it from the pending invitations list.'
+        });
+      }
+    }
+
     // Get barn name
     const barn = await Barn.findById(req.barnId);
 

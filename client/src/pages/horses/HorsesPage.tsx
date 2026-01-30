@@ -116,16 +116,25 @@ export default function HorsesPage() {
         <>
           <div className="horse-grid">
             {horses.map((horse) => (
-              <Link key={horse.id} to={`/horses/${horse.id}`} className="horse-card">
-                <div className="horse-card-avatar">
-                  {horse.photoUrl ? (
-                    <img src={horse.photoUrl} alt={horse.name} className="horse-card-avatar-img" />
-                  ) : (
-                    horse.name.charAt(0).toUpperCase()
-                  )}
+              <Link key={horse.id} to={`/app/horses/${horse.id}`} className="horse-card">
+                {horse.photoUrl ? (
+                  <div className="horse-card-image">
+                    <img src={horse.photoUrl} alt={horse.name} />
+                  </div>
+                ) : (
+                  <div className="horse-card-image horse-card-image-placeholder">
+                    <span className="horse-card-image-initial">{horse.name.charAt(0).toUpperCase()}</span>
+                  </div>
+                )}
+                <div className="horse-card-header">
+                  <div className="horse-card-header-info">
+                    <h3 className="horse-card-name">{horse.name}</h3>
+                    <span className={`badge badge-${horse.status === 'active' ? 'success' : 'neutral'}`}>
+                      {horse.status}
+                    </span>
+                  </div>
                 </div>
-                <div className="horse-card-content">
-                  <h3 className="horse-card-name">{horse.name}</h3>
+                <div className="horse-card-body">
                   <p className="horse-card-breed">
                     {horse.breed?.label || 'Unknown breed'}
                   </p>
@@ -141,9 +150,9 @@ export default function HorsesPage() {
                     </p>
                   )}
                 </div>
-                <span className={`badge badge-${horse.status === 'active' ? 'success' : 'neutral'}`}>
-                  {horse.status}
-                </span>
+                <div className="horse-card-actions">
+                  <span className="link text-sm">View horse</span>
+                </div>
               </Link>
             ))}
           </div>

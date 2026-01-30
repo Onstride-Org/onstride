@@ -214,25 +214,25 @@ export default function AdminDashboardPage() {
 
       {/* Admin Navigation */}
       <div className="admin-nav-grid">
-        <Link to="/admin/users" className="admin-nav-card">
+        <Link to="/app/admin/users" className="admin-nav-card">
           <Users size={32} />
           <h3>User Management</h3>
           <p>View, edit, and manage all platform users</p>
         </Link>
 
-        <Link to="/admin/barns" className="admin-nav-card">
+        <Link to="/app/admin/barns" className="admin-nav-card">
           <Building2 size={32} />
           <h3>Barn Management</h3>
           <p>Manage all barns and their settings</p>
         </Link>
 
-        <Link to="/admin/subscriptions" className="admin-nav-card">
+        <Link to="/app/admin/subscriptions" className="admin-nav-card">
           <CreditCard size={32} />
           <h3>Subscriptions</h3>
           <p>View and manage subscriptions</p>
         </Link>
 
-        <Link to="/admin/reports" className="admin-nav-card">
+        <Link to="/app/admin/reports" className="admin-nav-card">
           <TrendingUp size={32} />
           <h3>Reports & Analytics</h3>
           <p>Platform usage and revenue reports</p>
@@ -245,7 +245,7 @@ export default function AdminDashboardPage() {
         <div className="card">
           <div className="card-header">
             <h3>Recent Users</h3>
-            <Link to="/admin/users" className="btn btn-ghost btn-sm">View All</Link>
+            <Link to="/app/admin/users" className="btn btn-ghost btn-sm">View All</Link>
           </div>
           <div className="card-body">
             {recentUsers.length === 0 ? (
@@ -254,7 +254,7 @@ export default function AdminDashboardPage() {
               <ul className="activity-list">
                 {recentUsers.slice(0, 5).map((user: any) => (
                   <li key={user._id} className="activity-item clickable">
-                    <Link to={`/admin/users/${user._id}`} className="activity-link">
+                    <Link to={`/app/admin/users/${user._id}`} className="activity-link">
                       <span className="user-avatar">
                         {user.name?.charAt(0).toUpperCase() || 'U'}
                       </span>
@@ -278,7 +278,7 @@ export default function AdminDashboardPage() {
         <div className="card">
           <div className="card-header">
             <h3>Recent Barns</h3>
-            <Link to="/admin/barns" className="btn btn-ghost btn-sm">View All</Link>
+            <Link to="/app/admin/barns" className="btn btn-ghost btn-sm">View All</Link>
           </div>
           <div className="card-body">
             {recentBarns.length === 0 ? (
@@ -287,7 +287,7 @@ export default function AdminDashboardPage() {
               <ul className="activity-list">
                 {recentBarns.slice(0, 5).map((barn: any) => (
                   <li key={barn._id} className="activity-item clickable">
-                    <Link to={`/admin/barns/${barn._id}`} className="activity-link">
+                    <Link to={`/app/admin/barns/${barn._id}`} className="activity-link">
                       <span className="barn-avatar">
                         <Building2 size={20} />
                       </span>

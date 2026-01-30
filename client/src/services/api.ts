@@ -167,6 +167,12 @@ export const authApi = {
     return response.data;
   },
 
+  // Check if email has been verified (for polling on waiting screen)
+  checkVerificationStatus: async (email: string) => {
+    const response = await api.post('/auth/check-verification', { email });
+    return response.data;
+  },
+
   // 2FA Management
   get2FAStatus: async () => {
     const response = await api.get('/auth/2fa/status');

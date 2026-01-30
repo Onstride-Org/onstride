@@ -582,6 +582,60 @@ router.post('/resend-verification', [
   }
 });
 
+// Check verification status (for polling from waiting screen)
+router.post('/check-verification', [
+  body('email').isEmail().normalizeEmail(),
+  validate
+], async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email, deletedAt: null });
+    if (!user) {
+      return res.json({ verified: false });
+    }
+
+    if (!user.emailVerified) {
+      return res.json({ verified: false });
+    }
+
+    // User is verified - generate tokens for auto-login
+    const { accessToken, refreshToken } = generateTokens(user._id);
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    // Get barn roles
+    const barnRoles = await UserBarnRole.find({
+      userId: user._id,
+      status: 'active'
+    }).populate('barnId', 'name');
+
+    const barns = barnRoles.map(br => ({
+      barnId: br.barnId._id,
+      barnName: br.barnId.name,
+      role: br.role,
+      isPrimary: br.isPrimary
+    }));
+
+    res.json({
+      verified: true,
+      accessToken,
+      refreshToken,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        accountType: user.accountType,
+        emailVerified: user.emailVerified,
+        avatarUrl: user.avatarUrl,
+      },
+      barns
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ============ 2FA Management ============
 
 // Send verification code to verify phone (before enabling 2FA)

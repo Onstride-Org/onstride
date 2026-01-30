@@ -26,6 +26,7 @@ router.get('/', requireBarn, async (req, res, next) => {
 
     const filter = {
       barnId: req.barnId,
+      deletedAt: null, // Exclude soft-deleted horses
       ...(status && { status }),
       ...(boarderId && { boarderId })
     };
@@ -71,7 +72,7 @@ router.get('/', requireBarn, async (req, res, next) => {
 });
 
 // Get horse by ID
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', requireBarn, async (req, res, next) => {
   try {
     const horse = await Horse.findById(req.params.id)
       .populate('boarderId', 'name email avatarUrl')
@@ -79,6 +80,25 @@ router.get('/:id', async (req, res, next) => {
 
     if (!horse) {
       return res.status(404).json({ error: 'Horse not found' });
+    }
+
+    // Verify the horse belongs to this barn
+    if (horse.barnId.toString() !== req.barnId.toString()) {
+      return res.status(404).json({ error: 'Horse not found' });
+    }
+
+    // Boarders can only see horses linked to them
+    const isBoarder = req.user.accountType === 'boarder' ||
+      (req.barnRole && req.barnRole.role === 'boarder');
+
+    if (isBoarder) {
+      const userIdStr = req.userId.toString();
+      const isOwner = horse.ownerId && horse.ownerId._id.toString() === userIdStr;
+      const isBoarderOfHorse = horse.boarderId && horse.boarderId._id.toString() === userIdStr;
+
+      if (!isOwner && !isBoarderOfHorse) {
+        return res.status(403).json({ error: 'You do not have access to this horse' });
+      }
     }
 
     // Get ride stats

@@ -33,6 +33,9 @@ interface AuthState {
   switchBarn: (barnId: string) => void;
   clearError: () => void;
   clearTwoFactor: () => void;
+  setUser: (user: User) => void;
+  setBarns: (barns: Barn[]) => void;
+  setCurrentBarnId: (barnId: string) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -263,4 +266,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  // Direct setters for external login flows (invitation acceptance, email verification)
+  setUser: (user: User) => set({ user, isAuthenticated: true, isLoading: false }),
+  setBarns: (barns: Barn[]) => {
+    const currentBarnId = get().currentBarnId;
+    const currentBarn = barns.find(b => b.id === currentBarnId);
+    set({
+      barns,
+      currentBarnRole: currentBarn?.role ? { role: currentBarn.role } : null
+    });
+  },
+  setCurrentBarnId: (barnId: string) => {
+    const { barns } = get();
+    const barn = barns.find(b => b.id === barnId);
+    set({
+      currentBarnId: barnId,
+      currentBarnRole: barn?.role ? { role: barn.role } : null
+    });
+  },
 }));

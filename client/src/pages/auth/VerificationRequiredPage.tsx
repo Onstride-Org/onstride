@@ -1,14 +1,62 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { authApi } from '../../services/api';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { authApi, setTokens, setCurrentBarn } from '../../services/api';
+import { useAuthStore } from '../../stores/authStore';
 
 export default function VerificationRequiredPage() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { setUser, setBarns, setCurrentBarnId } = useAuthStore();
   const email = location.state?.email || '';
   const isNewRegistration = location.state?.isNewRegistration || false;
   const [isResending, setIsResending] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [isChecking, setIsChecking] = useState(false);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Poll to check if email has been verified on another device
+  useEffect(() => {
+    if (!email) return;
+
+    const checkVerificationStatus = async () => {
+      if (isChecking) return;
+      setIsChecking(true);
+
+      try {
+        const result = await authApi.checkVerificationStatus(email);
+        if (result.verified) {
+          // User verified on another device - log them in
+          if (result.accessToken && result.refreshToken) {
+            setTokens(result.accessToken, result.refreshToken);
+            setUser(result.user);
+            setBarns(result.barns || []);
+            if (result.barns && result.barns.length > 0) {
+              const primaryBarn = result.barns.find((b: any) => b.isPrimary) || result.barns[0];
+              setCurrentBarn(primaryBarn.barnId);
+              setCurrentBarnId(primaryBarn.barnId);
+            }
+            navigate('/app/dashboard', { replace: true });
+          }
+        }
+      } catch (err) {
+        // Silently fail - just keep polling
+        console.log('Verification check failed, will retry');
+      } finally {
+        setIsChecking(false);
+      }
+    };
+
+    // Check immediately and then every 5 seconds
+    checkVerificationStatus();
+    pollIntervalRef.current = setInterval(checkVerificationStatus, 5000);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, [email, navigate, setUser, setBarns, setCurrentBarnId]);
 
   const handleResend = async () => {
     if (!email) {
