@@ -119,29 +119,47 @@ export default function AdminDemoPage() {
   const getStatusColor = (status: string) => statusOptions.find(s => s.value === status)?.color || '#737373';
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', height: '100vh', boxSizing: 'border-box' }}>
+    <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', height: '100vh', boxSizing: 'border-box' }}>
       {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ color: 'white', fontSize: '28px', fontWeight: 600, margin: 0 }}>
+      <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1 style={{ color: 'white', fontSize: '18px', fontWeight: 600, margin: 0 }}>
           Demo Requests
         </h1>
-        <p style={{ color: '#737373', marginTop: '4px' }}>
-          Manage demo booking requests from the landing page
-        </p>
+        {/* Search */}
+        <div style={{ position: 'relative', width: '240px' }}>
+          <Search size={14} color="#525252" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+          <input
+            type="text"
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            style={{
+              width: '100%',
+              padding: '6px 8px 6px 32px',
+              background: '#141414',
+              border: '1px solid #1f1f1f',
+              borderRadius: '4px',
+              color: 'white',
+              fontSize: '12px',
+              outline: 'none',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
       </div>
 
-      {/* Stats Pills */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+      {/* Status Filter Tabs - Compact */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
         <button
           onClick={() => { setFilterStatus(''); setPage(1); }}
           style={{
-            padding: '8px 16px',
-            borderRadius: '20px',
-            border: filterStatus === '' ? '1px solid #3b82f6' : '1px solid #262626',
-            background: filterStatus === '' ? '#3b82f620' : 'transparent',
-            color: filterStatus === '' ? '#3b82f6' : '#a3a3a3',
+            padding: '4px 10px',
+            borderRadius: '4px',
+            border: 'none',
+            background: filterStatus === '' ? '#252525' : 'transparent',
+            color: filterStatus === '' ? 'white' : '#525252',
             cursor: 'pointer',
-            fontSize: '13px'
+            fontSize: '11px'
           }}
         >
           All ({stats.total || 0})
@@ -151,13 +169,13 @@ export default function AdminDemoPage() {
             key={s.value}
             onClick={() => { setFilterStatus(s.value); setPage(1); }}
             style={{
-              padding: '8px 16px',
-              borderRadius: '20px',
-              border: filterStatus === s.value ? `1px solid ${s.color}` : '1px solid #262626',
-              background: filterStatus === s.value ? `${s.color}20` : 'transparent',
-              color: filterStatus === s.value ? s.color : '#a3a3a3',
+              padding: '4px 10px',
+              borderRadius: '4px',
+              border: 'none',
+              background: filterStatus === s.value ? '#252525' : 'transparent',
+              color: filterStatus === s.value ? s.color : '#525252',
               cursor: 'pointer',
-              fontSize: '13px'
+              fontSize: '11px'
             }}
           >
             {s.label} ({stats[s.value] || 0})
@@ -165,86 +183,77 @@ export default function AdminDemoPage() {
         ))}
       </div>
 
-      {/* Search */}
-      <div style={{ position: 'relative', marginBottom: '20px', maxWidth: '400px' }}>
-        <Search size={18} color="#737373" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
-        <input
-          type="text"
-          placeholder="Search by name, email, or barn..."
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          style={{
-            width: '100%',
-            padding: '12px 12px 12px 44px',
-            background: '#141414',
-            border: '1px solid #262626',
-            borderRadius: '8px',
-            color: 'white',
-            fontSize: '14px',
-            outline: 'none',
-            boxSizing: 'border-box'
-          }}
-        />
-      </div>
-
       {/* Content */}
-      <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0 }}>
-        {/* List */}
+      <div style={{ display: 'flex', gap: '16px', flex: 1, minHeight: 0 }}>
+        {/* Table */}
         <div style={{
           flex: 1,
           background: '#141414',
-          border: '1px solid #262626',
-          borderRadius: '12px',
+          border: '1px solid #1f1f1f',
+          borderRadius: '6px',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden'
         }}>
           {isLoading ? (
-            <div style={{ padding: '48px', textAlign: 'center', color: '#737373' }}>Loading...</div>
+            <div style={{ padding: '24px', textAlign: 'center', color: '#525252', fontSize: '12px' }}>Loading...</div>
           ) : requests.length === 0 ? (
-            <div style={{ padding: '48px', textAlign: 'center', color: '#737373' }}>No requests found</div>
+            <div style={{ padding: '24px', textAlign: 'center', color: '#525252', fontSize: '12px' }}>No requests found</div>
           ) : (
             <div style={{ flex: 1, overflow: 'auto' }}>
-              {requests.map(req => (
-                <div
-                  key={req._id}
-                  onClick={() => setSelected(req)}
-                  style={{
-                    padding: '16px 20px',
-                    borderBottom: '1px solid #262626',
-                    cursor: 'pointer',
-                    background: selected?._id === req._id ? '#1f1f1f' : 'transparent'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                    <span style={{ color: 'white', fontWeight: 500 }}>{req.name}</span>
-                    <span style={{
-                      color: getStatusColor(req.status),
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      textTransform: 'capitalize'
-                    }}>
-                      {req.status}
-                    </span>
-                  </div>
-                  <div style={{ color: '#737373', fontSize: '13px' }}>{req.email}</div>
-                  <div style={{ color: '#525252', fontSize: '12px', marginTop: '4px' }}>
-                    {req.barnName && `${req.barnName} • `}{formatDate(req.createdAt)}
-                  </div>
-                </div>
-              ))}
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #1f1f1f' }}>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', color: '#525252', fontSize: '10px', fontWeight: 500, textTransform: 'uppercase' }}>Name</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', color: '#525252', fontSize: '10px', fontWeight: 500, textTransform: 'uppercase' }}>Email</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', color: '#525252', fontSize: '10px', fontWeight: 500, textTransform: 'uppercase' }}>Barn</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', color: '#525252', fontSize: '10px', fontWeight: 500, textTransform: 'uppercase' }}>Status</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'right', color: '#525252', fontSize: '10px', fontWeight: 500, textTransform: 'uppercase' }}>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {requests.map(req => (
+                    <tr
+                      key={req._id}
+                      onClick={() => setSelected(req)}
+                      style={{
+                        borderBottom: '1px solid #1f1f1f',
+                        cursor: 'pointer',
+                        background: selected?._id === req._id ? '#1a1a1a' : 'transparent'
+                      }}
+                    >
+                      <td style={{ padding: '8px 12px', color: 'white', fontSize: '12px' }}>{req.name}</td>
+                      <td style={{ padding: '8px 12px', color: '#737373', fontSize: '12px' }}>{req.email}</td>
+                      <td style={{ padding: '8px 12px', color: '#525252', fontSize: '12px' }}>{req.barnName || '—'}</td>
+                      <td style={{ padding: '8px 12px' }}>
+                        <span style={{
+                          color: getStatusColor(req.status),
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          textTransform: 'capitalize'
+                        }}>
+                          {req.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px 12px', color: '#525252', fontSize: '11px', textAlign: 'right' }}>
+                        {formatDate(req.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 
           {/* Pagination */}
           {totalPages > 1 && (
             <div style={{
-              padding: '12px 20px',
-              borderTop: '1px solid #262626',
+              padding: '8px 12px',
+              borderTop: '1px solid #1f1f1f',
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              gap: '16px'
+              gap: '12px'
             }}>
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -252,121 +261,115 @@ export default function AdminDemoPage() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: page === 1 ? '#525252' : '#a3a3a3',
+                  color: page === 1 ? '#333' : '#525252',
                   cursor: page === 1 ? 'default' : 'pointer'
                 }}
               >
-                <ChevronLeft size={18} />
+                <ChevronLeft size={14} />
               </button>
-              <span style={{ color: '#737373', fontSize: '13px' }}>{page} / {totalPages}</span>
+              <span style={{ color: '#525252', fontSize: '11px' }}>{page} / {totalPages}</span>
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: page === totalPages ? '#525252' : '#a3a3a3',
+                  color: page === totalPages ? '#333' : '#525252',
                   cursor: page === totalPages ? 'default' : 'pointer'
                 }}
               >
-                <ChevronRight size={18} />
+                <ChevronRight size={14} />
               </button>
             </div>
           )}
         </div>
 
-        {/* Detail Panel */}
+        {/* Detail Panel - Compact */}
         {selected && (
           <div style={{
-            width: '380px',
+            width: '300px',
             background: '#141414',
-            border: '1px solid #262626',
-            borderRadius: '12px',
+            border: '1px solid #1f1f1f',
+            borderRadius: '6px',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden'
           }}>
             <div style={{
-              padding: '20px',
-              borderBottom: '1px solid #262626',
+              padding: '10px 12px',
+              borderBottom: '1px solid #1f1f1f',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
-              <h3 style={{ color: 'white', margin: 0, fontSize: '16px' }}>Details</h3>
+              <span style={{ color: '#a3a3a3', margin: 0, fontSize: '12px', fontWeight: 500 }}>Details</span>
               <button
                 onClick={() => setSelected(null)}
-                style={{ background: 'none', border: 'none', color: '#737373', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: '#525252', cursor: 'pointer', padding: '2px' }}
               >
-                <X size={18} />
+                <X size={14} />
               </button>
             </div>
 
-            <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
-              <div style={{ marginBottom: '24px' }}>
-                <h4 style={{ color: 'white', fontSize: '18px', margin: '0 0 8px' }}>{selected.name}</h4>
-                <a href={`mailto:${selected.email}`} style={{ color: '#3b82f6', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none', marginBottom: '4px' }}>
-                  <Mail size={14} /> {selected.email}
+            <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ color: 'white', fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>{selected.name}</div>
+                <a href={`mailto:${selected.email}`} style={{ color: '#3b82f6', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', marginBottom: '2px' }}>
+                  <Mail size={11} /> {selected.email}
                 </a>
                 {selected.phone && (
-                  <a href={`tel:${selected.phone}`} style={{ color: '#3b82f6', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
-                    <Phone size={14} /> {selected.phone}
+                  <a href={`tel:${selected.phone}`} style={{ color: '#3b82f6', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+                    <Phone size={11} /> {selected.phone}
                   </a>
                 )}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
                 {selected.barnName && (
                   <div>
-                    <div style={{ color: '#525252', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>Barn</div>
-                    <div style={{ color: '#a3a3a3', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Building2 size={14} /> {selected.barnName}
+                    <div style={{ color: '#525252', fontSize: '9px', textTransform: 'uppercase', marginBottom: '2px' }}>Barn</div>
+                    <div style={{ color: '#a3a3a3', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Building2 size={11} /> {selected.barnName}
                     </div>
                   </div>
                 )}
                 {selected.discipline && (
                   <div>
-                    <div style={{ color: '#525252', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>Discipline</div>
-                    <div style={{ color: '#a3a3a3', fontSize: '14px' }}>{selected.discipline}</div>
+                    <div style={{ color: '#525252', fontSize: '9px', textTransform: 'uppercase', marginBottom: '2px' }}>Discipline</div>
+                    <div style={{ color: '#a3a3a3', fontSize: '11px' }}>{selected.discipline}</div>
                   </div>
                 )}
                 {selected.horseCount && (
                   <div>
-                    <div style={{ color: '#525252', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>Horses</div>
-                    <div style={{ color: '#a3a3a3', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Users size={14} /> {selected.horseCount}
+                    <div style={{ color: '#525252', fontSize: '9px', textTransform: 'uppercase', marginBottom: '2px' }}>Horses</div>
+                    <div style={{ color: '#a3a3a3', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Users size={11} /> {selected.horseCount}
                     </div>
                   </div>
                 )}
                 {selected.selectedDate && (
                   <div>
-                    <div style={{ color: '#525252', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>Requested Time</div>
-                    <div style={{ color: '#a3a3a3', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Clock size={14} /> {selected.selectedDate} at {selected.selectedTime}
+                    <div style={{ color: '#525252', fontSize: '9px', textTransform: 'uppercase', marginBottom: '2px' }}>Requested</div>
+                    <div style={{ color: '#a3a3a3', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={11} /> {selected.selectedDate}
                     </div>
-                  </div>
-                )}
-                {selected.isDecisionMaker && (
-                  <div>
-                    <div style={{ color: '#525252', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>Decision Maker</div>
-                    <div style={{ color: '#a3a3a3', fontSize: '14px' }}>{selected.isDecisionMaker === 'yes' ? 'Yes' : 'No'}</div>
                   </div>
                 )}
               </div>
 
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ color: '#525252', fontSize: '11px', textTransform: 'uppercase', marginBottom: '8px' }}>Status</div>
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ color: '#525252', fontSize: '9px', textTransform: 'uppercase', marginBottom: '4px' }}>Status</div>
                 <select
                   value={selected.status}
                   onChange={(e) => updateRequest(selected._id, { status: e.target.value })}
                   style={{
                     width: '100%',
-                    padding: '10px 12px',
+                    padding: '6px 8px',
                     background: '#0a0a0a',
-                    border: '1px solid #262626',
-                    borderRadius: '8px',
+                    border: '1px solid #1f1f1f',
+                    borderRadius: '4px',
                     color: 'white',
-                    fontSize: '14px',
+                    fontSize: '11px',
                     outline: 'none'
                   }}
                 >
@@ -376,55 +379,55 @@ export default function AdminDemoPage() {
                 </select>
               </div>
 
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ color: '#525252', fontSize: '11px', textTransform: 'uppercase', marginBottom: '8px' }}>Notes</div>
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ color: '#525252', fontSize: '9px', textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
                 <textarea
                   value={selected.notes || ''}
                   onChange={(e) => updateRequest(selected._id, { notes: e.target.value })}
                   placeholder="Add notes..."
                   style={{
                     width: '100%',
-                    padding: '10px 12px',
+                    padding: '6px 8px',
                     background: '#0a0a0a',
-                    border: '1px solid #262626',
-                    borderRadius: '8px',
+                    border: '1px solid #1f1f1f',
+                    borderRadius: '4px',
                     color: 'white',
-                    fontSize: '14px',
+                    fontSize: '11px',
                     outline: 'none',
                     resize: 'vertical',
-                    minHeight: '80px',
+                    minHeight: '60px',
                     boxSizing: 'border-box'
                   }}
                 />
               </div>
             </div>
 
-            <div style={{ padding: '16px 20px', borderTop: '1px solid #262626', display: 'flex', gap: '12px' }}>
+            <div style={{ padding: '10px 12px', borderTop: '1px solid #1f1f1f', display: 'flex', gap: '8px' }}>
               <a
                 href={`mailto:${selected.email}?subject=Your OnStride Demo Request`}
                 style={{
                   flex: 1,
-                  padding: '10px',
+                  padding: '6px',
                   background: '#3b82f6',
-                  borderRadius: '8px',
+                  borderRadius: '4px',
                   color: 'white',
-                  fontSize: '14px',
+                  fontSize: '11px',
                   fontWeight: 500,
                   textAlign: 'center',
                   textDecoration: 'none'
                 }}
               >
-                Send Email
+                Email
               </a>
               <button
                 onClick={() => deleteRequest(selected._id)}
                 style={{
-                  padding: '10px 16px',
+                  padding: '6px 10px',
                   background: 'transparent',
                   border: '1px solid #dc2626',
-                  borderRadius: '8px',
+                  borderRadius: '4px',
                   color: '#dc2626',
-                  fontSize: '14px',
+                  fontSize: '11px',
                   cursor: 'pointer'
                 }}
               >

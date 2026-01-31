@@ -90,162 +90,179 @@ export default function AdminHomePage() {
   }
 
   return (
-    <div style={{ padding: '32px' }}>
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ color: 'white', fontSize: '28px', fontWeight: 600, margin: 0 }}>
+    <div style={{ padding: '20px 24px' }}>
+      <div style={{ marginBottom: '16px' }}>
+        <h1 style={{ color: 'white', fontSize: '18px', fontWeight: 600, margin: 0 }}>
           Dashboard
         </h1>
-        <p style={{ color: '#737373', marginTop: '4px' }}>
-          Welcome to the OnStride admin portal
-        </p>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Row - Compact */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '16px',
-        marginBottom: '32px'
+        display: 'flex',
+        gap: '12px',
+        marginBottom: '20px',
+        flexWrap: 'wrap'
       }}>
         <div style={{
           background: '#141414',
-          border: '1px solid #262626',
-          borderRadius: '12px',
-          padding: '24px'
+          border: '1px solid #1f1f1f',
+          borderRadius: '6px',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          minWidth: '140px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <Calendar size={20} color="#eab308" />
-            {stats?.newDemoRequests ? (
-              <span style={{
-                background: '#eab30820',
-                color: '#eab308',
-                padding: '4px 8px',
-                borderRadius: '12px',
-                fontSize: '12px',
-                fontWeight: 500
-              }}>
-                {stats.newDemoRequests} new
-              </span>
-            ) : null}
+          <Calendar size={16} color="#eab308" />
+          <div>
+            <div style={{ color: 'white', fontSize: '18px', fontWeight: 600, lineHeight: 1 }}>
+              {stats?.totalDemoRequests || 0}
+            </div>
+            <div style={{ color: '#525252', fontSize: '11px' }}>Demos</div>
           </div>
-          <div style={{ color: 'white', fontSize: '32px', fontWeight: 600 }}>
-            {stats?.totalDemoRequests || 0}
-          </div>
-          <div style={{ color: '#737373', fontSize: '14px' }}>Demo Requests</div>
+          {stats?.newDemoRequests ? (
+            <span style={{
+              background: '#eab30820',
+              color: '#eab308',
+              padding: '2px 6px',
+              borderRadius: '8px',
+              fontSize: '10px',
+              fontWeight: 500
+            }}>
+              {stats.newDemoRequests} new
+            </span>
+          ) : null}
         </div>
 
         <div style={{
           background: '#141414',
-          border: '1px solid #262626',
-          borderRadius: '12px',
-          padding: '24px'
+          border: '1px solid #1f1f1f',
+          borderRadius: '6px',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          minWidth: '120px'
         }}>
-          <Users size={20} color="#3b82f6" style={{ marginBottom: '12px' }} />
-          <div style={{ color: 'white', fontSize: '32px', fontWeight: 600 }}>
-            {stats?.totalUsers || 0}
+          <Users size={16} color="#3b82f6" />
+          <div>
+            <div style={{ color: 'white', fontSize: '18px', fontWeight: 600, lineHeight: 1 }}>
+              {stats?.totalUsers || 0}
+            </div>
+            <div style={{ color: '#525252', fontSize: '11px' }}>Users</div>
           </div>
-          <div style={{ color: '#737373', fontSize: '14px' }}>Total Users</div>
         </div>
 
         <div style={{
           background: '#141414',
-          border: '1px solid #262626',
-          borderRadius: '12px',
-          padding: '24px'
+          border: '1px solid #1f1f1f',
+          borderRadius: '6px',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          minWidth: '120px'
         }}>
-          <Building2 size={20} color="#22c55e" style={{ marginBottom: '12px' }} />
-          <div style={{ color: 'white', fontSize: '32px', fontWeight: 600 }}>
-            {stats?.totalBarns || 0}
+          <Building2 size={16} color="#22c55e" />
+          <div>
+            <div style={{ color: 'white', fontSize: '18px', fontWeight: 600, lineHeight: 1 }}>
+              {stats?.totalBarns || 0}
+            </div>
+            <div style={{ color: '#525252', fontSize: '11px' }}>Barns</div>
           </div>
-          <div style={{ color: '#737373', fontSize: '14px' }}>Total Barns</div>
         </div>
 
         <div style={{
           background: '#141414',
-          border: '1px solid #262626',
-          borderRadius: '12px',
-          padding: '24px'
+          border: '1px solid #1f1f1f',
+          borderRadius: '6px',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          minWidth: '120px'
         }}>
-          <TrendingUp size={20} color="#8b5cf6" style={{ marginBottom: '12px' }} />
-          <div style={{ color: 'white', fontSize: '32px', fontWeight: 600 }}>
-            --
+          <TrendingUp size={16} color="#8b5cf6" />
+          <div>
+            <div style={{ color: 'white', fontSize: '18px', fontWeight: 600, lineHeight: 1 }}>
+              --
+            </div>
+            <div style={{ color: '#525252', fontSize: '11px' }}>MRR</div>
           </div>
-          <div style={{ color: '#737373', fontSize: '14px' }}>MRR</div>
         </div>
       </div>
 
-      {/* Recent Demo Requests */}
+      {/* Recent Demo Requests - Table Style */}
       <div style={{
         background: '#141414',
-        border: '1px solid #262626',
-        borderRadius: '12px',
+        border: '1px solid #1f1f1f',
+        borderRadius: '6px',
         overflow: 'hidden'
       }}>
         <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #262626',
+          padding: '10px 16px',
+          borderBottom: '1px solid #1f1f1f',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
-          <h2 style={{ color: 'white', fontSize: '16px', fontWeight: 600, margin: 0 }}>
+          <span style={{ color: '#a3a3a3', fontSize: '12px', fontWeight: 500 }}>
             Recent Demo Requests
-          </h2>
+          </span>
           <Link
             to="/admin/demo-requests"
             style={{
-              color: '#3b82f6',
-              fontSize: '14px',
+              color: '#525252',
+              fontSize: '11px',
               textDecoration: 'none',
               display: 'flex',
               alignItems: 'center',
               gap: '4px'
             }}
           >
-            View all <ArrowRight size={14} />
+            View all <ArrowRight size={12} />
           </Link>
         </div>
 
         {recentRequests.length === 0 ? (
-          <div style={{ padding: '48px', textAlign: 'center', color: '#737373' }}>
+          <div style={{ padding: '24px', textAlign: 'center', color: '#525252', fontSize: '12px' }}>
             No demo requests yet
           </div>
         ) : (
-          <div>
-            {recentRequests.map((request) => (
-              <div
-                key={request._id}
-                style={{
-                  padding: '16px 24px',
-                  borderBottom: '1px solid #262626',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}
-              >
-                <div>
-                  <div style={{ color: 'white', fontWeight: 500 }}>{request.name}</div>
-                  <div style={{ color: '#737373', fontSize: '13px' }}>
-                    {request.email}
-                    {request.barnName && ` • ${request.barnName}`}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <span style={{
-                    color: getStatusColor(request.status),
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    textTransform: 'capitalize'
-                  }}>
-                    {request.status}
-                  </span>
-                  <span style={{ color: '#525252', fontSize: '13px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #1f1f1f' }}>
+                <th style={{ padding: '8px 16px', textAlign: 'left', color: '#525252', fontSize: '10px', fontWeight: 500, textTransform: 'uppercase' }}>Name</th>
+                <th style={{ padding: '8px 16px', textAlign: 'left', color: '#525252', fontSize: '10px', fontWeight: 500, textTransform: 'uppercase' }}>Email</th>
+                <th style={{ padding: '8px 16px', textAlign: 'left', color: '#525252', fontSize: '10px', fontWeight: 500, textTransform: 'uppercase' }}>Barn</th>
+                <th style={{ padding: '8px 16px', textAlign: 'left', color: '#525252', fontSize: '10px', fontWeight: 500, textTransform: 'uppercase' }}>Status</th>
+                <th style={{ padding: '8px 16px', textAlign: 'right', color: '#525252', fontSize: '10px', fontWeight: 500, textTransform: 'uppercase' }}>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentRequests.map((request) => (
+                <tr key={request._id} style={{ borderBottom: '1px solid #1f1f1f' }}>
+                  <td style={{ padding: '8px 16px', color: 'white', fontSize: '12px' }}>{request.name}</td>
+                  <td style={{ padding: '8px 16px', color: '#737373', fontSize: '12px' }}>{request.email}</td>
+                  <td style={{ padding: '8px 16px', color: '#525252', fontSize: '12px' }}>{request.barnName || '—'}</td>
+                  <td style={{ padding: '8px 16px' }}>
+                    <span style={{
+                      color: getStatusColor(request.status),
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      textTransform: 'capitalize'
+                    }}>
+                      {request.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: '8px 16px', color: '#525252', fontSize: '11px', textAlign: 'right' }}>
                     {formatDate(request.createdAt)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

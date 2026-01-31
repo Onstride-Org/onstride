@@ -97,9 +97,9 @@ export default function AdminLayout() {
 
       {/* Sidebar */}
       <aside style={{
-        width: '240px',
-        background: '#141414',
-        borderRight: '1px solid #262626',
+        width: '200px',
+        background: '#111',
+        borderRight: '1px solid #1f1f1f',
         display: 'flex',
         flexDirection: 'column',
         position: 'fixed',
@@ -110,31 +110,29 @@ export default function AdminLayout() {
       }} className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
         {/* Logo */}
         <div style={{
-          padding: '20px',
-          borderBottom: '1px solid #262626',
+          padding: '16px 20px',
+          borderBottom: '1px solid #1f1f1f',
           display: 'flex',
           alignItems: 'center',
-          gap: '12px'
+          gap: '10px'
         }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <Shield size={22} color="white" />
-          </div>
+          <img
+            src="/gl-logo.png"
+            alt="OnStride"
+            style={{
+              width: '24px',
+              height: '24px',
+              filter: 'brightness(0) invert(1)'
+            }}
+          />
           <div>
-            <div style={{ color: 'white', fontWeight: 600, fontSize: '15px' }}>OnStride</div>
-            <div style={{ color: '#737373', fontSize: '12px' }}>Admin Portal</div>
+            <div style={{ color: 'white', fontWeight: 600, fontSize: '14px' }}>OnStride</div>
+            <div style={{ color: '#525252', fontSize: '11px' }}>Admin</div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav style={{ flex: 1, padding: '16px 12px' }}>
+        <nav style={{ flex: 1, padding: '8px' }}>
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -143,59 +141,26 @@ export default function AdminLayout() {
               style={({ isActive }) => ({
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                padding: '12px 16px',
-                borderRadius: '8px',
-                color: isActive ? 'white' : '#a3a3a3',
-                background: isActive ? '#262626' : 'transparent',
+                gap: '8px',
+                padding: '8px 12px',
+                borderRadius: '4px',
+                color: isActive ? 'white' : '#6b6b6b',
+                background: isActive ? '#1a1a1a' : 'transparent',
                 textDecoration: 'none',
-                fontSize: '14px',
-                fontWeight: isActive ? 500 : 400,
-                marginBottom: '4px',
-                transition: 'all 0.15s ease'
+                fontSize: '13px',
+                fontWeight: 400,
+                marginBottom: '2px',
+                transition: 'all 0.1s ease'
               })}
             >
-              <item.icon size={18} />
+              <item.icon size={15} />
               {item.label}
             </NavLink>
           ))}
         </nav>
 
         {/* User & Logout */}
-        <div style={{ padding: '16px', borderTop: '1px solid #262626' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            marginBottom: '12px'
-          }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              background: '#262626',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#a3a3a3',
-              fontSize: '14px',
-              fontWeight: 500
-            }}>
-              {user.name?.charAt(0).toUpperCase() || 'A'}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ color: 'white', fontSize: '14px', fontWeight: 500 }}>{user.name}</div>
-              <div style={{
-                color: '#737373',
-                fontSize: '12px',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
-              }}>
-                {user.email}
-              </div>
-            </div>
-          </div>
+        <div style={{ padding: '12px', borderTop: '1px solid #1f1f1f' }}>
           <button
             onClick={handleLogout}
             style={{
@@ -203,18 +168,18 @@ export default function AdminLayout() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
-              padding: '10px',
+              gap: '6px',
+              padding: '8px',
               background: 'transparent',
-              border: '1px solid #262626',
-              borderRadius: '8px',
-              color: '#a3a3a3',
-              fontSize: '14px',
+              border: '1px solid #252525',
+              borderRadius: '4px',
+              color: '#6b6b6b',
+              fontSize: '12px',
               cursor: 'pointer',
-              transition: 'all 0.15s ease'
+              transition: 'all 0.1s ease'
             }}
           >
-            <LogOut size={16} />
+            <LogOut size={14} />
             Sign Out
           </button>
         </div>
@@ -223,7 +188,7 @@ export default function AdminLayout() {
       {/* Main Content */}
       <main style={{
         flex: 1,
-        marginLeft: '240px',
+        marginLeft: '200px',
         minHeight: '100vh'
       }} className="admin-main">
         <Outlet />
