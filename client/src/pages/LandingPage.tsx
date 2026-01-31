@@ -711,7 +711,16 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.userName,
+          email: formData.email,
+          barnName: formData.barnName,
+          discipline: formData.discipline,
+          horseCount: formData.horseCount,
+          isDecisionMaker: formData.isDecisionMaker,
+          selectedDate: formData.selectedDate,
+          selectedTime: formData.selectedTime,
+        }),
       });
 
       if (!response.ok) {
