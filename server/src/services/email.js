@@ -731,6 +731,121 @@ The OnStride Team
   return sendEmail({ to, subject, text, html });
 };
 
+/**
+ * Send demo request confirmation email
+ * @param {Object} options
+ * @param {string} options.to - Recipient email
+ * @param {string} options.name - User's name
+ * @param {string} options.selectedDate - Selected demo date
+ * @param {string} options.selectedTime - Selected demo time
+ * @param {string} options.barnName - Barn name (optional)
+ */
+const sendDemoConfirmationEmail = async ({ to, name, selectedDate, selectedTime, barnName }) => {
+  const subject = 'Your OnStride Demo is Confirmed!';
+
+  const text = `
+Hi ${name || 'there'},
+
+Thanks for scheduling a demo with OnStride! We're excited to show you how OnStride can help manage ${barnName ? `"${barnName}"` : 'your barn'}.
+
+Demo Details:
+- Date: ${selectedDate || 'To be confirmed'}
+- Time: ${selectedTime || 'To be confirmed'}
+
+What to expect:
+- A personalized walkthrough of the OnStride platform
+- Learn how to manage horses, invoices, and scheduling
+- Get answers to all your questions
+- No commitment required
+
+We'll send you a calendar invite and meeting link shortly. If you need to reschedule, just reply to this email.
+
+See you soon!
+The OnStride Team
+  `.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo Confirmed</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <tr>
+      <td style="background-color: #ffffff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <div style="display: inline-block; width: 60px; height: 60px; background-color: #10b981; border-radius: 50%; line-height: 60px; text-align: center;">
+            <span style="color: white; font-size: 30px;">✓</span>
+          </div>
+        </div>
+
+        <h1 style="color: #1a1a1a; font-size: 24px; margin: 0 0 20px 0; text-align: center;">Your Demo is Confirmed!</h1>
+
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+          Hi ${name || 'there'},
+        </p>
+
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+          Thanks for scheduling a demo with OnStride! We're excited to show you how OnStride can help manage ${barnName ? `<strong>"${barnName}"</strong>` : 'your barn'}.
+        </p>
+
+        <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%; margin: 0 0 30px 0; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
+          <tr>
+            <td style="padding: 20px;">
+              <h3 style="color: #166534; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">Demo Details</h3>
+              <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%;">
+                <tr>
+                  <td style="padding: 8px 0; color: #4a4a4a; font-size: 14px; width: 80px;">📅 Date</td>
+                  <td style="padding: 8px 0; color: #1a1a1a; font-size: 16px; font-weight: 600;">${selectedDate || 'To be confirmed'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #4a4a4a; font-size: 14px;">🕐 Time</td>
+                  <td style="padding: 8px 0; color: #1a1a1a; font-size: 16px; font-weight: 600;">${selectedTime || 'To be confirmed'}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 10px 0;">
+          <strong>What to expect:</strong>
+        </p>
+        <ul style="color: #4a4a4a; font-size: 14px; line-height: 1.8; margin: 0 0 25px 0; padding-left: 20px;">
+          <li>A personalized walkthrough of the OnStride platform</li>
+          <li>Learn how to manage horses, invoices, and scheduling</li>
+          <li>Get answers to all your questions</li>
+          <li>No commitment required</li>
+        </ul>
+
+        <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0; background-color: #f9fafb; padding: 15px; border-radius: 6px;">
+          💡 We'll send you a calendar invite and meeting link shortly. If you need to reschedule, just reply to this email.
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+        <p style="color: #9ca3af; font-size: 12px; margin: 0; text-align: center;">
+          See you soon!<br>The OnStride Team
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px; text-align: center;">
+        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+          &copy; ${new Date().getFullYear()} OnStride. All rights reserved.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  return sendEmail({ to, subject, text, html });
+};
+
 module.exports = {
   isConfigured,
   sendEmail,
@@ -740,4 +855,5 @@ module.exports = {
   sendInvoiceEmail,
   sendEmailVerificationEmail,
   sendLessonNotificationEmail,
+  sendDemoConfirmationEmail,
 };

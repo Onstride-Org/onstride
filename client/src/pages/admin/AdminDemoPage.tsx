@@ -58,10 +58,21 @@ export default function AdminDemoPage() {
       if (filterStatus) params.append('status', filterStatus);
       if (search) params.append('search', search);
 
-      const [requestsRes, statsRes] = await Promise.all([
-        fetch(`${apiBase}/admin/demo-requests?${params}`, { headers: getHeaders() }).then(r => r.json()),
-        fetch(`${apiBase}/admin/demo-requests/stats`, { headers: getHeaders() }).then(r => r.json())
+      const [requestsResponse, statsResponse] = await Promise.all([
+        fetch(`${apiBase}/admin/demo-requests?${params}`, { headers: getHeaders() }),
+        fetch(`${apiBase}/admin/demo-requests/stats`, { headers: getHeaders() })
       ]);
+
+      if (!requestsResponse.ok) {
+        console.error('Demo requests fetch failed:', requestsResponse.status, await requestsResponse.text());
+        return;
+      }
+      if (!statsResponse.ok) {
+        console.error('Stats fetch failed:', statsResponse.status, await statsResponse.text());
+      }
+
+      const requestsRes = await requestsResponse.json();
+      const statsRes = statsResponse.ok ? await statsResponse.json() : {};
 
       setRequests(requestsRes.data || []);
       setTotalPages(requestsRes.pagination?.pages || 1);
