@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
@@ -59,18 +59,16 @@ export default function AdminLoginPage() {
         border: '1px solid #262626'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{
-            width: '56px',
-            height: '56px',
-            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 16px'
-          }}>
-            <Shield size={28} color="white" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="OnStride"
+            style={{
+              height: '56px',
+              width: 'auto',
+              margin: '0 auto 16px',
+              display: 'block'
+            }}
+          />
           <h1 style={{ color: 'white', fontSize: '24px', fontWeight: 600, margin: 0 }}>
             Admin Portal
           </h1>
