@@ -139,6 +139,8 @@ const createDemoEvent = async ({ name, email, phone, barnName, discipline, horse
       'Demo booked via OnStride landing page'
     ].filter(Boolean);
 
+    // Note: Service accounts cannot add attendees or send invites without Domain-Wide Delegation
+    // The contact info is included in the description instead
     const event = {
       summary: `OnStride Demo: ${name}${barnName ? ` - ${barnName}` : ''}`,
       description: descriptionParts.join('\n'),
@@ -150,10 +152,6 @@ const createDemoEvent = async ({ name, email, phone, barnName, discipline, horse
         dateTime: endDate.toISOString(),
         timeZone: 'America/New_York',
       },
-      attendees: [
-        { email: email, displayName: name },
-        { email: 'admin@onstrideapp.com', displayName: 'OnStride Team' }
-      ],
       reminders: {
         useDefault: false,
         overrides: [
@@ -161,20 +159,34 @@ const createDemoEvent = async ({ name, email, phone, barnName, discipline, horse
           { method: 'popup', minutes: 15 },     // 15 minutes before
         ],
       },
-      conferenceData: {
+    };
+
+    // Only add attendees and conference data if using domain-wide delegation
+    if (GOOGLE_CALENDAR_IMPERSONATE) {
+      event.attendees = [
+        { email: email, displayName: name },
+        { email: 'admin@onstrideapp.com', displayName: 'OnStride Team' }
+      ];
+      event.conferenceData = {
         createRequest: {
           requestId: `demo-${Date.now()}`,
           conferenceSolutionKey: { type: 'hangoutsMeet' }
         }
-      }
-    };
+      };
+    }
 
-    const response = await calendar.events.insert({
+    const insertOptions = {
       calendarId: GOOGLE_CALENDAR_ID,
       resource: event,
-      conferenceDataVersion: 1, // Required for Google Meet link
-      sendUpdates: 'all', // Send email invites to attendees
-    });
+    };
+
+    // Only request conference data and send updates if using domain-wide delegation
+    if (GOOGLE_CALENDAR_IMPERSONATE) {
+      insertOptions.conferenceDataVersion = 1; // Required for Google Meet link
+      insertOptions.sendUpdates = 'all'; // Send email invites to attendees
+    }
+
+    const response = await calendar.events.insert(insertOptions);
 
     console.log('Calendar event created:', response.data.id);
     console.log('Google Meet link:', response.data.hangoutLink);
@@ -221,11 +233,17 @@ const deleteEvent = async (eventId) => {
   if (!calendar) return false;
 
   try {
-    await calendar.events.delete({
+    const deleteOptions = {
       calendarId: GOOGLE_CALENDAR_ID,
       eventId: eventId,
-      sendUpdates: 'all',
-    });
+    };
+
+    // Only send updates if using domain-wide delegation
+    if (GOOGLE_CALENDAR_IMPERSONATE) {
+      deleteOptions.sendUpdates = 'all';
+    }
+
+    await calendar.events.delete(deleteOptions);
     console.log('Calendar event deleted:', eventId);
     return true;
   } catch (error) {
