@@ -24,6 +24,7 @@ import DashboardPage from './pages/DashboardPage';
 import HorsesPage from './pages/horses/HorsesPage';
 import HorseDetailPage from './pages/horses/HorseDetailPage';
 import InvoiceDetailPage from './pages/invoices/InvoiceDetailPage';
+import GuestInvoicePage from './pages/invoices/GuestInvoicePage';
 import CalendarPage from './pages/calendar/CalendarPage';
 import VendorsPage from './pages/vendors/VendorsPage';
 import UsersPage from './pages/users/UsersPage';
@@ -222,6 +223,9 @@ function App() {
         <Route path="admin/barns/:id" element={<AdminBarnDetailPage />} />
         <Route path="admin/demo-requests" element={<AdminDemoRequestsPage />} />
       </Route>
+
+      {/* Guest Invoice Page - Public (no auth required) */}
+      <Route path="/invoice/:token" element={<GuestInvoicePage />} />
 
       {/* Standalone Admin Portal */}
       <Route path="/admin/login" element={<AdminLoginPage />} />

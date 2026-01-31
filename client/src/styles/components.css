@@ -7844,3 +7844,287 @@ a.fin-transaction:hover {
     width: 100%;
   }
 }
+
+/* ============ Guest Invoice Page ============ */
+.guest-invoice-page {
+  min-height: 100vh;
+  background-color: var(--color-gray-100);
+  padding: var(--spacing-6) var(--spacing-4);
+}
+
+.guest-invoice-container {
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.guest-invoice-header {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  padding: var(--spacing-8) var(--spacing-6);
+  text-align: center;
+  color: white;
+}
+
+.guest-invoice-logo {
+  margin-bottom: var(--spacing-4);
+}
+
+.guest-invoice-logo img {
+  height: 40px;
+  width: auto;
+}
+
+.guest-invoice-title h1 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  margin: 0 0 var(--spacing-2) 0;
+  color: white;
+}
+
+.guest-invoice-title p {
+  font-size: var(--font-size-sm);
+  margin: 0;
+  opacity: 0.9;
+}
+
+.guest-invoice-status {
+  padding: var(--spacing-4) var(--spacing-6);
+  text-align: center;
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.badge-lg {
+  padding: var(--spacing-2) var(--spacing-4);
+  font-size: var(--font-size-base);
+}
+
+.guest-invoice-details {
+  padding: var(--spacing-6);
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.guest-invoice-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.guest-invoice-info .info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.guest-invoice-info .info-label {
+  color: var(--color-gray-600);
+  font-size: var(--font-size-sm);
+}
+
+.guest-invoice-info .info-value {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray-900);
+}
+
+.guest-invoice-charges {
+  padding: var(--spacing-6);
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.guest-invoice-charges h3 {
+  font-size: var(--font-size-lg);
+  margin: 0 0 var(--spacing-4) 0;
+}
+
+.charges-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.charges-table th {
+  text-align: left;
+  padding: var(--spacing-3) var(--spacing-2);
+  border-bottom: 2px solid var(--color-gray-200);
+  color: var(--color-gray-600);
+  font-weight: var(--font-weight-medium);
+}
+
+.charges-table td {
+  padding: var(--spacing-3) var(--spacing-2);
+  border-bottom: 1px solid var(--color-gray-100);
+}
+
+.charges-total {
+  margin-top: var(--spacing-4);
+  padding-top: var(--spacing-4);
+  border-top: 2px solid var(--color-gray-200);
+}
+
+.charges-total .total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.charges-total .total-amount {
+  color: var(--color-primary);
+  font-size: var(--font-size-xl);
+}
+
+.guest-invoice-notes {
+  padding: var(--spacing-6);
+  border-bottom: 1px solid var(--color-gray-200);
+  background: var(--color-gray-50);
+}
+
+.guest-invoice-notes h4 {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  margin: 0 0 var(--spacing-2) 0;
+}
+
+.guest-invoice-notes p {
+  margin: 0;
+  color: var(--color-gray-700);
+}
+
+.guest-invoice-payment {
+  padding: var(--spacing-6);
+}
+
+.guest-invoice-payment .payment-form {
+  background: var(--color-gray-50);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-5);
+}
+
+.guest-invoice-payment .payment-form h3 {
+  font-size: var(--font-size-lg);
+  margin: 0 0 var(--spacing-4) 0;
+}
+
+.guest-invoice-payment .payment-actions {
+  display: flex;
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-4);
+}
+
+.guest-invoice-payment .payment-actions .btn {
+  flex: 1;
+}
+
+.guest-invoice-footer {
+  padding: var(--spacing-4) var(--spacing-6);
+  text-align: center;
+  background: var(--color-gray-50);
+  border-top: 1px solid var(--color-gray-200);
+}
+
+.guest-invoice-footer p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+}
+
+.guest-invoice-footer a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.guest-invoice-footer a:hover {
+  text-decoration: underline;
+}
+
+.guest-invoice-error {
+  padding: var(--spacing-12) var(--spacing-6);
+  text-align: center;
+  color: var(--color-gray-600);
+}
+
+.guest-invoice-error svg {
+  color: var(--color-gray-400);
+  margin-bottom: var(--spacing-4);
+}
+
+.guest-invoice-error h2 {
+  font-size: var(--font-size-xl);
+  color: var(--color-gray-900);
+  margin: 0 0 var(--spacing-2) 0;
+}
+
+.guest-invoice-error p {
+  margin: 0;
+}
+
+/* Mobile responsive for guest invoice */
+@media (max-width: 480px) {
+  .guest-invoice-page {
+    padding: 0;
+  }
+
+  .guest-invoice-container {
+    border-radius: 0;
+    min-height: 100vh;
+  }
+
+  .guest-invoice-header {
+    padding: var(--spacing-6) var(--spacing-4);
+  }
+
+  .guest-invoice-details,
+  .guest-invoice-charges,
+  .guest-invoice-payment {
+    padding: var(--spacing-4);
+  }
+
+  .guest-invoice-payment .payment-actions {
+    flex-direction: column;
+  }
+}
+
+/* ============ Invoice Type Toggle ============ */
+.invoice-type-toggle {
+  display: flex;
+  gap: var(--spacing-2);
+  background: var(--color-gray-100);
+  padding: var(--spacing-1);
+  border-radius: var(--radius-md);
+}
+
+.invoice-type-toggle .toggle-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-4);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray-600);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.invoice-type-toggle .toggle-btn:hover {
+  color: var(--color-gray-900);
+}
+
+.invoice-type-toggle .toggle-btn.active {
+  background: var(--color-white);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 480px) {
+  .invoice-type-toggle {
+    flex-direction: column;
+  }
+}

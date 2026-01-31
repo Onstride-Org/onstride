@@ -64,8 +64,30 @@ const invoiceSchema = new mongoose.Schema({
   },
   boarderId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: 'User'
+    // Not required - can be null for guest invoices
+  },
+  // Guest invoice fields (for non-OnStride users)
+  isGuestInvoice: {
+    type: Boolean,
+    default: false
+  },
+  guestEmail: {
+    type: String,
+    trim: true,
+    lowercase: true
+  },
+  guestName: {
+    type: String,
+    trim: true
+  },
+  guestToken: {
+    type: String,
+    unique: true,
+    sparse: true  // Allow multiple nulls
+  },
+  guestTokenExpiresAt: {
+    type: Date
   },
   horseId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -114,6 +136,7 @@ invoiceSchema.index({ barnId: 1, status: 1 });
 invoiceSchema.index({ boarderId: 1, status: 1 });
 invoiceSchema.index({ dueDate: 1 });
 invoiceSchema.index({ deletedAt: 1 });
+invoiceSchema.index({ guestToken: 1 });
 
 // Calculate subtotal
 invoiceSchema.virtual('subtotal').get(function() {

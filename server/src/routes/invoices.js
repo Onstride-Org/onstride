@@ -1,5 +1,6 @@
 const express = require('express');
-const { body, param } = require('express-validator');
+const crypto = require('crypto');
+const { body, param, query } = require('express-validator');
 const Invoice = require('../models/Invoice');
 const User = require('../models/User');
 const Barn = require('../models/Barn');
@@ -17,8 +18,166 @@ const formatDate = (date) => {
   return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 };
 
+// Generate secure token for guest invoices
+const generateGuestToken = () => {
+  return crypto.randomBytes(32).toString('hex');
+};
+
 const router = express.Router();
 
+// ============================================
+// PUBLIC ROUTES (no authentication required)
+// ============================================
+
+// Get guest invoice by token (public)
+router.get('/guest/:token', [
+  param('token').isLength({ min: 64, max: 64 }),
+  validate
+], async (req, res, next) => {
+  try {
+    const invoice = await Invoice.findOne({
+      guestToken: req.params.token,
+      isGuestInvoice: true,
+      deletedAt: null
+    }).populate('horseId', 'name').populate('barnId', 'name');
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found or link has expired' });
+    }
+
+    // Check if token has expired (30 days)
+    if (invoice.guestTokenExpiresAt && new Date() > invoice.guestTokenExpiresAt) {
+      return res.status(410).json({ error: 'This invoice link has expired' });
+    }
+
+    // Return invoice data for guest view
+    res.json({
+      id: invoice._id,
+      barnName: invoice.barnId?.name || 'Unknown Barn',
+      guestName: invoice.guestName,
+      guestEmail: invoice.guestEmail,
+      horse: invoice.horseId?.name,
+      charges: invoice.charges,
+      dueDate: invoice.dueDate,
+      status: invoice.status,
+      paymentBreakdown: invoice.paymentBreakdown,
+      notes: invoice.notes,
+      createdAt: invoice.createdAt,
+      paidAt: invoice.paidAt
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Pay guest invoice (public)
+router.post('/guest/:token/pay', [
+  param('token').isLength({ min: 64, max: 64 }),
+  body('cardNumber').notEmpty().isLength({ min: 13, max: 19 }),
+  body('expiryMonth').notEmpty().isLength({ min: 2, max: 2 }),
+  body('expiryYear').notEmpty().isLength({ min: 4, max: 4 }),
+  body('cvv').notEmpty().isLength({ min: 3, max: 4 }),
+  body('cardholderName').notEmpty().trim(),
+  validate
+], async (req, res, next) => {
+  try {
+    const invoice = await Invoice.findOne({
+      guestToken: req.params.token,
+      isGuestInvoice: true,
+      deletedAt: null
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    if (invoice.guestTokenExpiresAt && new Date() > invoice.guestTokenExpiresAt) {
+      return res.status(410).json({ error: 'This invoice link has expired' });
+    }
+
+    if (invoice.status === 'paid') {
+      return res.status(400).json({ error: 'Invoice is already paid' });
+    }
+
+    // Get barn-specific Windcave credentials
+    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
+      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
+
+    let credentials = null;
+    if (merchantApp?.windcaveCredentials?.isActive) {
+      credentials = merchantApp.getWindcaveCredentials();
+    }
+
+    if (!windcave.hasValidCredentials(credentials)) {
+      return res.status(503).json({
+        error: 'Payment processing is not available. Please contact the barn directly.'
+      });
+    }
+
+    const { cardNumber, expiryMonth, expiryYear, cvv, cardholderName } = req.body;
+
+    const result = await windcave.processDirectPayment({
+      amount: invoice.paymentBreakdown.total,
+      currency: 'USD',
+      merchantReference: `GUEST-INV-${invoice._id}`,
+      cardNumber,
+      expiryMonth,
+      expiryYear,
+      cvv,
+      cardholderName,
+      credentials,
+    });
+
+    if (result.authorised) {
+      invoice.status = 'paid';
+      invoice.paidAt = new Date();
+      invoice.method = 'card';
+      invoice.windcavePaymentInfo = {
+        sessionId: result.sessionId,
+        transactionId: result.transactionId,
+        cardNumber: result.cardNumber,
+        cardType: result.cardType,
+        responseCode: result.responseCode,
+        responseText: result.responseText,
+        rrn: result.rrn,
+      };
+      await invoice.save();
+
+      return res.json({
+        status: 'paid',
+        authorised: true,
+        message: 'Payment successful',
+      });
+    } else if (result.requires3DS) {
+      const hppLink = result.links?.find(l => l.rel === 'hpp' || l.rel === 'redirect');
+      return res.json({
+        status: 'requires_action',
+        requires3DS: true,
+        redirectUrl: hppLink?.href,
+        sessionId: result.sessionId,
+      });
+    } else {
+      invoice.status = 'failed';
+      invoice.failureReason = result.responseText || 'Payment declined';
+      await invoice.save();
+
+      return res.status(400).json({
+        status: 'failed',
+        authorised: false,
+        responseText: result.responseText || 'Payment was declined',
+      });
+    }
+  } catch (error) {
+    console.error('Guest payment error:', error.message);
+    return res.status(400).json({
+      error: error.message || 'Payment failed',
+    });
+  }
+});
+
+// ============================================
+// AUTHENTICATED ROUTES
+// ============================================
 router.use(authenticate);
 router.use(loadBarnContext);
 
@@ -142,6 +301,76 @@ router.post('/', [
         console.error('Failed to send invoice email:', emailError.message);
         // Don't fail the request if email fails
       }
+    }
+
+    res.status(201).json(populated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Create guest invoice (for non-OnStride users)
+router.post('/guest', [
+  requireBarn,
+  hasPermission('generateInvoices'),
+  body('guestEmail').isEmail().normalizeEmail(),
+  body('guestName').notEmpty().trim(),
+  body('dueDate').isISO8601(),
+  body('charges').isArray({ min: 1 }),
+  validate
+], async (req, res, next) => {
+  try {
+    const { guestEmail, guestName, horseId, dueDate, charges, notes } = req.body;
+
+    // Calculate subtotal
+    const subtotal = charges.reduce((sum, c) => sum + (c.amount * (c.quantity || 1)), 0);
+
+    // Calculate fees using Windcave fee structure
+    const feeBreakdown = windcave.calculateFees(subtotal);
+
+    // Generate secure token for guest access (valid for 30 days)
+    const guestToken = generateGuestToken();
+    const guestTokenExpiresAt = new Date();
+    guestTokenExpiresAt.setDate(guestTokenExpiresAt.getDate() + 30);
+
+    const invoice = await Invoice.create({
+      barnId: req.barnId,
+      isGuestInvoice: true,
+      guestEmail,
+      guestName,
+      guestToken,
+      guestTokenExpiresAt,
+      horseId,
+      createdById: req.userId,
+      dueDate,
+      charges,
+      notes,
+      platformFeePercent: 2.5,
+      paymentBreakdown: {
+        subtotal: feeBreakdown.subtotal,
+        processingFee: feeBreakdown.processingFee,
+        platformFee: feeBreakdown.platformFee,
+        total: subtotal
+      }
+    });
+
+    const populated = await Invoice.findById(invoice._id)
+      .populate('horseId', 'name');
+
+    // Send email to guest with payment link
+    try {
+      const barn = await Barn.findById(req.barnId);
+      await emailService.sendGuestInvoiceEmail({
+        to: guestEmail,
+        name: guestName,
+        barnName: barn?.name || 'Your Barn',
+        invoiceId: invoice._id.toString(),
+        guestToken,
+        amount: subtotal,
+        dueDate: formatDate(dueDate)
+      });
+    } catch (emailError) {
+      console.error('Failed to send guest invoice email:', emailError.message);
     }
 
     res.status(201).json(populated);

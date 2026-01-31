@@ -1455,7 +1455,10 @@ function CreateInvoiceModal({
   onSuccess: () => void;
 }) {
   const { user: currentUser } = useAuthStore();
+  const [invoiceType, setInvoiceType] = useState<'user' | 'guest'>('user');
   const [boarderId, setBoarderId] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestName, setGuestName] = useState('');
   const [horseId, setHorseId] = useState('');
   const [dueDate, setDueDate] = useState(format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'));
   const [charges, setCharges] = useState<Array<{ description: string; amount: string; quantity: string; type: ChargeType }>>([{ description: '', amount: '', quantity: '1', type: 'board' }]);
@@ -1523,25 +1526,55 @@ function CreateInvoiceModal({
     e.preventDefault();
     setError('');
 
-    if (!boarderId) {
+    // Validation
+    if (invoiceType === 'user' && !boarderId) {
       setError('Please select a user');
       return;
+    }
+    if (invoiceType === 'guest') {
+      if (!guestEmail) {
+        setError('Please enter an email address');
+        return;
+      }
+      if (!guestName) {
+        setError('Please enter a name');
+        return;
+      }
+      // Basic email validation
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail)) {
+        setError('Please enter a valid email address');
+        return;
+      }
     }
 
     setIsLoading(true);
 
     try {
-      await invoicesApi.create({
-        boarderId,
-        horseId: horseId || undefined,
-        dueDate,
-        charges: charges.map((c) => ({
-          description: c.description,
-          amount: parseFloat(c.amount),
-          quantity: parseInt(c.quantity),
-          type: c.type,
-        })),
-      });
+      const chargeData = charges.map((c) => ({
+        description: c.description,
+        amount: parseFloat(c.amount),
+        quantity: parseInt(c.quantity),
+        type: c.type,
+      }));
+
+      if (invoiceType === 'guest') {
+        // Create guest invoice
+        await invoicesApi.createGuest({
+          guestEmail,
+          guestName,
+          horseId: horseId || undefined,
+          dueDate,
+          charges: chargeData,
+        });
+      } else {
+        // Create regular invoice
+        await invoicesApi.create({
+          boarderId,
+          horseId: horseId || undefined,
+          dueDate,
+          charges: chargeData,
+        });
+      }
       onSuccess();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to create invoice');
@@ -1574,23 +1607,76 @@ function CreateInvoiceModal({
               </div>
             ) : (
               <>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Bill To *</label>
-                    <select
-                      className="form-select"
-                      value={boarderId}
-                      onChange={(e) => setBoarderId(e.target.value)}
-                      required
+                {/* Invoice Type Toggle */}
+                <div className="form-group">
+                  <label className="form-label">Send To</label>
+                  <div className="invoice-type-toggle">
+                    <button
+                      type="button"
+                      className={`toggle-btn ${invoiceType === 'user' ? 'active' : ''}`}
+                      onClick={() => setInvoiceType('user')}
                     >
-                      <option value="">Select a user...</option>
-                      {billableUsers.map(user => (
-                        <option key={user.id} value={user.id}>
-                          {user.name} ({user.accountType}) - {user.email}
-                        </option>
-                      ))}
-                    </select>
+                      <Users size={16} />
+                      OnStride User
+                    </button>
+                    <button
+                      type="button"
+                      className={`toggle-btn ${invoiceType === 'guest' ? 'active' : ''}`}
+                      onClick={() => setInvoiceType('guest')}
+                    >
+                      <FileText size={16} />
+                      Guest (Email Only)
+                    </button>
                   </div>
+                  {invoiceType === 'guest' && (
+                    <p className="form-hint">Send an invoice to someone who doesn't have an OnStride account. They'll receive an email with a link to view and pay.</p>
+                  )}
+                </div>
+
+                <div className="form-row">
+                  {invoiceType === 'user' ? (
+                    <div className="form-group">
+                      <label className="form-label">Bill To *</label>
+                      <select
+                        className="form-select"
+                        value={boarderId}
+                        onChange={(e) => setBoarderId(e.target.value)}
+                        required={invoiceType === 'user'}
+                      >
+                        <option value="">Select a user...</option>
+                        {billableUsers.map(user => (
+                          <option key={user.id} value={user.id}>
+                            {user.name} ({user.accountType}) - {user.email}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="form-group">
+                        <label className="form-label">Name *</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={guestName}
+                          onChange={(e) => setGuestName(e.target.value)}
+                          placeholder="Recipient's name"
+                          required={invoiceType === 'guest'}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Email *</label>
+                        <input
+                          type="email"
+                          className="form-input"
+                          value={guestEmail}
+                          onChange={(e) => setGuestEmail(e.target.value)}
+                          placeholder="email@example.com"
+                          required={invoiceType === 'guest'}
+                        />
+                      </div>
+                    </>
+                  )}
                   <div className="form-group">
                     <label className="form-label">Due Date *</label>
                     <input

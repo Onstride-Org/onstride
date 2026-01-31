@@ -443,6 +443,12 @@ export const invoicesApi = {
     return transformInvoice(response.data);
   },
 
+  // Create guest invoice (for non-OnStride users)
+  createGuest: async (data: { guestEmail: string; guestName: string; horseId?: string; dueDate: string; charges: object[] }) => {
+    const response = await api.post('/invoices/guest', data);
+    return transformInvoice(response.data);
+  },
+
   update: async (id: string, data: object) => {
     const response = await api.put(`/invoices/${id}`, data);
     return transformInvoice(response.data);
