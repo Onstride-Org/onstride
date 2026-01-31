@@ -354,7 +354,7 @@ The OnStride Team
  * @param {string} options.dueDate - Due date
  */
 const sendInvoiceEmail = async ({ to, name, barnName, invoiceId, amount, dueDate }) => {
-  const invoiceUrl = `${CLIENT_URL}/invoices/${invoiceId}`;
+  const invoiceUrl = `${CLIENT_URL}/app/invoices/${invoiceId}`;
 
   const subject = `New Invoice from ${barnName} - $${amount.toFixed(2)}`;
 

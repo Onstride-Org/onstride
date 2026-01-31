@@ -130,13 +130,15 @@ export default function PaymentModal({
 
     try {
       const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
+      const barnId = localStorage.getItem('currentBarnId');
 
       const response = await fetch(`${apiBase}/invoices/${invoiceId}/pay-direct`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          ...(barnId && { 'X-Barn-Id': barnId }),
         },
         body: JSON.stringify({
           cardNumber: cardDetails.cardNumber.replace(/\s/g, ''),
