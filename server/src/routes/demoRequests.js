@@ -2,6 +2,7 @@ const express = require('express');
 const DemoRequest = require('../models/DemoRequest');
 const DemoAvailability = require('../models/DemoAvailability');
 const { sendDemoConfirmationEmail, sendDemoAdminNotification } = require('../services/email');
+const { createDemoEvent, isConfigured: isCalendarConfigured } = require('../services/googleCalendar');
 
 const router = express.Router();
 
@@ -110,10 +111,39 @@ router.post('/', async (req, res, next) => {
       console.error('Failed to send demo admin notification:', emailError.message);
     }
 
+    // Create Google Calendar event with Meet link
+    let calendarEvent = null;
+    if (isCalendarConfigured()) {
+      try {
+        calendarEvent = await createDemoEvent({
+          name,
+          email,
+          phone,
+          barnName,
+          discipline,
+          horseCount,
+          selectedDate,
+          selectedTime
+        });
+        if (calendarEvent) {
+          console.log('Calendar event created:', calendarEvent.eventId);
+          console.log('Meet link:', calendarEvent.meetLink);
+
+          // Update the demo request with calendar info
+          demoRequest.calendarEventId = calendarEvent.eventId;
+          demoRequest.meetLink = calendarEvent.meetLink;
+          await demoRequest.save();
+        }
+      } catch (calendarError) {
+        console.error('Failed to create calendar event:', calendarError.message);
+      }
+    }
+
     res.status(201).json({
       success: true,
       message: 'Demo request submitted successfully',
-      id: demoRequest._id
+      id: demoRequest._id,
+      meetLink: calendarEvent?.meetLink || null
     });
   } catch (error) {
     next(error);

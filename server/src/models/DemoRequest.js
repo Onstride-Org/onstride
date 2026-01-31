@@ -47,6 +47,14 @@ const demoRequestSchema = new mongoose.Schema({
   notes: {
     type: String,
     trim: true
+  },
+  calendarEventId: {
+    type: String,
+    trim: true
+  },
+  meetLink: {
+    type: String,
+    trim: true
   }
 }, {
   timestamps: true
