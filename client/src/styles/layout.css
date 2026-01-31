@@ -12,8 +12,8 @@
 /* ============ Sidebar ============ */
 .sidebar {
   width: var(--sidebar-width);
-  background-color: #f2f1f1;
-  border-right: 1px solid var(--color-border-light);
+  background-color: var(--color-neutral-0);
+  border-right: 1px solid var(--color-neutral-200);
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -25,8 +25,7 @@
 }
 
 .sidebar-header {
-  padding: var(--spacing-4) var(--spacing-5);
-  border-bottom: 1px solid var(--color-border-light);
+  padding: var(--spacing-5) var(--spacing-5);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -39,23 +38,22 @@
   gap: var(--spacing-3);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
-  color: var(--color-primary);
+  color: var(--color-neutral-900);
 }
 
 .sidebar-logo svg {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
 }
 
-/* Logo image styles - displays PNG in primary green */
+/* Logo image styles */
 .logo-img {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   object-fit: contain;
-  /* CSS filter to apply brand color (#405D4B) */
-  filter: brightness(0) saturate(100%) invert(33%) sepia(15%) saturate(749%) hue-rotate(93deg) brightness(97%) contrast(89%);
+  filter: brightness(0) saturate(100%);
 }
 
 .logo-img-lg {
@@ -69,28 +67,28 @@
 
 /* Barn selector – label + dropdown or current barn pill */
 .barn-selector {
-  padding: var(--spacing-3) var(--spacing-4);
-  border-bottom: 1px solid var(--color-border-light);
-  background-color: var(--color-neutral-50);
+  padding: var(--spacing-3) var(--spacing-5);
+  margin-bottom: var(--spacing-2);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-2);
+  gap: var(--spacing-1);
 }
 
 .barn-selector-label {
   display: flex;
   align-items: center;
   gap: var(--spacing-2);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-neutral-400);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .barn-selector-label svg {
   flex-shrink: 0;
-  opacity: 0.8;
+  width: 12px;
+  height: 12px;
 }
 
 /* Multi-barn: custom dropdown wrapper */
@@ -101,17 +99,17 @@
 
 .barn-select {
   width: 100%;
-  padding: var(--spacing-2) var(--spacing-3) var(--spacing-2) var(--spacing-3);
-  padding-right: var(--spacing-10);
+  padding: var(--spacing-2) var(--spacing-3);
+  padding-right: var(--spacing-8);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-  background-color: var(--color-surface-elevated);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
+  font-weight: 500;
+  color: var(--color-neutral-900);
+  background-color: var(--color-neutral-50);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
   appearance: none;
   cursor: pointer;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--transition-fast);
 }
 
 .barn-select:hover {
@@ -120,8 +118,7 @@
 
 .barn-select:focus {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.06);
+  border-color: var(--color-neutral-400);
 }
 
 .barn-select-chevron {
@@ -129,25 +126,23 @@
   right: var(--spacing-3);
   top: 50%;
   transform: translateY(-50%);
-  color: var(--color-text-muted);
+  color: var(--color-neutral-400);
   pointer-events: none;
+  width: 14px;
+  height: 14px;
 }
 
-/* Single barn: pill with truncated name */
+/* Single barn: simple text display */
 .current-barn {
-  padding: var(--spacing-2) var(--spacing-3);
-  background-color: var(--color-surface-elevated);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  min-height: 40px;
+  padding: var(--spacing-1) 0;
   display: flex;
   align-items: center;
 }
 
 .current-barn-name {
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
+  font-weight: 500;
+  color: var(--color-neutral-900);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -155,55 +150,49 @@
 
 .sidebar-nav {
   flex: 1;
-  padding: var(--spacing-4) var(--spacing-3);
+  padding: var(--spacing-2) var(--spacing-3);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-1);
+  gap: 2px;
 }
 
 /* Nav group spacing: more space between Dashboard and rest */
 .sidebar-nav .nav-item:first-child {
-  margin-bottom: var(--spacing-2);
+  margin-bottom: var(--spacing-1);
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: var(--spacing-3);
-  padding: var(--spacing-3) var(--spacing-4);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-neutral-500);
+  border-radius: var(--radius-md);
   transition: all var(--transition-fast);
   text-decoration: none;
   position: relative;
 }
 
 .nav-item:hover {
-  background-color: var(--color-surface);
-  color: var(--color-text-primary);
+  background-color: var(--color-neutral-100);
+  color: var(--color-neutral-700);
 }
 
-/* Active: left indicator bar + background */
+/* Active: subtle background, dark text */
 .nav-item.active {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
-  font-weight: var(--font-weight-medium);
+  background-color: var(--color-neutral-100);
+  color: var(--color-neutral-900);
+  font-weight: 500;
 }
 
 .nav-item.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: var(--spacing-2);
-  bottom: var(--spacing-2);
-  width: 3px;
-  background-color: var(--color-primary);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  display: none;
 }
 
-/* Slightly smaller icons */
+/* Nav icons */
 .nav-icon {
   width: 18px;
   height: 18px;
@@ -211,6 +200,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0.7;
+}
+
+.nav-item:hover .nav-icon,
+.nav-item.active .nav-icon {
+  opacity: 1;
 }
 
 .nav-icon svg {
@@ -222,21 +217,15 @@
   flex: 1;
 }
 
-/* Settings: visually separated (lighter text) */
+/* Settings: visually separated */
 .nav-item[href*="settings"] {
-  margin-top: var(--spacing-3);
+  margin-top: auto;
   padding-top: var(--spacing-3);
-  border-top: 1px solid var(--color-border-light);
-  color: var(--color-text-muted);
-}
-
-.nav-item[href*="settings"]:hover {
-  color: var(--color-text-secondary);
 }
 
 .sidebar-footer {
-  padding: var(--spacing-4);
-  border-top: 1px solid var(--color-border-light);
+  padding: var(--spacing-4) var(--spacing-4);
+  border-top: 1px solid var(--color-neutral-200);
   display: flex;
   align-items: center;
   gap: var(--spacing-3);
@@ -251,16 +240,16 @@
 }
 
 .user-avatar {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-full);
-  background-color: var(--color-primary);
-  color: white;
+  background-color: var(--color-neutral-200);
+  color: var(--color-neutral-600);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-sm);
+  font-weight: 500;
+  font-size: 13px;
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -276,30 +265,36 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 1px;
 }
 
 .user-name {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-neutral-900);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .user-role {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  font-size: 11px;
+  color: var(--color-neutral-400);
   text-transform: capitalize;
 }
 
 .logout-btn {
   flex-shrink: 0;
+  color: var(--color-neutral-400);
+}
+
+.logout-btn:hover {
+  color: var(--color-neutral-600);
 }
 
 .logout-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 /* Sidebar overlay for mobile */
