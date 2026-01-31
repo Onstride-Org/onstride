@@ -1155,6 +1155,10 @@ function PaymentsTab({
     setShowWizard(true);
   };
 
+  const handleManageCredentials = () => {
+    setShowCredentials(true);
+  };
+
   const handleWizardClose = () => {
     setShowWizard(false);
     setRefreshKey(prev => prev + 1);
@@ -1174,6 +1178,7 @@ function PaymentsTab({
         onContinueApplication={handleContinueApplication}
         onEnterCredentials={handleEnterCredentials}
         onViewApplication={handleViewApplication}
+        onManageCredentials={handleManageCredentials}
       />
 
       {/* QuickBooks Payments History (if connected) */}

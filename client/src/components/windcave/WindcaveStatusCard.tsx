@@ -38,6 +38,7 @@ interface WindcaveStatusCardProps {
   onContinueApplication: () => void;
   onEnterCredentials: () => void;
   onViewApplication?: () => void;
+  onManageCredentials?: () => void;
 }
 
 export default function WindcaveStatusCard({
@@ -45,6 +46,7 @@ export default function WindcaveStatusCard({
   onContinueApplication,
   onEnterCredentials,
   onViewApplication,
+  onManageCredentials,
 }: WindcaveStatusCardProps) {
   const [application, setApplication] = useState<MerchantApplication | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,7 +99,7 @@ export default function WindcaveStatusCard({
     );
   }
 
-  // State 1: No Application Started
+  // State 1: No Application Started - Allow direct credential entry OR full application
   if (!application?.exists) {
     return (
       <div className="vendor-card windcave-status-card">
@@ -133,10 +135,14 @@ export default function WindcaveStatusCard({
             </div>
           </div>
         </div>
-        <div className="vendor-card-actions">
-          <button className="btn btn-primary" onClick={onStartApplication}>
+        <div className="vendor-card-actions windcave-action-buttons">
+          <button className="btn btn-primary" onClick={onEnterCredentials}>
+            <CreditCard size={18} />
+            I Have Windcave Credentials
+          </button>
+          <button className="btn btn-outline" onClick={onStartApplication}>
             <Building2 size={18} />
-            Start Merchant Application
+            Apply for New Account
             <ArrowRight size={18} />
           </button>
         </div>
@@ -376,6 +382,13 @@ export default function WindcaveStatusCard({
             <span className="card-type">ACH</span>
           </div>
         </div>
+        {onManageCredentials && (
+          <div className="vendor-card-actions">
+            <button className="btn btn-outline btn-sm" onClick={onManageCredentials}>
+              Update Credentials
+            </button>
+          </div>
+        )}
       </div>
     );
   }

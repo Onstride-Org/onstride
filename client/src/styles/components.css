@@ -6490,6 +6490,27 @@ a.fin-transaction:hover {
   font-size: var(--font-size-sm);
 }
 
+.windcave-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.windcave-action-buttons .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (min-width: 480px) {
+  .windcave-action-buttons {
+    flex-direction: row;
+  }
+
+  .windcave-action-buttons .btn {
+    width: auto;
+  }
+}
+
 .windcave-progress {
   margin-bottom: var(--spacing-4);
 }

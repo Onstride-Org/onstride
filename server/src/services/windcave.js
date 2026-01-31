@@ -9,6 +9,10 @@
  * - Session-based payments
  * - Transaction queries
  * - Refunds
+ *
+ * Supports both:
+ * - Per-barn credentials (stored in MerchantApplication)
+ * - Global credentials via environment variables (fallback)
  */
 
 const axios = require('axios');
@@ -19,23 +23,45 @@ const WINDCAVE_API_URL = process.env.WINDCAVE_API_URL || 'https://sec.windcave.c
 const WINDCAVE_API_USER = process.env.WINDCAVE_API_USER;
 const WINDCAVE_API_KEY = process.env.WINDCAVE_API_KEY;
 
-// Create axios instance with Windcave auth
-const windcaveApi = axios.create({
-  baseURL: WINDCAVE_API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  auth: {
-    username: WINDCAVE_API_USER || '',
-    password: WINDCAVE_API_KEY || '',
-  },
-});
+/**
+ * Create an axios instance with specific credentials
+ * @param {Object} credentials - Optional barn-specific credentials { apiKey, apiSecret }
+ */
+const createApiClient = (credentials = null) => {
+  const apiKey = credentials?.apiKey || WINDCAVE_API_USER;
+  const apiSecret = credentials?.apiSecret || WINDCAVE_API_KEY;
+
+  return axios.create({
+    baseURL: WINDCAVE_API_URL,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    auth: {
+      username: apiKey || '',
+      password: apiSecret || '',
+    },
+  });
+};
+
+// Default axios instance for backward compatibility
+const windcaveApi = createApiClient();
 
 /**
- * Check if Windcave is configured
+ * Check if Windcave is configured (global credentials)
  */
 const isConfigured = () => {
   return !!(WINDCAVE_API_USER && WINDCAVE_API_KEY);
+};
+
+/**
+ * Check if credentials are valid (either passed credentials or global)
+ * @param {Object} credentials - Optional barn-specific credentials
+ */
+const hasValidCredentials = (credentials = null) => {
+  if (credentials && credentials.apiKey && credentials.apiSecret) {
+    return true;
+  }
+  return isConfigured();
 };
 
 /**
@@ -50,6 +76,7 @@ const isConfigured = () => {
  * @param {string} options.customerName - Customer name
  * @param {string} options.returnUrl - URL to return after payment
  * @param {string} options.callbackUrl - Webhook URL for payment notifications
+ * @param {Object} options.credentials - Optional barn-specific Windcave credentials { apiKey, apiSecret }
  * @returns {Object} Session data with redirect URL
  */
 const createPaymentSession = async (options) => {
@@ -62,11 +89,15 @@ const createPaymentSession = async (options) => {
     customerName,
     returnUrl,
     callbackUrl,
+    credentials,
   } = options;
 
-  if (!isConfigured()) {
-    throw new Error('Windcave is not configured. Please set WINDCAVE_API_USER and WINDCAVE_API_KEY environment variables.');
+  if (!hasValidCredentials(credentials)) {
+    throw new Error('Windcave is not configured. Please add your Windcave credentials in the Payments settings.');
   }
+
+  // Use barn-specific credentials if provided, otherwise fall back to global
+  const apiClient = credentials ? createApiClient(credentials) : windcaveApi;
 
   // Convert dollars to cents (Windcave uses minor units)
   const amountInCents = Math.round(amount * 100);
@@ -95,7 +126,7 @@ const createPaymentSession = async (options) => {
   }
 
   try {
-    const response = await windcaveApi.post('/sessions', sessionData);
+    const response = await apiClient.post('/sessions', sessionData);
 
     return {
       sessionId: response.data.id,
@@ -114,15 +145,18 @@ const createPaymentSession = async (options) => {
  * Query a session to check its status
  *
  * @param {string} sessionId - Windcave session ID
+ * @param {Object} credentials - Optional barn-specific credentials
  * @returns {Object} Session status and transaction details
  */
-const getSession = async (sessionId) => {
-  if (!isConfigured()) {
+const getSession = async (sessionId, credentials = null) => {
+  if (!hasValidCredentials(credentials)) {
     throw new Error('Windcave is not configured');
   }
 
+  const apiClient = credentials ? createApiClient(credentials) : windcaveApi;
+
   try {
-    const response = await windcaveApi.get(`/sessions/${sessionId}`);
+    const response = await apiClient.get(`/sessions/${sessionId}`);
 
     const session = response.data;
     const transaction = session.transactions?.[0];
@@ -158,15 +192,18 @@ const getSession = async (sessionId) => {
  * Query a transaction directly
  *
  * @param {string} transactionId - Windcave transaction ID
+ * @param {Object} credentials - Optional barn-specific credentials
  * @returns {Object} Transaction details
  */
-const getTransaction = async (transactionId) => {
-  if (!isConfigured()) {
+const getTransaction = async (transactionId, credentials = null) => {
+  if (!hasValidCredentials(credentials)) {
     throw new Error('Windcave is not configured');
   }
 
+  const apiClient = credentials ? createApiClient(credentials) : windcaveApi;
+
   try {
-    const response = await windcaveApi.get(`/transactions/${transactionId}`);
+    const response = await apiClient.get(`/transactions/${transactionId}`);
     const tx = response.data;
 
     return {
@@ -199,17 +236,19 @@ const getTransaction = async (transactionId) => {
  * @param {string} originalTransactionId - Original transaction ID to refund
  * @param {number} amount - Amount to refund in dollars (will be converted to cents)
  * @param {string} merchantReference - Reference for the refund
+ * @param {Object} credentials - Optional barn-specific credentials
  * @returns {Object} Refund transaction details
  */
-const processRefund = async (originalTransactionId, amount, merchantReference) => {
-  if (!isConfigured()) {
+const processRefund = async (originalTransactionId, amount, merchantReference, credentials = null) => {
+  if (!hasValidCredentials(credentials)) {
     throw new Error('Windcave is not configured');
   }
 
+  const apiClient = credentials ? createApiClient(credentials) : windcaveApi;
   const amountInCents = Math.round(amount * 100);
 
   try {
-    const response = await windcaveApi.post('/transactions', {
+    const response = await apiClient.post('/transactions', {
       type: 'refund',
       amount: amountInCents.toString(),
       originalTransactionId: originalTransactionId,
@@ -309,6 +348,7 @@ const parseNotification = (data) => {
 
 module.exports = {
   isConfigured,
+  hasValidCredentials,
   createPaymentSession,
   getSession,
   getTransaction,

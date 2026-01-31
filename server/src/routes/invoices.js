@@ -3,6 +3,7 @@ const { body, param } = require('express-validator');
 const Invoice = require('../models/Invoice');
 const User = require('../models/User');
 const Barn = require('../models/Barn');
+const MerchantApplication = require('../models/MerchantApplication');
 const { authenticate, loadBarnContext, requireBarn, hasPermission, ownsResourceOrStaff } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const windcave = require('../services/windcave');
@@ -223,10 +224,21 @@ router.post('/:id/payment', [
 
     // For card payments, create Windcave payment session
     if (method === 'card') {
-      // Check if Windcave is configured
-      if (!windcave.isConfigured()) {
+      // Get barn-specific Windcave credentials
+      const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
+        .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
+
+      let credentials = null;
+
+      if (merchantApp?.windcaveCredentials?.isActive) {
+        // Use barn-specific credentials
+        credentials = merchantApp.getWindcaveCredentials();
+      }
+
+      // Check if we have valid credentials (barn-specific or global fallback)
+      if (!windcave.hasValidCredentials(credentials)) {
         return res.status(503).json({
-          error: 'Payment gateway not configured. Please contact support.'
+          error: 'Payment processing is not configured. Please add your Windcave credentials in the Payments settings.'
         });
       }
 
@@ -242,8 +254,9 @@ router.post('/:id/payment', [
         merchantReference: `INV-${invoice._id}`,
         customerEmail: invoice.boarderId?.email,
         customerName: invoice.boarderId?.name,
-        returnUrl: returnUrl || `${baseUrl}/invoices/${invoice._id}`,
+        returnUrl: returnUrl || `${baseUrl}/app/invoices/${invoice._id}`,
         callbackUrl,
+        credentials,
       });
 
       invoice.status = 'processing';
@@ -293,8 +306,17 @@ router.get('/:id/payment-status', [
       return res.json({ status: invoice.status });
     }
 
+    // Get barn-specific Windcave credentials
+    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
+      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
+
+    let credentials = null;
+    if (merchantApp?.windcaveCredentials?.isActive) {
+      credentials = merchantApp.getWindcaveCredentials();
+    }
+
     // Query Windcave for latest session status
-    const session = await windcave.getSession(invoice.windcavePaymentInfo.sessionId);
+    const session = await windcave.getSession(invoice.windcavePaymentInfo.sessionId, credentials);
 
     // Update invoice if payment completed
     if (session.transaction?.authorised && invoice.status !== 'paid') {
@@ -502,12 +524,22 @@ router.post('/:id/refund', [
       return res.status(400).json({ error: 'No payment transaction found for refund' });
     }
 
+    // Get barn-specific Windcave credentials
+    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
+      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
+
+    let credentials = null;
+    if (merchantApp?.windcaveCredentials?.isActive) {
+      credentials = merchantApp.getWindcaveCredentials();
+    }
+
     const refundAmount = req.body.amount || invoice.paymentBreakdown.total;
 
     const refund = await windcave.processRefund(
       invoice.windcavePaymentInfo.transactionId,
       refundAmount,
-      `REFUND-${invoice._id}`
+      `REFUND-${invoice._id}`,
+      credentials
     );
 
     if (refund.authorised) {

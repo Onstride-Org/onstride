@@ -567,6 +567,7 @@ router.post('/application/submit', [
 // ============ Credentials (Post-Approval) ============
 
 // Save Windcave credentials
+// Supports both: 1) Adding credentials to approved application, 2) Direct credential entry (creates minimal application)
 router.post('/credentials', [
   requireBarn,
   hasRole('owner', 'admin'),
@@ -580,30 +581,58 @@ router.post('/credentials', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const application = await MerchantApplication.findByBarn(req.barnId);
-
-    if (!application) {
-      return res.status(404).json({ error: 'Application not found' });
-    }
-
-    if (application.status !== 'approved') {
-      return res.status(400).json({
-        error: 'Credentials can only be added after application approval',
-        status: application.status
-      });
-    }
-
     const { merchantId, apiKey, apiSecret } = req.body;
 
-    // Save credentials (will be encrypted on save)
-    application.windcaveCredentials = {
-      merchantId,
-      apiKeyEncrypted: apiKey,
-      apiSecretEncrypted: apiSecret,
-      isActive: false
-    };
+    let application = await MerchantApplication.findByBarn(req.barnId);
 
-    application.addAuditLog('credentials_added', req.userId, 'Windcave credentials added', req.ip);
+    // If no application exists, create a minimal one for credential storage
+    // This allows users with existing Windcave accounts to connect directly
+    if (!application) {
+      const [barn, user] = await Promise.all([
+        Barn.findById(req.barnId),
+        User.findById(req.userId)
+      ]);
+
+      application = new MerchantApplication({
+        barnId: req.barnId,
+        userId: req.userId,
+        status: 'approved', // Mark as approved since they have existing credentials
+        currentStep: 8, // Mark as complete
+        completedSteps: [1, 2, 3, 4, 5, 6, 7, 8],
+        approvedAt: new Date(),
+        merchantInfo: {
+          legalName: barn?.name || 'Unknown',
+          tradingName: barn?.name || 'Unknown',
+          email: barn?.email || user?.email,
+        },
+        windcaveCredentials: {
+          merchantId,
+          apiKeyEncrypted: apiKey,
+          apiSecretEncrypted: apiSecret,
+          isActive: false
+        }
+      });
+
+      application.addAuditLog('direct_credentials_added', req.userId, 'Windcave credentials added directly (existing account)', req.ip);
+    } else {
+      // Existing application - update credentials
+      // Allow updating credentials regardless of application status (for users who already have accounts)
+      application.windcaveCredentials = {
+        merchantId,
+        apiKeyEncrypted: apiKey,
+        apiSecretEncrypted: apiSecret,
+        isActive: false
+      };
+
+      // If application wasn't approved, mark it as approved now (direct credential entry)
+      if (application.status !== 'approved') {
+        application.status = 'approved';
+        application.approvedAt = new Date();
+      }
+
+      application.addAuditLog('credentials_updated', req.userId, 'Windcave credentials updated', req.ip);
+    }
+
     await application.save();
 
     res.json({
@@ -625,7 +654,7 @@ router.post('/test-connection', [
       .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
 
     if (!application) {
-      return res.status(404).json({ error: 'Application not found' });
+      return res.status(404).json({ error: 'No credentials configured. Please add your Windcave credentials first.' });
     }
 
     if (!application.windcaveCredentials?.merchantId) {
@@ -635,31 +664,55 @@ router.post('/test-connection', [
     // Get decrypted credentials
     const credentials = application.getWindcaveCredentials();
 
-    // TODO: Make actual API call to Windcave to test credentials
-    // For now, we'll simulate a successful test
-    // In production, this would call Windcave's API to verify the credentials
+    // Make actual API call to Windcave to test credentials
+    let testSuccess = false;
+    let testMessage = '';
 
-    /*
-    const windcaveResponse = await fetch('https://sec.windcave.com/api/v1/sessions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`${credentials.apiKey}:${credentials.apiSecret}`).toString('base64')}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        type: 'purchase',
-        amount: '0.00',
-        currency: 'USD',
-        merchantReference: 'connection-test'
-      })
-    });
-    */
+    try {
+      const axios = require('axios');
+      const testResponse = await axios.post(
+        'https://sec.windcave.com/api/v1/sessions',
+        {
+          type: 'validate',
+          amount: '1.00',
+          currency: 'USD',
+          merchantReference: `test-${Date.now()}`,
+          methods: ['card']
+        },
+        {
+          auth: {
+            username: credentials.apiKey,
+            password: credentials.apiSecret
+          },
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        }
+      );
 
-    // Simulate successful test
-    const testSuccess = true;
-    const testMessage = testSuccess
-      ? 'Connection successful'
-      : 'Connection failed. Please verify your credentials.';
+      // If we get a session ID back, credentials are valid
+      if (testResponse.data?.id) {
+        testSuccess = true;
+        testMessage = 'Connection successful! Your Windcave account is now active.';
+      } else {
+        testMessage = 'Connection test returned unexpected response. Please verify credentials.';
+      }
+    } catch (apiError) {
+      console.error('Windcave test connection error:', apiError.response?.data || apiError.message);
+
+      // Check for specific error types
+      if (apiError.response?.status === 401) {
+        testMessage = 'Authentication failed. Please check your API Key and API Secret.';
+      } else if (apiError.response?.status === 403) {
+        testMessage = 'Access denied. Your Windcave account may not have API access enabled.';
+      } else if (apiError.code === 'ECONNREFUSED' || apiError.code === 'ETIMEDOUT') {
+        testMessage = 'Could not connect to Windcave. Please try again later.';
+      } else {
+        testMessage = apiError.response?.data?.errors?.[0]?.message ||
+                      'Connection failed. Please verify your credentials.';
+      }
+    }
 
     // Update test results
     application.windcaveCredentials.testResult = {
@@ -674,6 +727,8 @@ router.post('/test-connection', [
       application.windcaveCredentials.isActive = true;
       application.windcaveCredentials.activatedAt = new Date();
       application.addAuditLog('credentials_activated', req.userId, 'Payment processing activated', req.ip);
+    } else {
+      application.windcaveCredentials.isActive = false;
     }
 
     await application.save();
