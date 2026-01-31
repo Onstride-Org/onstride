@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Calendar, Mail, Phone, Building2, Users, Clock,
+  Mail, Phone, Building2, Users, Clock,
   X, Search, ChevronLeft, ChevronRight
 } from 'lucide-react';
 

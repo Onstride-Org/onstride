@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   TrendingUp, TrendingDown, Users, Building2, Calendar,
-  DollarSign, Activity, ChevronDown, Search, ArrowUpRight,
-  BarChart3, PieChart, Database
+  Search, Database
 } from 'lucide-react';
 
 interface TimeSeriesData {

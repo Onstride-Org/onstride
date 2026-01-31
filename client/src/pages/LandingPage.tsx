@@ -565,6 +565,11 @@ export default function LandingPage() {
 }
 
 // Multi-step Demo Booking Modal
+interface AvailabilitySlot {
+  dayOfWeek: number;
+  timeSlots: string[];
+}
+
 function DemoBookingModal({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<DemoFormData>({
@@ -579,6 +584,35 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+  const [, setIsLoadingAvailability] = useState(true);
+
+  // Fetch availability on mount
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const response = await fetch(`${apiBase}/demo-requests/availability`);
+        if (response.ok) {
+          const data = await response.json();
+          setAvailability(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch availability:', error);
+        // Use defaults if fetch fails
+        setAvailability([
+          { dayOfWeek: 1, timeSlots: ['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] },
+          { dayOfWeek: 2, timeSlots: ['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] },
+          { dayOfWeek: 3, timeSlots: ['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] },
+          { dayOfWeek: 4, timeSlots: ['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] },
+          { dayOfWeek: 5, timeSlots: ['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] }
+        ]);
+      } finally {
+        setIsLoadingAvailability(false);
+      }
+    };
+    fetchAvailability();
+  }, []);
 
   const disciplines = [
     'Hunters',
@@ -603,31 +637,33 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
     '100+'
   ];
 
-  const availableTimes = [
-    '9:00 AM',
-    '10:00 AM',
-    '11:00 AM',
-    '12:00 PM',
-    '1:00 PM',
-    '2:00 PM',
-    '3:00 PM',
-    '4:00 PM',
-    '5:00 PM'
-  ];
+  // Get enabled days of week from availability
+  const enabledDays = availability.map(a => a.dayOfWeek);
 
-  // Generate next 14 days for date selection
+  // Generate next 14 days for date selection (only enabled days)
   const getAvailableDates = () => {
     const dates = [];
     const today = new Date();
-    for (let i = 1; i <= 14; i++) {
+    for (let i = 1; i <= 21; i++) { // Look ahead 21 days to ensure we get enough available dates
       const date = new Date(today);
       date.setDate(today.getDate() + i);
-      // Skip weekends
-      if (date.getDay() !== 0 && date.getDay() !== 6) {
+      // Only include days that are enabled in availability
+      if (enabledDays.includes(date.getDay())) {
         dates.push(date);
       }
+      // Stop once we have 10 available dates
+      if (dates.length >= 10) break;
     }
     return dates;
+  };
+
+  // Get available times for selected date
+  const getAvailableTimesForDate = () => {
+    if (!formData.selectedDate) return [];
+    const selectedDate = new Date(formData.selectedDate);
+    const dayOfWeek = selectedDate.getDay();
+    const dayAvailability = availability.find(a => a.dayOfWeek === dayOfWeek);
+    return dayAvailability?.timeSlots || [];
   };
 
   const formatDateValue = (date: Date) => {
@@ -848,7 +884,7 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
                     <button
                       key={formatDateValue(date)}
                       className={`demo-date ${formData.selectedDate === formatDateValue(date) ? 'selected' : ''}`}
-                      onClick={() => setFormData({ ...formData, selectedDate: formatDateValue(date) })}
+                      onClick={() => setFormData({ ...formData, selectedDate: formatDateValue(date), selectedTime: '' })}
                     >
                       <span className="demo-date-day">{date.getDate()}</span>
                       <span className="demo-date-weekday">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span>
@@ -860,7 +896,7 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
                   <>
                     <h4>Select a time</h4>
                     <div className="demo-times">
-                      {availableTimes.map((time) => (
+                      {getAvailableTimesForDate().map((time) => (
                         <button
                           key={time}
                           className={`demo-time ${formData.selectedTime === time ? 'selected' : ''}`}

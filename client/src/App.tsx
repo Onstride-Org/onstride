@@ -45,6 +45,7 @@ import AdminDemoPage from './pages/admin/AdminDemoPage';
 import AdminUsersListPage from './pages/admin/AdminUsersListPage';
 import AdminBarnsListPage from './pages/admin/AdminBarnsListPage';
 import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage';
+import AdminAvailabilityPage from './pages/admin/AdminAvailabilityPage';
 import BillingTemplatesPage from './pages/billing/BillingTemplatesPage';
 import StablePage from './pages/stable/StablePage';
 import FinancialsPage from './pages/financials/FinancialsPage';
@@ -231,6 +232,7 @@ function App() {
         <Route path="users" element={<AdminUsersListPage />} />
         <Route path="barns" element={<AdminBarnsListPage />} />
         <Route path="analytics" element={<AdminAnalyticsPage />} />
+        <Route path="availability" element={<AdminAvailabilityPage />} />
       </Route>
 
       {/* Catch all - redirect to landing page */}

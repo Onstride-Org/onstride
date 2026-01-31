@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, Users, Building2,
-  LogOut, Shield, Menu, X, BarChart3
+  LogOut, Menu, X, BarChart3, Clock
 } from 'lucide-react';
 
 interface AdminUser {
@@ -62,6 +62,7 @@ export default function AdminLayout() {
     { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
     { to: '/admin/demo-requests', icon: Calendar, label: 'Demo Requests' },
+    { to: '/admin/availability', icon: Clock, label: 'Availability' },
     { to: '/admin/users', icon: Users, label: 'Users' },
     { to: '/admin/barns', icon: Building2, label: 'Barns' },
   ];
@@ -84,7 +85,7 @@ export default function AdminLayout() {
         zIndex: 100
       }} className="admin-mobile-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Shield size={24} color="#3b82f6" />
+          <img src="/gl-logo.png" alt="OnStride" style={{ width: '24px', height: '24px', filter: 'brightness(0) invert(1)' }} />
           <span style={{ color: 'white', fontWeight: 600 }}>Admin</span>
         </div>
         <button

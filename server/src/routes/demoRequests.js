@@ -1,7 +1,47 @@
 const express = require('express');
 const DemoRequest = require('../models/DemoRequest');
+const DemoAvailability = require('../models/DemoAvailability');
 
 const router = express.Router();
+
+// Public endpoint - get available slots for demo booking
+router.get('/availability', async (req, res, next) => {
+  try {
+    let availability = await DemoAvailability.find({ isEnabled: true }).sort({ dayOfWeek: 1 });
+
+    // If no availability settings exist, return defaults
+    if (availability.length === 0) {
+      const defaultTimeSlots = [
+        { time: '9:00 AM', isAvailable: true },
+        { time: '10:00 AM', isAvailable: true },
+        { time: '11:00 AM', isAvailable: true },
+        { time: '1:00 PM', isAvailable: true },
+        { time: '2:00 PM', isAvailable: true },
+        { time: '3:00 PM', isAvailable: true },
+        { time: '4:00 PM', isAvailable: true }
+      ];
+
+      // Return Monday-Friday defaults
+      availability = [
+        { dayOfWeek: 1, isEnabled: true, timeSlots: defaultTimeSlots },
+        { dayOfWeek: 2, isEnabled: true, timeSlots: defaultTimeSlots },
+        { dayOfWeek: 3, isEnabled: true, timeSlots: defaultTimeSlots },
+        { dayOfWeek: 4, isEnabled: true, timeSlots: defaultTimeSlots },
+        { dayOfWeek: 5, isEnabled: true, timeSlots: defaultTimeSlots }
+      ];
+    }
+
+    // Return only enabled days with available time slots
+    const result = availability.map(day => ({
+      dayOfWeek: day.dayOfWeek,
+      timeSlots: day.timeSlots.filter(slot => slot.isAvailable).map(slot => slot.time)
+    }));
+
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Public endpoint - no authentication required
 router.post('/', async (req, res, next) => {

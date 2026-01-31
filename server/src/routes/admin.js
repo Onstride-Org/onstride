@@ -7,6 +7,7 @@ const UserBarnRole = require('../models/UserBarnRole');
 const { BarnSubscription } = require('../models/Subscription');
 const Invoice = require('../models/Invoice');
 const DemoRequest = require('../models/DemoRequest');
+const DemoAvailability = require('../models/DemoAvailability');
 const { authenticate, hasRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -797,6 +798,91 @@ router.delete('/demo-requests/:id', async (req, res, next) => {
     }
 
     res.json({ message: 'Demo request deleted' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==================== Demo Availability ====================
+
+// Get all availability settings
+router.get('/availability', async (req, res, next) => {
+  try {
+    let availability = await DemoAvailability.find().sort({ dayOfWeek: 1 });
+
+    // If no availability settings exist, create defaults
+    if (availability.length === 0) {
+      const defaultTimeSlots = [
+        { time: '9:00 AM', isAvailable: true },
+        { time: '10:00 AM', isAvailable: true },
+        { time: '11:00 AM', isAvailable: true },
+        { time: '1:00 PM', isAvailable: true },
+        { time: '2:00 PM', isAvailable: true },
+        { time: '3:00 PM', isAvailable: true },
+        { time: '4:00 PM', isAvailable: true }
+      ];
+
+      // Create entries for Monday-Friday (1-5), weekends disabled
+      const days = [
+        { dayOfWeek: 0, isEnabled: false, timeSlots: defaultTimeSlots }, // Sunday
+        { dayOfWeek: 1, isEnabled: true, timeSlots: defaultTimeSlots },  // Monday
+        { dayOfWeek: 2, isEnabled: true, timeSlots: defaultTimeSlots },  // Tuesday
+        { dayOfWeek: 3, isEnabled: true, timeSlots: defaultTimeSlots },  // Wednesday
+        { dayOfWeek: 4, isEnabled: true, timeSlots: defaultTimeSlots },  // Thursday
+        { dayOfWeek: 5, isEnabled: true, timeSlots: defaultTimeSlots },  // Friday
+        { dayOfWeek: 6, isEnabled: false, timeSlots: defaultTimeSlots }  // Saturday
+      ];
+
+      availability = await DemoAvailability.insertMany(days);
+    }
+
+    res.json(availability);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update availability for a specific day
+router.put('/availability/:dayOfWeek', async (req, res, next) => {
+  try {
+    const { dayOfWeek } = req.params;
+    const { isEnabled, timeSlots } = req.body;
+
+    const availability = await DemoAvailability.findOneAndUpdate(
+      { dayOfWeek: parseInt(dayOfWeek) },
+      {
+        ...(isEnabled !== undefined && { isEnabled }),
+        ...(timeSlots && { timeSlots })
+      },
+      { new: true, upsert: true }
+    );
+
+    res.json(availability);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Bulk update all availability
+router.put('/availability', async (req, res, next) => {
+  try {
+    const { availability } = req.body;
+
+    if (!Array.isArray(availability)) {
+      return res.status(400).json({ error: 'Availability must be an array' });
+    }
+
+    const updates = await Promise.all(
+      availability.map(day =>
+        DemoAvailability.findOneAndUpdate(
+          { dayOfWeek: day.dayOfWeek },
+          { isEnabled: day.isEnabled, timeSlots: day.timeSlots },
+          { new: true, upsert: true }
+        )
+      )
+    );
+
+    res.json(updates);
   } catch (error) {
     next(error);
   }
