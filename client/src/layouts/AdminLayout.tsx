@@ -58,13 +58,16 @@ export default function AdminLayout() {
     );
   }
 
-  const navItems = [
+  const mainNavItems = [
     { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
-    { to: '/admin/demo-requests', icon: Calendar, label: 'Demo Requests' },
-    { to: '/admin/availability', icon: Clock, label: 'Availability' },
     { to: '/admin/users', icon: Users, label: 'Users' },
     { to: '/admin/barns', icon: Building2, label: 'Barns' },
+  ];
+
+  const demoNavItems = [
+    { to: '/admin/demo-requests', icon: Calendar, label: 'Requests' },
+    { to: '/admin/availability', icon: Clock, label: 'Availability' },
   ];
 
   return (
@@ -133,31 +136,72 @@ export default function AdminLayout() {
         </div>
 
         {/* Navigation */}
-        <nav style={{ flex: 1, padding: '8px' }}>
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={() => setSidebarOpen(false)}
-              style={({ isActive }) => ({
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                color: isActive ? 'white' : '#6b6b6b',
-                background: isActive ? '#1a1a1a' : 'transparent',
-                textDecoration: 'none',
-                fontSize: '13px',
-                fontWeight: 400,
-                marginBottom: '2px',
-                transition: 'all 0.1s ease'
-              })}
-            >
-              <item.icon size={15} />
-              {item.label}
-            </NavLink>
-          ))}
+        <nav style={{ flex: 1, padding: '8px', display: 'flex', flexDirection: 'column' }}>
+          {/* Main nav items */}
+          <div>
+            {mainNavItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setSidebarOpen(false)}
+                style={({ isActive }) => ({
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 12px',
+                  borderRadius: '4px',
+                  color: isActive ? 'white' : '#6b6b6b',
+                  background: isActive ? '#1a1a1a' : 'transparent',
+                  textDecoration: 'none',
+                  fontSize: '13px',
+                  fontWeight: 400,
+                  marginBottom: '2px',
+                  transition: 'all 0.1s ease'
+                })}
+              >
+                <item.icon size={15} />
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
+
+          {/* Demo scheduling section */}
+          <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #1f1f1f' }}>
+            <div style={{
+              padding: '4px 12px 8px',
+              fontSize: '10px',
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              color: '#3b82f6',
+              letterSpacing: '0.5px'
+            }}>
+              Demo Scheduling
+            </div>
+            {demoNavItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setSidebarOpen(false)}
+                style={({ isActive }) => ({
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 12px',
+                  borderRadius: '4px',
+                  color: isActive ? 'white' : '#6b6b6b',
+                  background: isActive ? '#1a1a1a' : 'transparent',
+                  textDecoration: 'none',
+                  fontSize: '13px',
+                  fontWeight: 400,
+                  marginBottom: '2px',
+                  transition: 'all 0.1s ease'
+                })}
+              >
+                <item.icon size={15} />
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
         </nav>
 
         {/* User & Logout */}
