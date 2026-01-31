@@ -291,6 +291,118 @@ router.post('/:id/payment', [
   }
 });
 
+// Process direct card payment (embedded form - no redirect)
+router.post('/:id/pay-direct', [
+  param('id').isMongoId(),
+  body('cardNumber').notEmpty().isLength({ min: 13, max: 19 }),
+  body('expiryMonth').notEmpty().isLength({ min: 2, max: 2 }),
+  body('expiryYear').notEmpty().isLength({ min: 4, max: 4 }),
+  body('cvv').notEmpty().isLength({ min: 3, max: 4 }),
+  body('cardholderName').notEmpty().trim(),
+  validate
+], async (req, res, next) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id)
+      .populate('boarderId', 'name email');
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // Check ownership or staff
+    const isOwner = invoice.boarderId._id.toString() === req.userId.toString();
+    const isStaff = ['owner', 'admin', 'manager'].includes(req.user.accountType) ||
+      (req.barnRole && ['owner', 'admin', 'manager'].includes(req.barnRole.role));
+
+    if (!isOwner && !isStaff) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (invoice.status === 'paid') {
+      return res.status(400).json({ error: 'Invoice is already paid' });
+    }
+
+    // Get barn-specific Windcave credentials
+    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
+      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
+
+    let credentials = null;
+    if (merchantApp?.windcaveCredentials?.isActive) {
+      credentials = merchantApp.getWindcaveCredentials();
+    }
+
+    if (!windcave.hasValidCredentials(credentials)) {
+      return res.status(503).json({
+        error: 'Payment processing is not configured. Please contact support.'
+      });
+    }
+
+    const { cardNumber, expiryMonth, expiryYear, cvv, cardholderName } = req.body;
+
+    // Process the payment directly
+    const result = await windcave.processDirectPayment({
+      amount: invoice.paymentBreakdown.total,
+      currency: 'USD',
+      merchantReference: `INV-${invoice._id}`,
+      cardNumber,
+      expiryMonth,
+      expiryYear,
+      cvv,
+      cardholderName,
+      credentials,
+    });
+
+    if (result.authorised) {
+      // Payment successful
+      invoice.status = 'paid';
+      invoice.paidAt = new Date();
+      invoice.method = 'card';
+      invoice.windcavePaymentInfo = {
+        sessionId: result.sessionId,
+        transactionId: result.transactionId,
+        cardNumber: result.cardNumber,
+        cardType: result.cardType,
+        responseCode: result.responseCode,
+        responseText: result.responseText,
+        rrn: result.rrn,
+      };
+      await invoice.save();
+
+      return res.json({
+        status: 'paid',
+        authorised: true,
+        transactionId: result.transactionId,
+        message: 'Payment successful',
+      });
+    } else if (result.requires3DS) {
+      // 3D Secure required - return the redirect URL
+      const hppLink = result.links?.find(l => l.rel === 'hpp' || l.rel === 'redirect');
+      return res.json({
+        status: 'requires_action',
+        requires3DS: true,
+        redirectUrl: hppLink?.href,
+        sessionId: result.sessionId,
+      });
+    } else {
+      // Payment declined
+      invoice.status = 'failed';
+      invoice.failureReason = result.responseText || 'Payment declined';
+      await invoice.save();
+
+      return res.status(400).json({
+        status: 'failed',
+        authorised: false,
+        responseText: result.responseText || 'Payment was declined',
+      });
+    }
+  } catch (error) {
+    console.error('Direct payment error:', error.message);
+    return res.status(400).json({
+      error: error.message || 'Payment failed',
+    });
+  }
+});
+
 // Check Windcave payment session status
 router.get('/:id/payment-status', [
   param('id').isMongoId(),

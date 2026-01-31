@@ -346,10 +346,99 @@ const parseNotification = (data) => {
   };
 };
 
+/**
+ * Process a direct card payment (card details submitted directly)
+ * This creates a session and immediately completes it with card details
+ *
+ * @param {Object} options - Payment options
+ * @param {number} options.amount - Amount in dollars
+ * @param {string} options.currency - Currency code (default: USD)
+ * @param {string} options.merchantReference - Unique reference
+ * @param {string} options.cardNumber - Card number (no spaces)
+ * @param {string} options.expiryMonth - MM format
+ * @param {string} options.expiryYear - YYYY format
+ * @param {string} options.cvv - CVV/CVC
+ * @param {string} options.cardholderName - Name on card
+ * @param {Object} options.credentials - Optional barn-specific credentials
+ * @returns {Object} Transaction result
+ */
+const processDirectPayment = async (options) => {
+  const {
+    amount,
+    currency = 'USD',
+    merchantReference,
+    cardNumber,
+    expiryMonth,
+    expiryYear,
+    cvv,
+    cardholderName,
+    credentials,
+  } = options;
+
+  if (!hasValidCredentials(credentials)) {
+    throw new Error('Windcave is not configured');
+  }
+
+  const apiClient = credentials ? createApiClient(credentials) : windcaveApi;
+  const amountInCents = Math.round(amount * 100);
+
+  try {
+    // Create a session with card details included for immediate processing
+    const sessionData = {
+      type: 'purchase',
+      amount: amountInCents.toString(),
+      currency: currency,
+      merchantReference: merchantReference,
+      methods: ['card'],
+      card: {
+        cardNumber: cardNumber,
+        dateExpiryMonth: expiryMonth,
+        dateExpiryYear: expiryYear.slice(-2), // Windcave expects YY format
+        cvc2: cvv,
+        cardHolderName: cardholderName,
+      },
+    };
+
+    const response = await apiClient.post('/sessions', sessionData);
+
+    // Check if the transaction was processed
+    const session = response.data;
+    const transaction = session.transactions?.[0];
+
+    if (transaction) {
+      return {
+        sessionId: session.id,
+        transactionId: transaction.id,
+        authorised: transaction.authorised,
+        status: transaction.authorised ? 'approved' : 'declined',
+        responseCode: transaction.responseCode,
+        responseText: transaction.responseText,
+        cardNumber: transaction.card?.cardNumber, // Masked
+        cardType: transaction.card?.cardType,
+        rrn: transaction.rrn,
+      };
+    }
+
+    // If no transaction yet, the session needs to be completed
+    // This happens when additional authentication (3DS) is required
+    return {
+      sessionId: session.id,
+      state: session.state,
+      requires3DS: session.state === '3ds' || session.state === 'challenge',
+      links: session.links,
+    };
+  } catch (error) {
+    console.error('Windcave direct payment error:', error.response?.data || error.message);
+    const errorMessage = error.response?.data?.errors?.[0]?.message || 'Payment failed';
+    throw new Error(errorMessage);
+  }
+};
+
 module.exports = {
   isConfigured,
   hasValidCredentials,
   createPaymentSession,
+  processDirectPayment,
   getSession,
   getTransaction,
   processRefund,

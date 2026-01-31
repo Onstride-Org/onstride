@@ -7656,3 +7656,191 @@ a.fin-transaction:hover {
     gap: var(--spacing-2);
   }
 }
+
+/* ============ Payment Modal ============ */
+.payment-modal {
+  max-width: 440px;
+}
+
+.payment-modal .modal-header {
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.payment-modal .modal-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.payment-amount {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-4);
+  text-align: center;
+  margin-bottom: var(--spacing-4);
+}
+
+.payment-amount-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-1);
+}
+
+.payment-amount-value {
+  display: block;
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.payment-description {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-top: var(--spacing-1);
+}
+
+.payment-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.payment-form .form-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: var(--spacing-3);
+}
+
+.card-input-wrapper {
+  position: relative;
+}
+
+.card-number-input {
+  padding-right: 70px;
+}
+
+.card-type-badge {
+  position: absolute;
+  right: var(--spacing-3);
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.card-type-badge.visa {
+  background: #1a1f71;
+  color: white;
+}
+
+.card-type-badge.mastercard {
+  background: #eb001b;
+  color: white;
+}
+
+.card-type-badge.amex {
+  background: #006fcf;
+  color: white;
+}
+
+.card-type-badge.discover {
+  background: #ff6000;
+  color: white;
+}
+
+.expiry-inputs {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.expiry-input {
+  width: 60px;
+  text-align: center;
+}
+
+.expiry-separator {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+}
+
+.cvv-input {
+  width: 80px;
+}
+
+.payment-security {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  padding: var(--spacing-3);
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-md);
+  margin-top: var(--spacing-2);
+}
+
+.payment-security svg {
+  color: var(--color-success-500);
+}
+
+/* Payment Success State */
+.payment-success {
+  text-align: center;
+  padding: var(--spacing-8) var(--spacing-4);
+}
+
+.payment-success .success-icon {
+  width: 80px;
+  height: 80px;
+  background: var(--color-success-100);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--spacing-4);
+}
+
+.payment-success .success-icon svg {
+  color: var(--color-success-500);
+}
+
+.payment-success h3 {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  margin: 0 0 var(--spacing-2);
+  color: var(--color-text-primary);
+}
+
+.payment-success p {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .payment-modal {
+    margin: var(--spacing-4);
+    max-height: calc(100vh - 32px);
+  }
+
+  .payment-form .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .expiry-inputs {
+    justify-content: flex-start;
+  }
+
+  .cvv-input {
+    width: 100%;
+  }
+}

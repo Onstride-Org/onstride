@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { Invoice, InvoiceStatus } from '../../types';
 import { format } from 'date-fns';
 import { CreditCard, DollarSign, RefreshCw, X } from 'lucide-react';
+import { PaymentModal } from '../../components/payments';
 
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +17,7 @@ export default function InvoiceDetailPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // Check if user is staff (not a boarder/client)
   const isStaff = currentBarnRole && !['boarder'].includes(currentBarnRole.role);
@@ -71,31 +73,15 @@ export default function InvoiceDetailPage() {
     return styles[status] || 'neutral';
   };
 
-  // Handle card payment via Windcave
-  const handleCardPayment = async () => {
-    if (!id || !invoice) return;
-    setIsProcessing(true);
+  // Handle card payment - open payment modal
+  const handleCardPayment = () => {
     setPaymentError(null);
+    setShowPaymentModal(true);
+  };
 
-    try {
-      const returnUrl = window.location.href.split('?')[0]; // Current page without params
-      const result = await invoicesApi.processPayment(id, {
-        method: 'card',
-        returnUrl,
-      });
-
-      if (result.paymentSession?.redirectUrl) {
-        // Redirect to Windcave hosted payment page
-        window.location.href = result.paymentSession.redirectUrl;
-      } else {
-        setPaymentError('Failed to initialize payment. Please try again.');
-      }
-    } catch (error: any) {
-      console.error('Failed to process payment:', error);
-      setPaymentError(error.response?.data?.error || 'Failed to process payment');
-    } finally {
-      setIsProcessing(false);
-    }
+  const handlePaymentSuccess = () => {
+    setShowPaymentModal(false);
+    loadInvoice();
   };
 
   // Handle manual payment (cash/check) - staff only
@@ -420,6 +406,18 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Card Payment Modal */}
+      {invoice && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={handlePaymentSuccess}
+          invoiceId={invoice.id || id || ''}
+          amount={invoice.paymentBreakdown?.total || total}
+          description={`Invoice #${invoice.id?.slice(-6).toUpperCase()}`}
+        />
       )}
     </div>
   );
