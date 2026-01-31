@@ -154,6 +154,185 @@ router.get('/stats', async (req, res, next) => {
   }
 });
 
+// Analytics endpoint
+router.get('/analytics', async (req, res, next) => {
+  try {
+    const { range = '30d' } = req.query;
+
+    // Calculate date range
+    const now = new Date();
+    let startDate;
+    let groupByFormat;
+
+    switch (range) {
+      case '7d':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        groupByFormat = '%Y-%m-%d';
+        break;
+      case '90d':
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        groupByFormat = '%Y-%m-%d';
+        break;
+      case '1y':
+        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        groupByFormat = '%Y-%m';
+        break;
+      default: // 30d
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        groupByFormat = '%Y-%m-%d';
+    }
+
+    const previousPeriodStart = new Date(startDate.getTime() - (now.getTime() - startDate.getTime()));
+
+    // Get current period counts
+    const [totalUsers, totalBarns, totalHorses, totalDemoRequests] = await Promise.all([
+      User.countDocuments({ deletedAt: null }),
+      Barn.countDocuments({ deletedAt: null }),
+      Horse.countDocuments({ deletedAt: null }),
+      DemoRequest.countDocuments()
+    ]);
+
+    // Get previous period counts for growth calculation
+    const [prevUsers, prevBarns, prevHorses, prevDemos] = await Promise.all([
+      User.countDocuments({ deletedAt: null, createdAt: { $lt: startDate } }),
+      Barn.countDocuments({ deletedAt: null, createdAt: { $lt: startDate } }),
+      Horse.countDocuments({ deletedAt: null, createdAt: { $lt: startDate } }),
+      DemoRequest.countDocuments({ createdAt: { $lt: startDate } })
+    ]);
+
+    // Calculate growth percentages
+    const calcGrowth = (current, prev) => {
+      if (prev === 0) return current > 0 ? 100 : 0;
+      return ((current - prev) / prev) * 100;
+    };
+
+    // Time series data
+    const [userTimeSeries, barnTimeSeries, demoTimeSeries, horseTimeSeries] = await Promise.all([
+      User.aggregate([
+        { $match: { createdAt: { $gte: startDate }, deletedAt: null } },
+        { $group: { _id: { $dateToString: { format: groupByFormat, date: '$createdAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      Barn.aggregate([
+        { $match: { createdAt: { $gte: startDate }, deletedAt: null } },
+        { $group: { _id: { $dateToString: { format: groupByFormat, date: '$createdAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      DemoRequest.aggregate([
+        { $match: { createdAt: { $gte: startDate } } },
+        { $group: { _id: { $dateToString: { format: groupByFormat, date: '$createdAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      Horse.aggregate([
+        { $match: { createdAt: { $gte: startDate }, deletedAt: null } },
+        { $group: { _id: { $dateToString: { format: groupByFormat, date: '$createdAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ])
+    ]);
+
+    // Merge time series data
+    const dateSet = new Set([
+      ...userTimeSeries.map(d => d._id),
+      ...barnTimeSeries.map(d => d._id),
+      ...demoTimeSeries.map(d => d._id),
+      ...horseTimeSeries.map(d => d._id)
+    ]);
+
+    const timeSeries = Array.from(dateSet).sort().map(date => ({
+      date,
+      users: userTimeSeries.find(d => d._id === date)?.count || 0,
+      barns: barnTimeSeries.find(d => d._id === date)?.count || 0,
+      demoRequests: demoTimeSeries.find(d => d._id === date)?.count || 0,
+      horses: horseTimeSeries.find(d => d._id === date)?.count || 0
+    }));
+
+    // Top barns by horses
+    const topBarns = await Barn.aggregate([
+      { $match: { deletedAt: null } },
+      {
+        $lookup: {
+          from: 'horses',
+          localField: '_id',
+          foreignField: 'barnId',
+          as: 'horses'
+        }
+      },
+      {
+        $lookup: {
+          from: 'userbarnroles',
+          localField: '_id',
+          foreignField: 'barnId',
+          as: 'users'
+        }
+      },
+      {
+        $lookup: {
+          from: 'invoices',
+          let: { barnId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$barnId', '$$barnId'] }, status: 'paid' } },
+            { $group: { _id: null, total: { $sum: '$subtotal' } } }
+          ],
+          as: 'revenue'
+        }
+      },
+      {
+        $project: {
+          name: 1,
+          horseCount: { $size: { $filter: { input: '$horses', cond: { $eq: ['$$this.deletedAt', null] } } } },
+          userCount: { $size: { $filter: { input: '$users', cond: { $eq: ['$$this.status', 'active'] } } } },
+          revenue: { $ifNull: [{ $arrayElemAt: ['$revenue.total', 0] }, 0] }
+        }
+      },
+      { $sort: { horseCount: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // Demo conversion stats
+    const [totalDemos, completedDemos] = await Promise.all([
+      DemoRequest.countDocuments(),
+      DemoRequest.countDocuments({ status: 'completed' })
+    ]);
+
+    // Users by type
+    const usersByType = await User.aggregate([
+      { $match: { deletedAt: null } },
+      { $group: { _id: '$accountType', count: { $sum: 1 } } },
+      { $project: { type: '$_id', count: 1, _id: 0 } }
+    ]);
+
+    // Demos by status
+    const demosByStatus = await DemoRequest.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+      { $project: { status: '$_id', count: 1, _id: 0 } }
+    ]);
+
+    res.json({
+      overview: {
+        totalUsers,
+        totalBarns,
+        totalHorses,
+        totalDemoRequests,
+        userGrowth: calcGrowth(totalUsers, prevUsers),
+        barnGrowth: calcGrowth(totalBarns, prevBarns),
+        horseGrowth: calcGrowth(totalHorses, prevHorses),
+        demoGrowth: calcGrowth(totalDemoRequests, prevDemos)
+      },
+      timeSeries,
+      topBarns,
+      demoConversion: {
+        total: totalDemos,
+        converted: completedDemos,
+        rate: totalDemos > 0 ? (completedDemos / totalDemos) * 100 : 0
+      },
+      usersByType,
+      demosByStatus
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get recent users
 router.get('/users/recent', async (req, res, next) => {
   try {
