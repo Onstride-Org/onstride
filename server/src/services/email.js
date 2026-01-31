@@ -846,6 +846,170 @@ The OnStride Team
   return sendEmail({ to, subject, text, html });
 };
 
+/**
+ * Send demo request notification to admin
+ * @param {Object} options
+ * @param {string} options.name - Requestor's name
+ * @param {string} options.email - Requestor's email
+ * @param {string} options.phone - Requestor's phone (optional)
+ * @param {string} options.barnName - Barn name (optional)
+ * @param {string} options.discipline - Discipline (optional)
+ * @param {string} options.horseCount - Number of horses (optional)
+ * @param {string} options.selectedDate - Selected demo date
+ * @param {string} options.selectedTime - Selected demo time
+ */
+const sendDemoAdminNotification = async ({ name, email, phone, barnName, discipline, horseCount, selectedDate, selectedTime }) => {
+  const adminUrl = `${CLIENT_URL.replace('5173', '5173')}/admin/demo-requests`;
+
+  const subject = `🗓️ New Demo Request: ${name}${barnName ? ` - ${barnName}` : ''}`;
+
+  const text = `
+New Demo Request Received!
+
+Contact Information:
+- Name: ${name}
+- Email: ${email}
+${phone ? `- Phone: ${phone}` : ''}
+
+Barn Details:
+${barnName ? `- Barn Name: ${barnName}` : '- Barn Name: Not provided'}
+${discipline ? `- Discipline: ${discipline}` : ''}
+${horseCount ? `- Horse Count: ${horseCount}` : ''}
+
+Requested Time:
+- Date: ${selectedDate || 'Not specified'}
+- Time: ${selectedTime || 'Not specified'}
+
+View and manage this request:
+${adminUrl}
+  `.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Demo Request</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <tr>
+      <td style="background-color: #ffffff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="display: inline-block; padding: 6px 12px; background-color: #8b5cf6; color: white; border-radius: 4px; font-size: 12px; font-weight: 600; margin-bottom: 20px;">
+          NEW DEMO REQUEST
+        </div>
+
+        <h1 style="color: #1a1a1a; font-size: 24px; margin: 0 0 25px 0;">${name}${barnName ? ` - ${barnName}` : ''}</h1>
+
+        <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%; margin: 0 0 25px 0; background-color: #f9fafb; border-radius: 8px;">
+          <tr>
+            <td style="padding: 20px;">
+              <h3 style="color: #6b7280; font-size: 12px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">Contact Information</h3>
+              <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%;">
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px; width: 100px;">Name</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px;">Email</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;"><a href="mailto:${email}" style="color: #2563eb;">${email}</a></td>
+                </tr>
+                ${phone ? `
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px;">Phone</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;"><a href="tel:${phone}" style="color: #2563eb;">${phone}</a></td>
+                </tr>
+                ` : ''}
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%; margin: 0 0 25px 0; background-color: #fef3c7; border-radius: 8px;">
+          <tr>
+            <td style="padding: 20px;">
+              <h3 style="color: #92400e; font-size: 12px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">Requested Demo Time</h3>
+              <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%;">
+                <tr>
+                  <td style="padding: 5px 0; color: #92400e; font-size: 14px; width: 100px;">📅 Date</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 16px; font-weight: 600;">${selectedDate || 'Not specified'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #92400e; font-size: 14px;">🕐 Time</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 16px; font-weight: 600;">${selectedTime || 'Not specified'}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        ${barnName || discipline || horseCount ? `
+        <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%; margin: 0 0 25px 0; background-color: #f0fdf4; border-radius: 8px;">
+          <tr>
+            <td style="padding: 20px;">
+              <h3 style="color: #166534; font-size: 12px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">Barn Details</h3>
+              <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%;">
+                ${barnName ? `
+                <tr>
+                  <td style="padding: 5px 0; color: #166534; font-size: 14px; width: 100px;">Barn</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${barnName}</td>
+                </tr>
+                ` : ''}
+                ${discipline ? `
+                <tr>
+                  <td style="padding: 5px 0; color: #166534; font-size: 14px;">Discipline</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${discipline}</td>
+                </tr>
+                ` : ''}
+                ${horseCount ? `
+                <tr>
+                  <td style="padding: 5px 0; color: #166534; font-size: 14px;">Horses</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${horseCount}</td>
+                </tr>
+                ` : ''}
+              </table>
+            </td>
+          </tr>
+        </table>
+        ` : ''}
+
+        <table role="presentation" cellspacing="0" cellpadding="0" style="margin: 0 auto 20px auto;">
+          <tr>
+            <td style="background-color: #2563eb; border-radius: 6px;">
+              <a href="${adminUrl}" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600;">
+                View in Admin
+              </a>
+            </td>
+          </tr>
+        </table>
+
+        <table role="presentation" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
+          <tr>
+            <td style="padding-right: 10px;">
+              <a href="mailto:${email}" style="display: inline-block; padding: 10px 20px; color: #2563eb; text-decoration: none; font-size: 14px; border: 1px solid #2563eb; border-radius: 6px;">
+                Reply to ${name.split(' ')[0]}
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px; text-align: center;">
+        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+          OnStride Admin Notification
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  return sendEmail({ to: 'admin@onstrideapp.com', subject, text, html });
+};
+
 module.exports = {
   isConfigured,
   sendEmail,
@@ -856,4 +1020,5 @@ module.exports = {
   sendEmailVerificationEmail,
   sendLessonNotificationEmail,
   sendDemoConfirmationEmail,
+  sendDemoAdminNotification,
 };

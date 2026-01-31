@@ -1,7 +1,7 @@
 const express = require('express');
 const DemoRequest = require('../models/DemoRequest');
 const DemoAvailability = require('../models/DemoAvailability');
-const { sendDemoConfirmationEmail } = require('../services/email');
+const { sendDemoConfirmationEmail, sendDemoAdminNotification } = require('../services/email');
 
 const router = express.Router();
 
@@ -79,7 +79,7 @@ router.post('/', async (req, res, next) => {
 
     await demoRequest.save();
 
-    // Send confirmation email (don't fail the request if email fails)
+    // Send confirmation email to user (don't fail the request if email fails)
     try {
       await sendDemoConfirmationEmail({
         to: email,
@@ -91,6 +91,23 @@ router.post('/', async (req, res, next) => {
       console.log('Demo confirmation email sent to:', email);
     } catch (emailError) {
       console.error('Failed to send demo confirmation email:', emailError.message);
+    }
+
+    // Send notification email to admin
+    try {
+      await sendDemoAdminNotification({
+        name,
+        email,
+        phone,
+        barnName,
+        discipline,
+        horseCount,
+        selectedDate,
+        selectedTime
+      });
+      console.log('Demo admin notification sent');
+    } catch (emailError) {
+      console.error('Failed to send demo admin notification:', emailError.message);
     }
 
     res.status(201).json({
