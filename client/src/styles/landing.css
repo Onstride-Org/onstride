@@ -1648,6 +1648,23 @@
   color: var(--color-neutral-300);
 }
 
+.footer-admin-link {
+  font-size: 11px;
+  color: var(--color-neutral-600);
+  text-decoration: none;
+  padding: 4px 10px;
+  border: 1px solid var(--color-neutral-800);
+  border-radius: 4px;
+  transition: all 0.2s;
+  opacity: 0.6;
+}
+
+.footer-admin-link:hover {
+  color: var(--color-neutral-400);
+  border-color: var(--color-neutral-700);
+  opacity: 1;
+}
+
 @media (max-width: 768px) {
   .landing-footer {
     padding: 48px 0 32px;
