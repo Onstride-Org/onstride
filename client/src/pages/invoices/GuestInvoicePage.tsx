@@ -97,7 +97,6 @@ export default function GuestInvoicePage() {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [cardType, setCardType] = useState<string | null>(null);
   const [ajaxSubmitUrl, setAjaxSubmitUrl] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const controllerRef = useRef<HostedFieldsController | null>(null);
 
   useEffect(() => {
@@ -148,7 +147,6 @@ export default function GuestInvoicePage() {
       }
 
       setAjaxSubmitUrl(data.ajaxSubmitCardUrl);
-      setSessionId(data.sessionId);
 
       // 2. Wait for Windcave library to load
       await waitForWindcave();

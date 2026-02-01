@@ -78,8 +78,6 @@ export default function PaymentModal({
   const [success, setSuccess] = useState(false);
   const [cardType, setCardType] = useState<string | null>(null);
   const [ajaxSubmitUrl, setAjaxSubmitUrl] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [fieldsReady, setFieldsReady] = useState(false);
   const controllerRef = useRef<HostedFieldsController | null>(null);
   const initAttemptedRef = useRef(false);
 
@@ -96,7 +94,6 @@ export default function PaymentModal({
       if (!isOpen) {
         initAttemptedRef.current = false;
         controllerRef.current = null;
-        setFieldsReady(false);
       }
     };
   }, [isOpen, invoiceId]);
@@ -127,7 +124,6 @@ export default function PaymentModal({
       }
 
       setAjaxSubmitUrl(data.ajaxSubmitCardUrl);
-      setSessionId(data.sessionId);
 
       // 2. Wait for Windcave library to load
       await waitForWindcave();
@@ -199,7 +195,6 @@ export default function PaymentModal({
       );
 
       controllerRef.current = controller;
-      setFieldsReady(true);
     } catch (err: any) {
       console.error('Payment initialization error:', err);
       setError(err.message || 'Failed to initialize payment');
