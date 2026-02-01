@@ -191,11 +191,12 @@ export default function GuestInvoicePage() {
               'color': '#1a1a1a',
               'font-size': '16px',
               'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-              'padding': '12px',
+              'padding': '14px 16px',
               'background-color': '#ffffff',
+              'line-height': '1.5',
             },
             'input-valid': {
-              'color': '#059669',
+              'color': '#1a1a1a',
             },
             'input-invalid': {
               'color': '#dc2626',
