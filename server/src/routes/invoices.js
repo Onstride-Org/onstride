@@ -70,7 +70,73 @@ router.get('/guest/:token', [
   }
 });
 
-// Pay guest invoice (public)
+// Create Hosted Fields session for guest invoice (public)
+router.post('/guest/:token/hosted-fields-session', [
+  param('token').isLength({ min: 64, max: 64 }),
+  validate
+], async (req, res, next) => {
+  try {
+    const invoice = await Invoice.findOne({
+      guestToken: req.params.token,
+      isGuestInvoice: true,
+      deletedAt: null
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    if (invoice.guestTokenExpiresAt && new Date() > invoice.guestTokenExpiresAt) {
+      return res.status(410).json({ error: 'This invoice link has expired' });
+    }
+
+    if (invoice.status === 'paid') {
+      return res.status(400).json({ error: 'Invoice is already paid' });
+    }
+
+    // Get barn-specific Windcave credentials
+    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
+      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
+
+    let credentials = null;
+    if (merchantApp?.windcaveCredentials?.isActive) {
+      credentials = merchantApp.getWindcaveCredentials();
+    }
+
+    if (!windcave.hasValidCredentials(credentials)) {
+      return res.status(503).json({
+        error: 'Payment processing is not available. Please contact the barn directly.'
+      });
+    }
+
+    // Create Hosted Fields session
+    const session = await windcave.createHostedFieldsSession({
+      invoiceId: invoice._id.toString(),
+      amount: invoice.paymentBreakdown.total,
+      currency: 'USD',
+      merchantReference: `GUEST-INV-${invoice._id}`,
+      credentials,
+    });
+
+    // Store session ID on invoice
+    invoice.windcavePaymentInfo = {
+      sessionId: session.sessionId,
+    };
+    await invoice.save();
+
+    return res.json({
+      sessionId: session.sessionId,
+      ajaxSubmitCardUrl: session.ajaxSubmitCardUrl,
+    });
+  } catch (error) {
+    console.error('Guest hosted fields session error:', error.message);
+    return res.status(400).json({
+      error: error.message || 'Failed to create payment session',
+    });
+  }
+});
+
+// Pay guest invoice (public) - DEPRECATED: Use hosted-fields-session + client-side submission
 router.post('/guest/:token/pay', [
   param('token').isLength({ min: 64, max: 64 }),
   body('cardNumber').notEmpty().isLength({ min: 13, max: 19 }),
@@ -517,6 +583,74 @@ router.post('/:id/payment', [
     }
   } catch (error) {
     next(error);
+  }
+});
+
+// Create Hosted Fields session for embedded payment
+router.post('/:id/hosted-fields-session', [
+  param('id').isMongoId(),
+  validate
+], async (req, res, next) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id)
+      .populate('boarderId', 'name email');
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // Check ownership or staff
+    const isOwner = invoice.boarderId?._id?.toString() === req.userId?.toString();
+    const isStaff = ['owner', 'admin', 'manager'].includes(req.user.accountType) ||
+      (req.barnRole && ['owner', 'admin', 'manager'].includes(req.barnRole.role));
+
+    if (!isOwner && !isStaff) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (invoice.status === 'paid') {
+      return res.status(400).json({ error: 'Invoice is already paid' });
+    }
+
+    // Get barn-specific Windcave credentials
+    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
+      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
+
+    let credentials = null;
+    if (merchantApp?.windcaveCredentials?.isActive) {
+      credentials = merchantApp.getWindcaveCredentials();
+    }
+
+    if (!windcave.hasValidCredentials(credentials)) {
+      return res.status(503).json({
+        error: 'Payment processing is not configured. Please contact support.'
+      });
+    }
+
+    // Create Hosted Fields session
+    const session = await windcave.createHostedFieldsSession({
+      invoiceId: invoice._id.toString(),
+      amount: invoice.paymentBreakdown.total,
+      currency: 'USD',
+      merchantReference: `INV-${invoice._id}`,
+      credentials,
+    });
+
+    // Store session ID on invoice
+    invoice.windcavePaymentInfo = {
+      sessionId: session.sessionId,
+    };
+    await invoice.save();
+
+    return res.json({
+      sessionId: session.sessionId,
+      ajaxSubmitCardUrl: session.ajaxSubmitCardUrl,
+    });
+  } catch (error) {
+    console.error('Hosted fields session error:', error.message);
+    return res.status(400).json({
+      error: error.message || 'Failed to create payment session',
+    });
   }
 });
 

@@ -1,5 +1,59 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, CreditCard, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+
+// Declare Windcave types
+declare global {
+  interface Window {
+    WindcavePayments?: {
+      HostedFields: {
+        create: (
+          options: HostedFieldsOptions,
+          timeout: number,
+          onSuccess: () => void,
+          onError: (error: string) => void
+        ) => HostedFieldsController;
+      };
+    };
+  }
+}
+
+interface HostedFieldsOptions {
+  env: 'uat' | 'sec';
+  fields: {
+    CardNumber?: FieldConfig;
+    ExpirationDate?: FieldConfig;
+    CVV?: FieldConfig;
+    CardHolderName?: FieldConfig;
+  };
+  styles?: {
+    input?: Record<string, string>;
+    'input-valid'?: Record<string, string>;
+    'input-invalid'?: Record<string, string>;
+    'input-focus'?: Record<string, string>;
+  };
+}
+
+interface FieldConfig {
+  container: string;
+  tabOrder?: number;
+  placeholder?: string;
+  isOptional?: boolean;
+  supportedCards?: string[];
+  styles?: Record<string, Record<string, string>>;
+  onValid?: () => void;
+  onInvalid?: () => void;
+  detectSchema?: (cardType: string) => void;
+}
+
+interface HostedFieldsController {
+  submit: (
+    ajaxSubmitUrl: string,
+    timeout: number,
+    onResult: (status: string) => void,
+    onError: (error: string) => void
+  ) => void;
+  validateField: (fieldName: string) => { valid: boolean; error?: string };
+}
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -10,14 +64,6 @@ interface PaymentModalProps {
   description?: string;
 }
 
-interface CardDetails {
-  cardNumber: string;
-  expiryMonth: string;
-  expiryYear: string;
-  cvv: string;
-  cardholderName: string;
-}
-
 export default function PaymentModal({
   isOpen,
   onClose,
@@ -26,150 +72,210 @@ export default function PaymentModal({
   amount,
   description,
 }: PaymentModalProps) {
-  const [cardDetails, setCardDetails] = useState<CardDetails>({
-    cardNumber: '',
-    expiryMonth: '',
-    expiryYear: '',
-    cvv: '',
-    cardholderName: '',
-  });
+  const [isInitializing, setIsInitializing] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [cardType, setCardType] = useState<string | null>(null);
+  const [ajaxSubmitUrl, setAjaxSubmitUrl] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const controllerRef = useRef<HostedFieldsController | null>(null);
+  const initAttemptedRef = useRef(false);
 
-  if (!isOpen) return null;
-
-  // Format card number with spaces
-  const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    const matches = v.match(/\d{4,16}/g);
-    const match = (matches && matches[0]) || '';
-    const parts = [];
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
-    return parts.length ? parts.join(' ') : v;
-  };
-
-  // Get card type from number
-  const getCardType = (number: string) => {
-    const cleaned = number.replace(/\s/g, '');
-    if (/^4/.test(cleaned)) return 'visa';
-    if (/^5[1-5]/.test(cleaned)) return 'mastercard';
-    if (/^3[47]/.test(cleaned)) return 'amex';
-    if (/^6(?:011|5)/.test(cleaned)) return 'discover';
-    return null;
-  };
-
-  const cardType = getCardType(cardDetails.cardNumber);
-
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCardNumber(e.target.value);
-    if (formatted.replace(/\s/g, '').length <= 16) {
-      setCardDetails({ ...cardDetails, cardNumber: formatted });
-    }
-  };
-
-  const handleExpiryChange = (field: 'expiryMonth' | 'expiryYear', value: string) => {
-    const cleaned = value.replace(/[^0-9]/g, '');
-    if (field === 'expiryMonth' && cleaned.length <= 2) {
-      setCardDetails({ ...cardDetails, expiryMonth: cleaned });
-    } else if (field === 'expiryYear' && cleaned.length <= 2) {
-      setCardDetails({ ...cardDetails, expiryYear: cleaned });
-    }
-  };
-
-  const handleCvvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cleaned = e.target.value.replace(/[^0-9]/g, '');
-    const maxLength = cardType === 'amex' ? 4 : 3;
-    if (cleaned.length <= maxLength) {
-      setCardDetails({ ...cardDetails, cvv: cleaned });
-    }
-  };
-
-  const validateCard = (): string | null => {
-    const { cardNumber, expiryMonth, expiryYear, cvv, cardholderName } = cardDetails;
-
-    if (!cardholderName.trim()) return 'Please enter the cardholder name';
-
-    const cleanedNumber = cardNumber.replace(/\s/g, '');
-    if (cleanedNumber.length < 13 || cleanedNumber.length > 16) {
-      return 'Please enter a valid card number';
+  useEffect(() => {
+    if (isOpen && !initAttemptedRef.current) {
+      initAttemptedRef.current = true;
+      initializeHostedFields();
     }
 
-    const month = parseInt(expiryMonth, 10);
-    if (!expiryMonth || month < 1 || month > 12) {
-      return 'Please enter a valid expiry month (01-12)';
-    }
+    return () => {
+      if (!isOpen) {
+        initAttemptedRef.current = false;
+        controllerRef.current = null;
+      }
+    };
+  }, [isOpen, invoiceId]);
 
-    const year = parseInt(expiryYear, 10);
-    const currentYear = new Date().getFullYear() % 100;
-    if (!expiryYear || year < currentYear) {
-      return 'Card has expired';
-    }
-
-    const cvvLength = cardType === 'amex' ? 4 : 3;
-    if (cvv.length !== cvvLength) {
-      return `Please enter a valid CVV (${cvvLength} digits)`;
-    }
-
-    return null;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const initializeHostedFields = async () => {
+    setIsInitializing(true);
     setError(null);
 
-    const validationError = validateCard();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
-    setIsProcessing(true);
-
     try {
+      // 1. Create session on backend
       const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
       const token = localStorage.getItem('accessToken');
       const barnId = localStorage.getItem('currentBarnId');
 
-      const response = await fetch(`${apiBase}/invoices/${invoiceId}/pay-direct`, {
+      const response = await fetch(`${apiBase}/invoices/${invoiceId}/hosted-fields-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
           ...(barnId && { 'X-Barn-Id': barnId }),
         },
-        body: JSON.stringify({
-          cardNumber: cardDetails.cardNumber.replace(/\s/g, ''),
-          expiryMonth: cardDetails.expiryMonth.padStart(2, '0'),
-          expiryYear: '20' + cardDetails.expiryYear,
-          cvv: cardDetails.cvv,
-          cardholderName: cardDetails.cardholderName,
-        }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Payment failed');
+        throw new Error(data.error || 'Failed to initialize payment');
       }
 
-      if (data.status === 'paid' || data.authorised) {
-        setSuccess(true);
-        setTimeout(() => {
-          onSuccess();
-          onClose();
-        }, 2000);
-      } else {
-        throw new Error(data.responseText || 'Payment was declined');
-      }
+      setAjaxSubmitUrl(data.ajaxSubmitCardUrl);
+      setSessionId(data.sessionId);
+
+      // 2. Wait for Windcave library to load
+      await waitForWindcave();
+
+      // 3. Initialize Hosted Fields
+      const controller = window.WindcavePayments!.HostedFields.create(
+        {
+          env: 'uat', // Change to 'sec' for production
+          fields: {
+            CardNumber: {
+              container: 'wc-card-number',
+              tabOrder: 1,
+              placeholder: '4111 1111 1111 1111',
+              supportedCards: ['visa', 'masterCard', 'amex'],
+              detectSchema: (type: string) => {
+                setCardType(type);
+              },
+            },
+            ExpirationDate: {
+              container: 'wc-expiry',
+              tabOrder: 2,
+              placeholder: 'MM / YY',
+            },
+            CVV: {
+              container: 'wc-cvv',
+              tabOrder: 3,
+              placeholder: '123',
+            },
+            CardHolderName: {
+              container: 'wc-cardholder',
+              tabOrder: 4,
+              placeholder: 'Name on card',
+            },
+          },
+          styles: {
+            input: {
+              'color': '#1a1a1a',
+              'font-size': '16px',
+              'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              'padding': '12px',
+              'background-color': '#ffffff',
+            },
+            'input-valid': {
+              'color': '#059669',
+            },
+            'input-invalid': {
+              'color': '#dc2626',
+            },
+            'input-focus': {
+              'outline': 'none',
+            },
+          },
+        },
+        30,
+        () => {
+          // Success - fields loaded
+          setIsInitializing(false);
+        },
+        (err) => {
+          // Error loading fields
+          console.error('Hosted fields error:', err);
+          setError('Failed to load payment form. Please refresh and try again.');
+          setIsInitializing(false);
+        }
+      );
+
+      controllerRef.current = controller;
     } catch (err: any) {
-      setError(err.message || 'Payment failed. Please try again.');
-    } finally {
-      setIsProcessing(false);
+      console.error('Payment initialization error:', err);
+      setError(err.message || 'Failed to initialize payment');
+      setIsInitializing(false);
     }
   };
+
+  const waitForWindcave = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      const maxAttempts = 50; // 5 seconds
+
+      const check = () => {
+        if (window.WindcavePayments?.HostedFields) {
+          resolve();
+        } else if (attempts >= maxAttempts) {
+          reject(new Error('Windcave payment library failed to load'));
+        } else {
+          attempts++;
+          setTimeout(check, 100);
+        }
+      };
+
+      check();
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!controllerRef.current || !ajaxSubmitUrl) {
+      setError('Payment form not ready. Please wait and try again.');
+      return;
+    }
+
+    setIsProcessing(true);
+
+    controllerRef.current.submit(
+      ajaxSubmitUrl,
+      30,
+      async (status) => {
+        if (status === 'done') {
+          // Payment submitted - check result on backend
+          try {
+            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+            const token = localStorage.getItem('accessToken');
+            const barnId = localStorage.getItem('currentBarnId');
+
+            const response = await fetch(`${apiBase}/invoices/${invoiceId}/payment-status`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                ...(barnId && { 'X-Barn-Id': barnId }),
+              },
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'paid' || result.transaction?.authorised) {
+              setSuccess(true);
+              setTimeout(() => {
+                onSuccess();
+                onClose();
+              }, 2000);
+            } else {
+              setError(result.transaction?.responseText || 'Payment was declined');
+              setIsProcessing(false);
+            }
+          } catch (err) {
+            setError('Failed to verify payment status');
+            setIsProcessing(false);
+          }
+        } else if (status === '3DSecure') {
+          // 3D Secure popup is being displayed - wait for it to complete
+          console.log('3D Secure authentication required');
+        }
+      },
+      (err) => {
+        console.error('Payment submission error:', err);
+        setError(err || 'Payment failed. Please try again.');
+        setIsProcessing(false);
+      }
+    );
+  };
+
+  if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -209,93 +315,52 @@ export default function PaymentModal({
                 </div>
               )}
 
-              {/* Card Form */}
-              <div className="payment-form">
-                <div className="form-group">
-                  <label className="form-label">Cardholder Name</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Name on card"
-                    value={cardDetails.cardholderName}
-                    onChange={(e) => setCardDetails({ ...cardDetails, cardholderName: e.target.value })}
-                    disabled={isProcessing}
-                    autoComplete="cc-name"
-                  />
+              {isInitializing ? (
+                <div className="payment-loading">
+                  <div className="spinner spinner-md"></div>
+                  <p>Loading secure payment form...</p>
                 </div>
+              ) : (
+                <>
+                  {/* Hosted Fields Form */}
+                  <div className="payment-form hosted-fields-form">
+                    <div className="form-group">
+                      <label className="form-label">Cardholder Name</label>
+                      <div id="wc-cardholder" className="hosted-field-container"></div>
+                    </div>
 
-                <div className="form-group">
-                  <label className="form-label">Card Number</label>
-                  <div className="card-input-wrapper">
-                    <input
-                      type="text"
-                      className="form-input card-number-input"
-                      placeholder="1234 5678 9012 3456"
-                      value={cardDetails.cardNumber}
-                      onChange={handleCardNumberChange}
-                      disabled={isProcessing}
-                      autoComplete="cc-number"
-                      inputMode="numeric"
-                    />
-                    {cardType && (
-                      <span className={`card-type-badge ${cardType}`}>
-                        {cardType.toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                    <div className="form-group">
+                      <label className="form-label">Card Number</label>
+                      <div className="card-input-wrapper">
+                        <div id="wc-card-number" className="hosted-field-container"></div>
+                        {cardType && (
+                          <span className={`card-type-badge ${cardType.toLowerCase()}`}>
+                            {cardType.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Expiry Date</label>
-                    <div className="expiry-inputs">
-                      <input
-                        type="text"
-                        className="form-input expiry-input"
-                        placeholder="MM"
-                        value={cardDetails.expiryMonth}
-                        onChange={(e) => handleExpiryChange('expiryMonth', e.target.value)}
-                        disabled={isProcessing}
-                        autoComplete="cc-exp-month"
-                        inputMode="numeric"
-                        maxLength={2}
-                      />
-                      <span className="expiry-separator">/</span>
-                      <input
-                        type="text"
-                        className="form-input expiry-input"
-                        placeholder="YY"
-                        value={cardDetails.expiryYear}
-                        onChange={(e) => handleExpiryChange('expiryYear', e.target.value)}
-                        disabled={isProcessing}
-                        autoComplete="cc-exp-year"
-                        inputMode="numeric"
-                        maxLength={2}
-                      />
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label className="form-label">Expiry Date</label>
+                        <div id="wc-expiry" className="hosted-field-container"></div>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">CVV</label>
+                        <div id="wc-cvv" className="hosted-field-container"></div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">CVV</label>
-                    <input
-                      type="text"
-                      className="form-input cvv-input"
-                      placeholder={cardType === 'amex' ? '1234' : '123'}
-                      value={cardDetails.cvv}
-                      onChange={handleCvvChange}
-                      disabled={isProcessing}
-                      autoComplete="cc-csc"
-                      inputMode="numeric"
-                    />
+                  {/* Security Note */}
+                  <div className="payment-security">
+                    <Lock size={14} />
+                    <span>Your payment is secured with 256-bit encryption</span>
                   </div>
-                </div>
-              </div>
-
-              {/* Security Note */}
-              <div className="payment-security">
-                <Lock size={14} />
-                <span>Your payment is secured with 256-bit encryption</span>
-              </div>
+                </>
+              )}
             </div>
 
             <div className="modal-footer">
@@ -310,7 +375,7 @@ export default function PaymentModal({
               <button
                 type="submit"
                 className="btn btn-primary"
-                disabled={isProcessing}
+                disabled={isProcessing || isInitializing}
               >
                 {isProcessing ? (
                   <>

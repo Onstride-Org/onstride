@@ -132,11 +132,68 @@ const createPaymentSession = async (options) => {
       sessionId: response.data.id,
       state: response.data.state,
       redirectUrl: response.data.links?.find(l => l.rel === 'hpp')?.href,
+      ajaxSubmitCardUrl: response.data.links?.find(l => l.rel === 'ajaxSubmitCard')?.href,
       expiresAt: response.data.expires,
       links: response.data.links,
     };
   } catch (error) {
     console.error('Windcave session creation error:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to create payment session');
+  }
+};
+
+/**
+ * Create a session specifically for Hosted Fields integration
+ * Returns the ajaxSubmitCard URL needed for client-side submission
+ *
+ * @param {Object} options - Payment options
+ * @param {string} options.invoiceId - Internal invoice ID
+ * @param {number} options.amount - Amount in dollars
+ * @param {string} options.currency - Currency code (default: USD)
+ * @param {string} options.merchantReference - Unique merchant reference
+ * @param {Object} options.credentials - Optional barn-specific credentials
+ * @returns {Object} Session data with ajaxSubmitCard URL for Hosted Fields
+ */
+const createHostedFieldsSession = async (options) => {
+  const {
+    invoiceId,
+    amount,
+    currency = 'USD',
+    merchantReference,
+    credentials,
+  } = options;
+
+  if (!hasValidCredentials(credentials)) {
+    throw new Error('Windcave is not configured');
+  }
+
+  const apiClient = credentials ? createApiClient(credentials) : windcaveApi;
+  const amountInCents = Math.round(amount * 100);
+
+  const sessionData = {
+    type: 'purchase',
+    amount: amountInCents.toString(),
+    currency: currency,
+    merchantReference: merchantReference || invoiceId,
+    methods: ['card'],
+  };
+
+  try {
+    const response = await apiClient.post('/sessions', sessionData);
+
+    const ajaxSubmitCardUrl = response.data.links?.find(l => l.rel === 'ajaxSubmitCard')?.href;
+
+    if (!ajaxSubmitCardUrl) {
+      throw new Error('Hosted Fields not available for this account. Please contact Windcave support.');
+    }
+
+    return {
+      sessionId: response.data.id,
+      ajaxSubmitCardUrl,
+      expiresAt: response.data.expires,
+    };
+  } catch (error) {
+    console.error('Windcave hosted fields session error:', error.response?.data || error.message);
     throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to create payment session');
   }
 };
@@ -438,6 +495,7 @@ module.exports = {
   isConfigured,
   hasValidCredentials,
   createPaymentSession,
+  createHostedFieldsSession,
   processDirectPayment,
   getSession,
   getTransaction,
