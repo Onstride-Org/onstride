@@ -79,19 +79,24 @@ export default function PaymentModal({
   const [cardType, setCardType] = useState<string | null>(null);
   const [ajaxSubmitUrl, setAjaxSubmitUrl] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [fieldsReady, setFieldsReady] = useState(false);
   const controllerRef = useRef<HostedFieldsController | null>(null);
   const initAttemptedRef = useRef(false);
 
   useEffect(() => {
     if (isOpen && !initAttemptedRef.current) {
       initAttemptedRef.current = true;
-      initializeHostedFields();
+      // Wait for next tick to ensure DOM is rendered
+      setTimeout(() => {
+        initializeHostedFields();
+      }, 100);
     }
 
     return () => {
       if (!isOpen) {
         initAttemptedRef.current = false;
         controllerRef.current = null;
+        setFieldsReady(false);
       }
     };
   }, [isOpen, invoiceId]);
@@ -127,7 +132,10 @@ export default function PaymentModal({
       // 2. Wait for Windcave library to load
       await waitForWindcave();
 
-      // 3. Initialize Hosted Fields
+      // 3. Wait for container elements to exist
+      await waitForContainers();
+
+      // 4. Initialize Hosted Fields
       const controller = window.WindcavePayments!.HostedFields.create(
         {
           env: 'uat', // Change to 'sec' for production
@@ -190,6 +198,7 @@ export default function PaymentModal({
       );
 
       controllerRef.current = controller;
+      setFieldsReady(true);
     } catch (err: any) {
       console.error('Payment initialization error:', err);
       setError(err.message || 'Failed to initialize payment');
@@ -207,6 +216,31 @@ export default function PaymentModal({
           resolve();
         } else if (attempts >= maxAttempts) {
           reject(new Error('Windcave payment library failed to load'));
+        } else {
+          attempts++;
+          setTimeout(check, 100);
+        }
+      };
+
+      check();
+    });
+  };
+
+  const waitForContainers = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      const maxAttempts = 50; // 5 seconds
+
+      const check = () => {
+        const cardNumber = document.getElementById('wc-card-number');
+        const expiry = document.getElementById('wc-expiry');
+        const cvv = document.getElementById('wc-cvv');
+        const cardholder = document.getElementById('wc-cardholder');
+
+        if (cardNumber && expiry && cvv && cardholder) {
+          resolve();
+        } else if (attempts >= maxAttempts) {
+          reject(new Error('Payment form containers not found'));
         } else {
           attempts++;
           setTimeout(check, 100);
@@ -315,52 +349,49 @@ export default function PaymentModal({
                 </div>
               )}
 
-              {isInitializing ? (
-                <div className="payment-loading">
-                  <div className="spinner spinner-md"></div>
-                  <p>Loading secure payment form...</p>
+              {/* Hosted Fields Form - always rendered so containers exist */}
+              <div className="payment-form hosted-fields-form" style={{ position: 'relative' }}>
+                {isInitializing && (
+                  <div className="payment-loading-overlay">
+                    <div className="spinner spinner-md"></div>
+                    <p>Loading secure payment form...</p>
+                  </div>
+                )}
+                <div className="form-group">
+                  <label className="form-label">Cardholder Name</label>
+                  <div id="wc-cardholder" className="hosted-field-container"></div>
                 </div>
-              ) : (
-                <>
-                  {/* Hosted Fields Form */}
-                  <div className="payment-form hosted-fields-form">
-                    <div className="form-group">
-                      <label className="form-label">Cardholder Name</label>
-                      <div id="wc-cardholder" className="hosted-field-container"></div>
-                    </div>
 
-                    <div className="form-group">
-                      <label className="form-label">Card Number</label>
-                      <div className="card-input-wrapper">
-                        <div id="wc-card-number" className="hosted-field-container"></div>
-                        {cardType && (
-                          <span className={`card-type-badge ${cardType.toLowerCase()}`}>
-                            {cardType.toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                <div className="form-group">
+                  <label className="form-label">Card Number</label>
+                  <div className="card-input-wrapper">
+                    <div id="wc-card-number" className="hosted-field-container"></div>
+                    {cardType && (
+                      <span className={`card-type-badge ${cardType.toLowerCase()}`}>
+                        {cardType.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label className="form-label">Expiry Date</label>
-                        <div id="wc-expiry" className="hosted-field-container"></div>
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">CVV</label>
-                        <div id="wc-cvv" className="hosted-field-container"></div>
-                      </div>
-                    </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Expiry Date</label>
+                    <div id="wc-expiry" className="hosted-field-container"></div>
                   </div>
 
-                  {/* Security Note */}
-                  <div className="payment-security">
-                    <Lock size={14} />
-                    <span>Your payment is secured with 256-bit encryption</span>
+                  <div className="form-group">
+                    <label className="form-label">CVV</label>
+                    <div id="wc-cvv" className="hosted-field-container"></div>
                   </div>
-                </>
-              )}
+                </div>
+              </div>
+
+              {/* Security Note */}
+              <div className="payment-security">
+                <Lock size={14} />
+                <span>Your payment is secured with 256-bit encryption</span>
+              </div>
             </div>
 
             <div className="modal-footer">

@@ -153,7 +153,10 @@ export default function GuestInvoicePage() {
       // 2. Wait for Windcave library to load
       await waitForWindcave();
 
-      // 3. Initialize Hosted Fields
+      // 3. Wait for container elements to exist
+      await waitForContainers();
+
+      // 4. Initialize Hosted Fields
       const controller = window.WindcavePayments!.HostedFields.create(
         {
           env: 'uat', // Change to 'sec' for production
@@ -243,12 +246,37 @@ export default function GuestInvoicePage() {
     });
   };
 
+  const waitForContainers = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      const maxAttempts = 50; // 5 seconds
+
+      const check = () => {
+        const cardNumber = document.getElementById('guest-wc-card-number');
+        const expiry = document.getElementById('guest-wc-expiry');
+        const cvv = document.getElementById('guest-wc-cvv');
+        const cardholder = document.getElementById('guest-wc-cardholder');
+
+        if (cardNumber && expiry && cvv && cardholder) {
+          resolve();
+        } else if (attempts >= maxAttempts) {
+          reject(new Error('Payment form containers not found'));
+        } else {
+          attempts++;
+          setTimeout(check, 100);
+        }
+      };
+
+      check();
+    });
+  };
+
   const handleShowPaymentForm = () => {
     setShowPaymentForm(true);
     // Initialize hosted fields after DOM renders
     setTimeout(() => {
       initializeHostedFields();
-    }, 100);
+    }, 150);
   };
 
   const handlePayment = async (e: React.FormEvent) => {
@@ -478,48 +506,48 @@ export default function GuestInvoicePage() {
                   </div>
                 )}
 
-                {isInitializing ? (
-                  <div className="payment-loading">
-                    <div className="spinner spinner-md"></div>
-                    <p>Loading secure payment form...</p>
+                {/* Hosted Fields Form - always rendered so containers exist */}
+                <div style={{ position: 'relative' }}>
+                  {isInitializing && (
+                    <div className="payment-loading-overlay">
+                      <div className="spinner spinner-md"></div>
+                      <p>Loading secure payment form...</p>
+                    </div>
+                  )}
+                  <div className="form-group">
+                    <label className="form-label">Cardholder Name</label>
+                    <div id="guest-wc-cardholder" className="hosted-field-container"></div>
                   </div>
-                ) : (
-                  <>
+
+                  <div className="form-group">
+                    <label className="form-label">Card Number</label>
+                    <div className="card-input-wrapper">
+                      <div id="guest-wc-card-number" className="hosted-field-container"></div>
+                      {cardType && (
+                        <span className={`card-type-badge ${cardType.toLowerCase()}`}>
+                          {cardType.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="form-row">
                     <div className="form-group">
-                      <label className="form-label">Cardholder Name</label>
-                      <div id="guest-wc-cardholder" className="hosted-field-container"></div>
+                      <label className="form-label">Expiry Date</label>
+                      <div id="guest-wc-expiry" className="hosted-field-container"></div>
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">Card Number</label>
-                      <div className="card-input-wrapper">
-                        <div id="guest-wc-card-number" className="hosted-field-container"></div>
-                        {cardType && (
-                          <span className={`card-type-badge ${cardType.toLowerCase()}`}>
-                            {cardType.toUpperCase()}
-                          </span>
-                        )}
-                      </div>
+                      <label className="form-label">CVV</label>
+                      <div id="guest-wc-cvv" className="hosted-field-container"></div>
                     </div>
+                  </div>
 
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label className="form-label">Expiry Date</label>
-                        <div id="guest-wc-expiry" className="hosted-field-container"></div>
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">CVV</label>
-                        <div id="guest-wc-cvv" className="hosted-field-container"></div>
-                      </div>
-                    </div>
-
-                    <div className="payment-security">
-                      <Lock size={14} />
-                      <span>Your payment is secured with 256-bit encryption</span>
-                    </div>
-                  </>
-                )}
+                  <div className="payment-security">
+                    <Lock size={14} />
+                    <span>Your payment is secured with 256-bit encryption</span>
+                  </div>
+                </div>
 
                 <div className="payment-actions">
                   <button
