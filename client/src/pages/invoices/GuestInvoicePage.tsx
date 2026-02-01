@@ -157,7 +157,7 @@ export default function GuestInvoicePage() {
       // 4. Initialize Hosted Fields
       const controller = window.WindcavePayments!.HostedFields.create(
         {
-          env: 'uat', // Change to 'sec' for production
+          env: 'sec',
           fields: {
             CardNumber: {
               container: 'guest-wc-card-number',
