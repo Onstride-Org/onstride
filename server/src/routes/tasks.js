@@ -1,14 +1,22 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const Task = require('../models/Task');
+const User = require('../models/User');
 const { Notification } = require('../models/Notification');
-const { authenticate, loadBarnContext, requireBarn, hasPermission, isStaff } = require('../middleware/auth');
+const { sendTaskApprovalEmail } = require('../services/email');
+const { format } = require('date-fns');
+const { authenticate, loadBarnContext, requireBarn, hasPermission, isStaff, restrictGroomer } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 
 const router = express.Router();
 
 router.use(authenticate);
 router.use(loadBarnContext);
+router.use((req, res, next) => {
+  req.groomerResource = 'tasks';
+  next();
+});
+router.use(restrictGroomer('tasks'));
 
 // Get all tasks
 router.get('/', requireBarn, async (req, res, next) => {
@@ -100,6 +108,8 @@ router.post('/', [
       assignees: assignees || [],
       sendReminder: sendReminder !== false,
       reminderMinutesBefore: reminderMinutesBefore || 60,
+      approvalStatus: assignees?.length ? 'pending' : 'approved',
+      notificationSent: false,
       createdById: req.userId
     });
 
@@ -107,7 +117,7 @@ router.post('/', [
     if (assignees && assignees.length > 0) {
       const notifications = assignees.map(assignee => ({
         userId: assignee.id,
-        type: 'task_assigned',
+        type: 'task',
         title: 'New Task Assigned',
         body: `You have been assigned to: ${name}`,
         data: { taskId: task._id.toString() },
@@ -141,7 +151,9 @@ router.put('/:id', [
         ...(horses && { horses }),
         ...(assignees && { assignees }),
         ...(sendReminder !== undefined && { sendReminder }),
-        ...(reminderMinutesBefore && { reminderMinutesBefore })
+        ...(reminderMinutesBefore && { reminderMinutesBefore }),
+        ...(assignees && { approvalStatus: assignees.length ? 'pending' : 'approved', notificationSent: false }),
+        ...(dueDate && { notificationSent: false })
       },
       { new: true }
     );
@@ -170,6 +182,10 @@ router.put('/:id/status', [
       return res.status(404).json({ error: 'Task not found' });
     }
 
+    if (task.approvalStatus && task.approvalStatus !== 'approved') {
+      return res.status(400).json({ error: 'Task must be approved before updating status' });
+    }
+
     // Check if user is assigned or is staff
     const isAssigned = task.assignees.some(a => a.id.toString() === req.userId.toString());
     const userIsStaff = ['owner', 'admin', 'manager', 'groomer', 'trainer'].includes(req.user.accountType) ||
@@ -196,12 +212,105 @@ router.put('/:id/status', [
   }
 });
 
+// Respond to task assignment (approve/deny/reschedule)
+router.put('/:id/approval', [
+  param('id').isMongoId(),
+  body('action').isIn(['approve', 'deny', 'reschedule']),
+  body('proposedDate').optional().isISO8601(),
+  validate
+], async (req, res, next) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const isAssigned = task.assignees.some(a => a.id.toString() === req.userId.toString());
+    if (!isAssigned) {
+      return res.status(403).json({ error: 'Only assigned users can respond' });
+    }
+
+    const { action, proposedDate, reason } = req.body;
+
+    if (action === 'approve') {
+      task.approvalStatus = 'approved';
+      task.approvedAt = new Date();
+      task.approvedById = req.userId;
+      task.rescheduleProposedDate = null;
+      task.denialReason = null;
+    } else if (action === 'deny') {
+      task.approvalStatus = 'denied';
+      task.denialReason = reason || null;
+      task.rescheduleProposedDate = null;
+    } else if (action === 'reschedule') {
+      if (!proposedDate) {
+        return res.status(400).json({ error: 'Proposed date required for reschedule' });
+      }
+      task.approvalStatus = 'rescheduleRequested';
+      task.rescheduleProposedDate = new Date(proposedDate);
+      task.denialReason = null;
+    }
+
+    await task.save();
+
+    const creator = await User.findById(task.createdById).select('name email');
+    const assignee = task.assignees.find(a => a.id.toString() === req.userId.toString());
+    const formattedDueDate = format(new Date(task.dueDate), 'EEEE, MMMM d, yyyy \'at\' h:mm a');
+    const formattedProposedDate = task.rescheduleProposedDate
+      ? format(new Date(task.rescheduleProposedDate), 'EEEE, MMMM d, yyyy \'at\' h:mm a')
+      : null;
+
+    const emailType = action === 'approve'
+      ? 'approved'
+      : action === 'deny'
+        ? 'denied'
+        : 'rescheduleRequested';
+
+    if (creator?.email && assignee?.name) {
+      sendTaskApprovalEmail({
+        to: creator.email,
+        recipientName: creator.name,
+        type: emailType,
+        task: {
+          name: task.name,
+          dueDate: formattedDueDate,
+          assigneeName: assignee.name,
+        },
+        reason: action === 'deny' ? reason : undefined,
+        proposedDate: formattedProposedDate,
+      });
+    }
+
+    const notificationBodyMap = {
+      approve: 'Task approved',
+      deny: reason ? `Task denied: ${reason}` : 'Task denied',
+      reschedule: formattedProposedDate ? `Reschedule requested for ${formattedProposedDate}` : 'Reschedule requested'
+    };
+
+    await Notification.create({
+      userId: task.createdById,
+      type: 'task',
+      title: `Task ${emailType === 'approved' ? 'Approved' : emailType === 'denied' ? 'Denied' : 'Reschedule Requested'}`,
+      body: notificationBodyMap[action] || 'Task updated',
+      data: { taskId: task._id.toString() },
+      action: '/app/calendar'
+    });
+
+    res.json(task);
+  } catch (error) {
+    next(error);
+  }
+});
 // Complete task (shorthand)
 router.post('/:id/complete', async (req, res, next) => {
   try {
     const task = await Task.findById(req.params.id);
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
+    }
+
+    if (task.approvalStatus && task.approvalStatus !== 'approved') {
+      return res.status(400).json({ error: 'Task must be approved before completing' });
     }
 
     const isAssigned = task.assignees.some(a => a.id.toString() === req.userId.toString());

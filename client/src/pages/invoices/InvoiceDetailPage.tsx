@@ -6,12 +6,13 @@ import { Invoice, InvoiceStatus } from '../../types';
 import { format } from 'date-fns';
 import { CreditCard, DollarSign, RefreshCw, X } from 'lucide-react';
 import { PaymentModal } from '../../components/payments';
+import OnboardingStepsModal from '../../components/OnboardingStepsModal';
 
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { currentBarnRole } = useAuthStore();
+  const { currentBarnRole, showOnboarding, setShowOnboarding } = useAuthStore();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -82,6 +83,7 @@ export default function InvoiceDetailPage() {
   const handlePaymentSuccess = () => {
     setShowPaymentModal(false);
     loadInvoice();
+    setShowOnboarding(true);
   };
 
   // Handle manual payment (cash/check) - staff only
@@ -344,6 +346,15 @@ export default function InvoiceDetailPage() {
                 <span>Subtotal</span>
                 <span className="font-medium">${total.toFixed(2)}</span>
               </div>
+                {invoice.subscriptionTier && (
+                  <div className="invoice-total-row text-muted">
+                    <span>Subscription</span>
+                    <span>
+                      {invoice.subscriptionTier.charAt(0).toUpperCase() + invoice.subscriptionTier.slice(1)}
+                      {invoice.subscriptionInterval ? ` • ${invoice.subscriptionInterval}` : ''}
+                    </span>
+                  </div>
+                )}
               {invoice.paymentBreakdown && (invoice.paymentBreakdown.processingFee || invoice.paymentBreakdown.stripeFee) && (
                 <div className="invoice-total-row text-muted">
                   <span>Processing Fee</span>
@@ -419,6 +430,11 @@ export default function InvoiceDetailPage() {
           description={`Invoice #${invoice.id?.slice(-6).toUpperCase()}`}
         />
       )}
+
+      <OnboardingStepsModal
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+      />
     </div>
   );
 }

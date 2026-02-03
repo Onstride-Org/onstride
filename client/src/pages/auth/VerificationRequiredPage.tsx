@@ -6,7 +6,7 @@ import { useAuthStore } from '../../stores/authStore';
 export default function VerificationRequiredPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { setUser, setBarns, setCurrentBarnId } = useAuthStore();
+  const { setUser, setBarns, setCurrentBarnId, setShowOnboarding } = useAuthStore();
   const email = location.state?.email || '';
   const isNewRegistration = location.state?.isNewRegistration || false;
   const [isResending, setIsResending] = useState(false);
@@ -36,6 +36,7 @@ export default function VerificationRequiredPage() {
               setCurrentBarn(primaryBarn.barnId);
               setCurrentBarnId(primaryBarn.barnId);
             }
+            setShowOnboarding(true);
             navigate('/app/dashboard', { replace: true });
           }
         }

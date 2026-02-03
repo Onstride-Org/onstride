@@ -18,6 +18,7 @@ interface AuthState {
   barns: Barn[];
   currentBarnId: string | null;
   currentBarnRole: BarnRole | null;
+  showOnboarding: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -36,6 +37,7 @@ interface AuthState {
   setUser: (user: User) => void;
   setBarns: (barns: Barn[]) => void;
   setCurrentBarnId: (barnId: string) => void;
+  setShowOnboarding: (show: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -43,6 +45,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   barns: [],
   currentBarnId: getCurrentBarn(),
   currentBarnRole: null,
+  showOnboarding: false,
   isAuthenticated: false,
   isLoading: true,
   error: null,
@@ -285,4 +288,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       currentBarnRole: barn?.role ? { role: barn.role } : null
     });
   },
+  setShowOnboarding: (show: boolean) => set({ showOnboarding: show }),
 }));

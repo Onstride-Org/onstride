@@ -193,6 +193,30 @@ const isStaff = (req, res, next) => {
   return res.status(403).json({ error: 'Staff access required' });
 };
 
+// Restrict groomer access to a limited set of resources
+const restrictGroomer = (...allowedResources) => {
+  return (req, res, next) => {
+    const user = req.user;
+    const barnRole = req.barnRole;
+    const groomerRoles = ['groomer'];
+
+    const isGroomer = groomerRoles.includes(user?.accountType) ||
+      (barnRole && groomerRoles.includes(barnRole.role));
+
+    if (!isGroomer) {
+      return next();
+    }
+
+    if (!allowedResources.includes(true) && !allowedResources.includes('all')) {
+      const allowed = allowedResources.some(resource => resource === req.groomerResource);
+      if (!allowed) {
+        return res.status(403).json({ error: 'Groomer access restricted' });
+      }
+    }
+
+    return next();
+  };
+};
 // Check if user owns the resource or is staff
 const ownsResourceOrStaff = (getResourceUserId) => {
   return async (req, res, next) => {
@@ -230,5 +254,6 @@ module.exports = {
   hasPermission,
   hasRole,
   isStaff,
-  ownsResourceOrStaff
+  ownsResourceOrStaff,
+  restrictGroomer
 };

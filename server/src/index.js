@@ -25,6 +25,7 @@ const stableRoutes = require('./routes/stables');
 const quickbooksRoutes = require('./routes/quickbooks');
 const windcaveRoutes = require('./routes/windcave');
 const demoRequestRoutes = require('./routes/demoRequests');
+const { startReminderScheduler } = require('./services/reminders');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -103,6 +104,7 @@ const PORT = process.env.PORT || 5000;
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gl-horses')
   .then(() => {
     console.log('Connected to MongoDB');
+    startReminderScheduler();
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });

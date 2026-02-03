@@ -8,7 +8,7 @@ import { HorseIcon } from '../../components/icons/HorseIcon';
 import FilterTabs from '../../components/FilterTabs';
 
 export default function TasksPage() {
-  const { currentBarnRole } = useAuthStore();
+  const { currentBarnRole, user } = useAuthStore();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
@@ -39,6 +39,10 @@ export default function TasksPage() {
   }, [pagination.page, statusFilter]);
 
   const handleToggleStatus = async (task: Task) => {
+    if (task.approvalStatus && task.approvalStatus !== 'approved') {
+      alert('This task must be approved before updating its status.');
+      return;
+    }
     const newStatus: TaskStatus = task.status === 'completed' ? 'notStarted' : 'completed';
     try {
       await tasksApi.updateStatus(task.id, newStatus);
@@ -58,11 +62,30 @@ export default function TasksPage() {
     }
   };
 
-  const getStatusBadge = (status: TaskStatus, dueDate: string) => {
+  const getStatusBadge = (status: TaskStatus, dueDate: string, approvalStatus?: Task['approvalStatus']) => {
+    if (approvalStatus && approvalStatus !== 'approved') return 'info';
     if (status === 'completed') return 'success';
     if (isPast(parseISO(dueDate)) && !isToday(parseISO(dueDate))) return 'error';
     if (isToday(parseISO(dueDate))) return 'warning';
     return 'neutral';
+  };
+
+  const handleApprovalAction = async (task: Task, action: 'approve' | 'deny' | 'reschedule') => {
+    try {
+      let payload: any = { action };
+      if (action === 'reschedule') {
+        const proposedDate = prompt('Propose a new date/time (e.g. 2026-02-03 14:00):');
+        if (!proposedDate) return;
+        payload.proposedDate = new Date(proposedDate).toISOString();
+      } else if (action === 'deny') {
+        const reason = prompt('Reason for denying this task?');
+        if (reason) payload.reason = reason;
+      }
+      await tasksApi.updateApproval(task.id, payload);
+      loadTasks();
+    } catch (error) {
+      console.error('Failed to update task approval:', error);
+    }
   };
 
   return (
@@ -133,10 +156,13 @@ export default function TasksPage() {
                   <h3 className={`task-name ${task.status === 'completed' ? 'completed' : ''}`}>
                     {task.name}
                   </h3>
-                  <span className={`badge badge-${getStatusBadge(task.status, task.dueDate)}`}>
-                    {task.status === 'completed' ? 'Completed' :
-                     isPast(parseISO(task.dueDate)) && !isToday(parseISO(task.dueDate)) ? 'Overdue' :
-                     isToday(parseISO(task.dueDate)) ? 'Due Today' : 'Upcoming'}
+                  <span className={`badge badge-${getStatusBadge(task.status, task.dueDate, task.approvalStatus)}`}>
+                    {task.approvalStatus && task.approvalStatus !== 'approved'
+                      ? (task.approvalStatus === 'pending' ? 'Pending Approval' :
+                         task.approvalStatus === 'denied' ? 'Denied' : 'Reschedule Requested')
+                      : task.status === 'completed' ? 'Completed' :
+                        isPast(parseISO(task.dueDate)) && !isToday(parseISO(task.dueDate)) ? 'Overdue' :
+                        isToday(parseISO(task.dueDate)) ? 'Due Today' : 'Upcoming'}
                   </span>
                 </div>
 
@@ -166,14 +192,30 @@ export default function TasksPage() {
                 </div>
               </div>
 
-              {isStaff && (
-                <button
-                  className="btn btn-ghost btn-sm btn-danger"
-                  onClick={() => handleDelete(task.id)}
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
+              <div className="task-actions">
+                {task.approvalStatus === 'pending' &&
+                  task.assignees.some(a => a.id === (user?.id || '')) && (
+                    <div className="btn-group">
+                      <button className="btn btn-outline btn-sm" onClick={() => handleApprovalAction(task, 'approve')}>
+                        Approve
+                      </button>
+                      <button className="btn btn-outline btn-sm" onClick={() => handleApprovalAction(task, 'reschedule')}>
+                        Reschedule
+                      </button>
+                      <button className="btn btn-outline btn-sm btn-danger" onClick={() => handleApprovalAction(task, 'deny')}>
+                        Deny
+                      </button>
+                    </div>
+                  )}
+                {isStaff && (
+                  <button
+                    className="btn btn-ghost btn-sm btn-danger"
+                    onClick={() => handleDelete(task.id)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
 

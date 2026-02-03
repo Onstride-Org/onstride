@@ -1,12 +1,17 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const { NotificationPreferences, Notification, DeviceToken } = require('../models/Notification');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, restrictGroomer } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 
 const router = express.Router();
 
 router.use(authenticate);
+router.use((req, res, next) => {
+  req.groomerResource = 'notifications';
+  next();
+});
+router.use(restrictGroomer('tasks'));
 
 // Get notifications
 router.get('/', async (req, res, next) => {

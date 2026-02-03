@@ -48,6 +48,18 @@ const taskSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  approvalStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'denied', 'rescheduleRequested'],
+    default: 'pending'
+  },
+  approvedAt: Date,
+  approvedById: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  rescheduleProposedDate: Date,
+  denialReason: String,
   createdById: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

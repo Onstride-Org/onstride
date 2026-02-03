@@ -17,6 +17,10 @@ export default function AppLayout() {
     return !['boarder'].includes(currentBarnRole.role);
   }, [currentBarnRole]);
 
+  const isGroomer = useMemo(() => {
+    return currentBarnRole?.role === 'groomer';
+  }, [currentBarnRole]);
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -24,18 +28,23 @@ export default function AppLayout() {
 
   // Base nav items for all users
   const allNavItems = [
-    { path: '/app/dashboard', icon: 'home', label: 'Dashboard', staffOnly: false },
-    { path: '/app/horses', icon: 'horse', label: 'Horses', staffOnly: false },
-    { path: '/app/calendar', icon: 'calendar', label: 'Calendar', staffOnly: false },
-    { path: '/app/financials', icon: 'financials', label: 'Financials', staffOnly: false },
+    { path: '/app/dashboard', icon: 'home', label: 'Dashboard', staffOnly: false, groomerAllowed: false },
+    { path: '/app/horses', icon: 'horse', label: 'Horses', staffOnly: false, groomerAllowed: true },
+    { path: '/app/calendar', icon: 'calendar', label: 'Calendar', staffOnly: false, groomerAllowed: true },
+    { path: '/app/financials', icon: 'financials', label: 'Financials', staffOnly: false, groomerAllowed: false },
     // { path: '/app/stable', icon: 'stable', label: 'Stable', staffOnly: true }, // Hidden until feature is complete
-    { path: '/app/vendors', icon: 'vendor', label: 'Vendors', staffOnly: true },
-    { path: '/app/users', icon: 'users', label: 'Users', staffOnly: true },
-    { path: '/app/settings', icon: 'settings', label: 'Settings', staffOnly: false },
+    { path: '/app/vendors', icon: 'vendor', label: 'Vendors', staffOnly: true, groomerAllowed: false },
+    { path: '/app/users', icon: 'users', label: 'Users', staffOnly: true, groomerAllowed: false },
+    { path: '/app/settings', icon: 'settings', label: 'Settings', staffOnly: false, groomerAllowed: false },
   ];
 
   // Filter nav items based on role
-  const navItems = allNavItems.filter(item => !item.staffOnly || isStaff);
+  const navItems = allNavItems.filter(item => {
+    if (isGroomer) {
+      return item.groomerAllowed;
+    }
+    return !item.staffOnly || isStaff;
+  });
 
   const getIcon = (icon: string) => {
     const iconProps = { size: 20, strokeWidth: 2 };

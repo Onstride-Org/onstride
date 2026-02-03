@@ -1,3 +1,4 @@
+const { BarnSubscription } = require('../models/Subscription');
 const express = require('express');
 const crypto = require('crypto');
 const { body, param, query } = require('express-validator');
@@ -9,6 +10,7 @@ const { authenticate, loadBarnContext, requireBarn, hasPermission, ownsResourceO
 const validate = require('../middleware/validate');
 const windcave = require('../services/windcave');
 const emailService = require('../services/email');
+const { updateSubscriptionAfterPayment } = require('../services/subscriptions');
 
 // Simple date formatter
 const formatDate = (date) => {
@@ -208,6 +210,8 @@ router.post('/guest/:token/pay', [
         rrn: result.rrn,
       };
       await invoice.save();
+      await updateSubscriptionAfterPayment(invoice);
+      await updateSubscriptionAfterPayment(invoice);
 
       return res.json({
         status: 'paid',
@@ -319,16 +323,19 @@ router.post('/', [
   body('boarderId').isMongoId(),
   body('dueDate').isISO8601(),
   body('charges').isArray({ min: 1 }),
+  body('method').optional().isIn(['card', 'credit', 'debit', 'ach', 'cash', 'check', 'other']),
+  body('subscriptionTier').optional().isIn(['free', 'basic', 'pro', 'enterprise']),
+  body('subscriptionInterval').optional().isIn(['monthly', 'yearly']),
   validate
 ], async (req, res, next) => {
   try {
-    const { boarderId, horseId, dueDate, charges, notes } = req.body;
+    const { boarderId, horseId, dueDate, charges, notes, method, subscriptionTier, subscriptionInterval } = req.body;
 
     // Calculate subtotal
     const subtotal = charges.reduce((sum, c) => sum + (c.amount * (c.quantity || 1)), 0);
 
     // Calculate fees using Windcave fee structure
-    const feeBreakdown = windcave.calculateFees(subtotal);
+    const feeBreakdown = windcave.calculateFees(subtotal, method);
 
     const invoice = await Invoice.create({
       barnId: req.barnId,
@@ -339,6 +346,9 @@ router.post('/', [
       charges,
       notes,
       platformFeePercent: 2.5,
+      method,
+      ...(subscriptionTier && { subscriptionTier }),
+      ...(subscriptionInterval && { subscriptionInterval }),
       paymentBreakdown: {
         subtotal: feeBreakdown.subtotal,
         processingFee: feeBreakdown.processingFee,
@@ -383,16 +393,19 @@ router.post('/guest', [
   body('guestName').notEmpty().trim(),
   body('dueDate').isISO8601(),
   body('charges').isArray({ min: 1 }),
+  body('method').optional().isIn(['card', 'credit', 'debit', 'ach', 'cash', 'check', 'other']),
+  body('subscriptionTier').optional().isIn(['free', 'basic', 'pro', 'enterprise']),
+  body('subscriptionInterval').optional().isIn(['monthly', 'yearly']),
   validate
 ], async (req, res, next) => {
   try {
-    const { guestEmail, guestName, horseId, dueDate, charges, notes } = req.body;
+    const { guestEmail, guestName, horseId, dueDate, charges, notes, method, subscriptionTier, subscriptionInterval } = req.body;
 
     // Calculate subtotal
     const subtotal = charges.reduce((sum, c) => sum + (c.amount * (c.quantity || 1)), 0);
 
     // Calculate fees using Windcave fee structure
-    const feeBreakdown = windcave.calculateFees(subtotal);
+    const feeBreakdown = windcave.calculateFees(subtotal, method);
 
     // Generate secure token for guest access (valid for 30 days)
     const guestToken = generateGuestToken();
@@ -412,6 +425,9 @@ router.post('/guest', [
       charges,
       notes,
       platformFeePercent: 2.5,
+      method,
+      ...(subscriptionTier && { subscriptionTier }),
+      ...(subscriptionInterval && { subscriptionInterval }),
       paymentBreakdown: {
         subtotal: feeBreakdown.subtotal,
         processingFee: feeBreakdown.processingFee,
@@ -449,6 +465,9 @@ router.post('/guest', [
 router.put('/:id', [
   hasPermission('generateInvoices'),
   param('id').isMongoId(),
+  body('method').optional().isIn(['card', 'credit', 'debit', 'ach', 'cash', 'check', 'other']),
+  body('subscriptionTier').optional().isIn(['free', 'basic', 'pro', 'enterprise']),
+  body('subscriptionInterval').optional().isIn(['monthly', 'yearly']),
   validate
 ], async (req, res, next) => {
   try {
@@ -462,24 +481,26 @@ router.put('/:id', [
       return res.status(400).json({ error: 'Cannot edit paid invoice' });
     }
 
-    const { charges, dueDate, notes } = req.body;
+    const { charges, dueDate, notes, method, subscriptionTier, subscriptionInterval } = req.body;
 
     if (charges) {
       invoice.charges = charges;
       // Recalculate
       const subtotal = charges.reduce((sum, c) => sum + (c.amount * (c.quantity || 1)), 0);
-      const platformFee = subtotal * (invoice.platformFeePercent / 100);
-      const stripeFee = (subtotal * 0.029) + 0.30;
+      const feeBreakdown = windcave.calculateFees(subtotal, method || invoice.method);
       invoice.paymentBreakdown = {
-        subtotal,
-        stripeFee,
-        platformFee,
+        subtotal: feeBreakdown.subtotal,
+        processingFee: feeBreakdown.processingFee,
+        platformFee: feeBreakdown.platformFee,
         total: subtotal
       };
     }
 
     if (dueDate) invoice.dueDate = dueDate;
     if (notes !== undefined) invoice.notes = notes;
+    if (method) invoice.method = method;
+    if (subscriptionTier !== undefined) invoice.subscriptionTier = subscriptionTier;
+    if (subscriptionInterval !== undefined) invoice.subscriptionInterval = subscriptionInterval;
 
     await invoice.save();
 
@@ -730,6 +751,7 @@ router.post('/:id/pay-direct', [
         rrn: result.rrn,
       };
       await invoice.save();
+      await updateSubscriptionAfterPayment(invoice);
 
       return res.json({
         status: 'paid',
@@ -962,6 +984,7 @@ router.post('/windcave-callback', express.json(), async (req, res, next) => {
         responseCode: notification.responseCode,
         responseText: notification.responseText,
       };
+      await updateSubscriptionAfterPayment(invoice);
     } else {
       invoice.status = 'failed';
       invoice.failureReason = notification.responseText || 'Payment declined';

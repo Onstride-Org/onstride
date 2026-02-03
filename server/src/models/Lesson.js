@@ -42,6 +42,10 @@ const lessonSchema = new mongoose.Schema({
     enum: ['requested', 'approved', 'rejected', 'countered', 'cancelled', 'completed'],
     default: 'requested'
   },
+  reminderSent: {
+    type: Boolean,
+    default: false
+  },
   trainerName: String,
   clientName: String,
   horseName: String,

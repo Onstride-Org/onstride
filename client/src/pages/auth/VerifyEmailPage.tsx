@@ -41,6 +41,7 @@ export default function VerifyEmailPage() {
             currentBarnRole: currentBarn?.role ? { role: currentBarn.role } : null,
             isAuthenticated: true,
             isLoading: false,
+            showOnboarding: true,
           });
 
           // Redirect to dashboard after brief success message

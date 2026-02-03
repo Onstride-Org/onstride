@@ -112,6 +112,16 @@ const invoiceSchema = new mongoose.Schema({
     type: String,
     enum: ['card', 'ach', 'cash', 'check', 'other']
   },
+  subscriptionTier: {
+    type: String,
+    enum: ['free', 'basic', 'pro', 'enterprise', null],
+    default: null
+  },
+  subscriptionInterval: {
+    type: String,
+    enum: ['monthly', 'yearly', null],
+    default: null
+  },
   paymentBreakdown: paymentBreakdownSchema,
   stripePaymentInfo: stripePaymentInfoSchema,
   windcavePaymentInfo: windcavePaymentInfoSchema,

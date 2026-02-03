@@ -4,7 +4,7 @@ const Horse = require('../models/Horse');
 const RideLog = require('../models/RideLog');
 const Task = require('../models/Task');
 const Lesson = require('../models/Lesson');
-const { authenticate, loadBarnContext, requireBarn, hasPermission, ownsResourceOrStaff } = require('../middleware/auth');
+const { authenticate, loadBarnContext, requireBarn, hasPermission, ownsResourceOrStaff, restrictGroomer } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const { uploadDocument, uploadImage, uploadToCloud } = require('../middleware/upload');
 const storageService = require('../services/storage');
@@ -13,6 +13,11 @@ const router = express.Router();
 
 router.use(authenticate);
 router.use(loadBarnContext);
+router.use((req, res, next) => {
+  req.groomerResource = 'horses';
+  next();
+});
+router.use(restrictGroomer('horses'));
 
 // Get all horses in barn
 router.get('/', requireBarn, async (req, res, next) => {

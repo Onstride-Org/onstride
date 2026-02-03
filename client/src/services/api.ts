@@ -515,6 +515,11 @@ export const tasksApi = {
     return response.data;
   },
 
+  updateApproval: async (id: string, data: { action: 'approve' | 'deny' | 'reschedule'; proposedDate?: string; reason?: string }) => {
+    const response = await api.put(`/tasks/${id}/approval`, data);
+    return response.data;
+  },
+
   complete: async (id: string) => {
     const response = await api.post(`/tasks/${id}/complete`);
     return response.data;

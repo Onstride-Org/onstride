@@ -1,3 +1,43 @@
+  const hasApprovalActions = task?.approvalStatus && task.approvalStatus === 'pending' &&
+    task.assignees?.some((a) => a.id === useAuthStore.getState().user?.id);
+
+  const handleApprovalAction = async (action: 'approve' | 'deny' | 'reschedule') => {
+    if (!task) return;
+    setIsProcessing(true);
+    try {
+      const payload: any = { action };
+
+      if (action === 'deny') {
+        const reason = prompt('Reason for denying this task?');
+        if (reason) {
+          payload.reason = reason;
+        }
+      }
+
+      if (action === 'reschedule') {
+        let proposedDate = prompt('Propose a new date/time (e.g. 2026-02-03 14:00):');
+        if (!proposedDate) {
+          setIsProcessing(false);
+          return;
+        }
+        const parsedDate = new Date(proposedDate);
+        if (Number.isNaN(parsedDate.getTime())) {
+          alert('Invalid date. Please try again using YYYY-MM-DD HH:mm format.');
+          setIsProcessing(false);
+          return;
+        }
+        payload.proposedDate = parsedDate.toISOString();
+      }
+
+      await tasksApi.updateApproval(task.id, payload);
+      onUpdate();
+      onClose();
+    } catch (error) {
+      console.error('Failed to update task approval:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 import { useState, useEffect, useCallback } from 'react';
 import { Calendar, dateFnsLocalizer, Views, View } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
@@ -327,6 +367,10 @@ function EventDetailModal({
 
   const handleToggleTaskStatus = async () => {
     if (!task) return;
+    if (task.approvalStatus && task.approvalStatus !== 'approved') {
+      alert('This task must be approved before updating its status.');
+      return;
+    }
     setIsProcessing(true);
     const newStatus: TaskStatus = task.status === 'completed' ? 'notStarted' : 'completed';
     try {
@@ -429,11 +473,12 @@ function EventDetailModal({
   };
 
   const getStatusBadge = () => {
-    if (isTask && task) {
-      if (task.status === 'completed') return 'success';
-      if (task.status === 'overdue') return 'error';
-      return 'warning';
-    }
+  if (isTask && task) {
+    if (task.approvalStatus && task.approvalStatus !== 'approved') return 'info';
+    if (task.status === 'completed') return 'success';
+    if (task.status === 'overdue') return 'error';
+    return 'warning';
+  }
     if (lesson) {
       const badges: Record<string, string> = {
         requested: 'warning',
@@ -464,7 +509,15 @@ function EventDetailModal({
           <div className="event-detail-header">
             <h3 className="event-detail-title">{event.title}</h3>
             <span className={`badge badge-${getStatusBadge()}`}>
-              {isTask ? (task?.status === 'notStarted' ? 'pending' : task?.status) : lesson?.status}
+              {isTask
+                ? task?.approvalStatus && task.approvalStatus !== 'approved'
+                  ? task.approvalStatus === 'pending'
+                    ? 'Pending approval'
+                    : task.approvalStatus === 'denied'
+                      ? 'Denied'
+                      : 'Reschedule requested'
+                  : (task?.status === 'notStarted' ? 'pending' : task?.status)
+                : lesson?.status}
             </span>
           </div>
 
@@ -546,6 +599,31 @@ function EventDetailModal({
                 <button className="btn btn-outline btn-danger" onClick={handleDeleteTask} disabled={isProcessing}>
                   Delete
                 </button>
+                {hasApprovalActions && (
+                  <div className="btn-group">
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => handleApprovalAction('approve')}
+                      disabled={isProcessing}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => handleApprovalAction('reschedule')}
+                      disabled={isProcessing}
+                    >
+                      Reschedule
+                    </button>
+                    <button
+                      className="btn btn-outline btn-danger"
+                      onClick={() => handleApprovalAction('deny')}
+                      disabled={isProcessing}
+                    >
+                      Deny
+                    </button>
+                  </div>
+                )}
               </>
             )}
             {!isTask && lesson && (

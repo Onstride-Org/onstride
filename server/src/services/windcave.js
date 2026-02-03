@@ -359,22 +359,35 @@ const verifyWebhookSignature = (payload, signature, secret) => {
  * Note: These are estimates - actual fees depend on your Windcave agreement
  *
  * @param {number} amount - Transaction amount in dollars
+ * @param {string} method - Payment method hint (card, credit, debit, ach, cash, check)
  * @returns {Object} Fee breakdown
  */
-const calculateFees = (amount) => {
-  // Default fee structure (adjust based on your Windcave agreement)
-  // Typical: 2.9% + $0.30 per transaction (similar to Stripe)
-  const percentFee = 0.029; // 2.9%
-  const fixedFee = 0.30; // $0.30
+const calculateFees = (amount, method = 'credit') => {
+  const toCents = (value) => Math.round(value * 100);
+  const fromCents = (value) => Math.round(value) / 100;
 
-  const processingFee = (amount * percentFee) + fixedFee;
-  const platformFee = amount * 0.025; // 2.5% platform fee
+  const subtotalCents = toCents(amount);
+  const platformFeeCents = Math.round(subtotalCents * 0.025); // 2.5% platform fee
+
+  const normalizedMethod = (method || 'credit').toString().toLowerCase();
+  const isDebitOrAch = normalizedMethod === 'debit' || normalizedMethod === 'ach';
+  const isCredit = normalizedMethod === 'credit' || normalizedMethod === 'card';
+
+  let processingFeeCents = 0;
+  if (isDebitOrAch) {
+    // 0.5% capped at $5
+    processingFeeCents = Math.round(subtotalCents * 0.005);
+    processingFeeCents = Math.min(processingFeeCents, 500);
+  } else if (isCredit) {
+    // 3% flat
+    processingFeeCents = Math.round(subtotalCents * 0.03);
+  }
 
   return {
-    subtotal: amount,
-    processingFee: Math.round(processingFee * 100) / 100,
-    platformFee: Math.round(platformFee * 100) / 100,
-    total: Math.round((amount + processingFee + platformFee) * 100) / 100,
+    subtotal: fromCents(subtotalCents),
+    processingFee: fromCents(processingFeeCents),
+    platformFee: fromCents(platformFeeCents),
+    total: fromCents(subtotalCents + processingFeeCents),
   };
 };
 

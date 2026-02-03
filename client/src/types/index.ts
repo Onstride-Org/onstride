@@ -1,6 +1,7 @@
 // User types
 export type AccountType = 'owner' | 'manager' | 'boarder' | 'groomer' | 'admin' | 'trainer' | 'vendor';
 export type Permission = 'userManagement' | 'horseManagement' | 'barnManagement' | 'generateInvoices';
+export type TaskApprovalStatus = 'pending' | 'approved' | 'denied' | 'rescheduleRequested';
 
 export interface User {
   id: string;
@@ -145,6 +146,8 @@ export interface Invoice {
   dueDate: string;
   status: InvoiceStatus;
   method?: PaymentMethod;
+  subscriptionTier?: 'free' | 'basic' | 'pro' | 'enterprise' | null;
+  subscriptionInterval?: 'monthly' | 'yearly' | null;
   paymentBreakdown?: PaymentBreakdown;
   windcavePaymentInfo?: WindcavePaymentInfo;
   refundInfo?: RefundInfo;
@@ -198,6 +201,9 @@ export interface Task {
   description?: string;
   dueDate: string;
   status: TaskStatus;
+  approvalStatus?: TaskApprovalStatus;
+  rescheduleProposedDate?: string | null;
+  denialReason?: string | null;
   horses: Array<{ id: string; name: string }>;
   assignees: Array<{ id: string; name: string; accountType: string }>;
   sendReminder: boolean;

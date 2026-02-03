@@ -3,7 +3,7 @@ const { body, param } = require('express-validator');
 const Lesson = require('../models/Lesson');
 const TrainerAvailability = require('../models/TrainerAvailability');
 const User = require('../models/User');
-const { authenticate, loadBarnContext, requireBarn, hasPermission, hasRole } = require('../middleware/auth');
+const { authenticate, loadBarnContext, requireBarn, hasPermission, hasRole, restrictGroomer } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const { sendLessonNotificationEmail } = require('../services/email');
 const { format } = require('date-fns');
@@ -82,6 +82,11 @@ const router = express.Router();
 
 router.use(authenticate);
 router.use(loadBarnContext);
+router.use((req, res, next) => {
+  req.groomerResource = 'lessons';
+  next();
+});
+router.use(restrictGroomer('tasks', 'horses'));
 
 // Get all lessons
 router.get('/', requireBarn, async (req, res, next) => {
@@ -181,6 +186,7 @@ router.post('/request', [
       durationMinutes: durationMinutes || 60,
       type: type || 'privateSingle',
       status: 'requested',
+      reminderSent: false,
       location,
       notes,
       createdById: req.userId
@@ -235,6 +241,7 @@ router.post('/', [
       type: type || 'privateSingle',
       price: price || 0,
       status: 'approved',
+      reminderSent: false,
       location,
       notes,
       recurrenceType: recurrenceType || 'none',
@@ -372,6 +379,7 @@ router.put('/:id/approve', [
     }
 
     lesson.status = 'approved';
+    lesson.reminderSent = false;
     await lesson.save();
 
     // Send notification to client about approval
@@ -403,6 +411,7 @@ router.put('/:id/reject', [
     }
 
     lesson.status = 'rejected';
+    lesson.reminderSent = false;
     lesson.notes = req.body.reason || lesson.notes;
     await lesson.save();
 
@@ -433,6 +442,7 @@ router.put('/:id/counter', [
     }
 
     lesson.status = 'countered';
+    lesson.reminderSent = false;
     lesson.counterProposedDate = req.body.proposedDate;
     lesson.counterProposedBy = req.userId;
     lesson.counterNotes = req.body.notes;
@@ -463,6 +473,7 @@ router.put('/:id/complete', [
     }
 
     lesson.status = 'completed';
+    lesson.reminderSent = true;
     await lesson.save();
 
     res.json(lesson);
@@ -489,6 +500,7 @@ router.put('/:id/cancel', async (req, res, next) => {
     }
 
     lesson.status = 'cancelled';
+    lesson.reminderSent = true;
     lesson.notes = req.body.reason || lesson.notes;
     await lesson.save();
 

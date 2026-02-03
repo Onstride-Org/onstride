@@ -876,6 +876,122 @@ The OnStride Team
 };
 
 /**
+ * Send task assignment response email (approve/deny/reschedule)
+ * @param {Object} options
+ * @param {string} options.to - Recipient email
+ * @param {string} options.recipientName - Recipient name
+ * @param {string} options.type - 'approved', 'denied', 'rescheduleRequested'
+ * @param {Object} options.task - Task details
+ * @param {string} options.task.name - Task name
+ * @param {string} options.task.dueDate - Formatted due date
+ * @param {string} options.task.assigneeName - Assignee name
+ * @param {string} options.reason - Optional denial reason
+ * @param {string} options.proposedDate - Optional proposed date
+ */
+const sendTaskApprovalEmail = async ({ to, recipientName, type, task, reason, proposedDate }) => {
+  let subject;
+  let headerText;
+  let bodyText;
+  let statusColor = '#3b82f6';
+
+  switch (type) {
+    case 'approved':
+      subject = `Task Approved - ${task.name}`;
+      headerText = 'Task Approved';
+      bodyText = `${task.assigneeName} approved the task: ${task.name}.`;
+      statusColor = '#10b981';
+      break;
+    case 'denied':
+      subject = `Task Declined - ${task.name}`;
+      headerText = 'Task Declined';
+      bodyText = `${task.assigneeName} declined the task: ${task.name}.${reason ? ` Reason: ${reason}` : ''}`;
+      statusColor = '#ef4444';
+      break;
+    case 'rescheduleRequested':
+      subject = `Reschedule Requested - ${task.name}`;
+      headerText = 'Reschedule Requested';
+      bodyText = `${task.assigneeName} requested a new time for: ${task.name}.${proposedDate ? ` Proposed time: ${proposedDate}` : ''}`;
+      statusColor = '#f59e0b';
+      break;
+    default:
+      subject = `Task Update - ${task.name}`;
+      headerText = 'Task Update';
+      bodyText = `${task.assigneeName} updated the task: ${task.name}.`;
+  }
+
+  const text = `
+Hi ${recipientName || 'there'},
+
+${bodyText}
+
+Task Details:
+- Task: ${task.name}
+- Due: ${task.dueDate}
+
+Best regards,
+The OnStride Team
+  `.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <tr>
+      <td style="background-color: #ffffff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="display: inline-block; padding: 6px 12px; background-color: ${statusColor}; color: white; border-radius: 4px; font-size: 12px; font-weight: 600; margin-bottom: 20px; text-transform: uppercase;">
+          ${headerText}
+        </div>
+
+        <h1 style="color: #1a1a1a; font-size: 24px; margin: 0 0 20px 0;">${headerText}</h1>
+
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+          Hi ${recipientName || 'there'},
+        </p>
+
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+          ${bodyText}
+        </p>
+
+        <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%; margin: 0 0 30px 0; background-color: #f9fafb; border-radius: 8px;">
+          <tr>
+            <td style="padding: 20px;">
+              <h3 style="color: #1a1a1a; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">Task Details</h3>
+              <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%;">
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px; width: 100px;">Task</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${task.name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px;">Due</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${task.dueDate}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+          Best regards,<br>The OnStride Team
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  return sendEmail({ to, subject, text, html });
+};
+
+/**
  * Send demo request confirmation email
  * @param {Object} options
  * @param {string} options.to - Recipient email
@@ -1164,6 +1280,7 @@ module.exports = {
   sendGuestInvoiceEmail,
   sendEmailVerificationEmail,
   sendLessonNotificationEmail,
+  sendTaskApprovalEmail,
   sendDemoConfirmationEmail,
   sendDemoAdminNotification,
 };
