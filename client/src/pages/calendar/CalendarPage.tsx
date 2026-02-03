@@ -1,43 +1,3 @@
-  const hasApprovalActions = task?.approvalStatus && task.approvalStatus === 'pending' &&
-    task.assignees?.some((a) => a.id === useAuthStore.getState().user?.id);
-
-  const handleApprovalAction = async (action: 'approve' | 'deny' | 'reschedule') => {
-    if (!task) return;
-    setIsProcessing(true);
-    try {
-      const payload: any = { action };
-
-      if (action === 'deny') {
-        const reason = prompt('Reason for denying this task?');
-        if (reason) {
-          payload.reason = reason;
-        }
-      }
-
-      if (action === 'reschedule') {
-        let proposedDate = prompt('Propose a new date/time (e.g. 2026-02-03 14:00):');
-        if (!proposedDate) {
-          setIsProcessing(false);
-          return;
-        }
-        const parsedDate = new Date(proposedDate);
-        if (Number.isNaN(parsedDate.getTime())) {
-          alert('Invalid date. Please try again using YYYY-MM-DD HH:mm format.');
-          setIsProcessing(false);
-          return;
-        }
-        payload.proposedDate = parsedDate.toISOString();
-      }
-
-      await tasksApi.updateApproval(task.id, payload);
-      onUpdate();
-      onClose();
-    } catch (error) {
-      console.error('Failed to update task approval:', error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 import { useState, useEffect, useCallback } from 'react';
 import { Calendar, dateFnsLocalizer, Views, View } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
@@ -393,6 +353,46 @@ function EventDetailModal({
       onClose();
     } catch (error) {
       console.error('Failed to delete task:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const hasApprovalActions =
+    task?.approvalStatus === 'pending' &&
+    task.assignees?.some((a: { id: string }) => a.id === useAuthStore.getState().user?.id);
+
+  const handleApprovalAction = async (action: 'approve' | 'deny' | 'reschedule') => {
+    if (!task) return;
+    setIsProcessing(true);
+    try {
+      const payload: { action: 'approve' | 'deny' | 'reschedule'; proposedDate?: string; reason?: string } = { action };
+
+      if (action === 'deny') {
+        const reason = prompt('Reason for denying this task?');
+        if (reason) payload.reason = reason;
+      }
+
+      if (action === 'reschedule') {
+        const proposedDate = prompt('Propose a new date/time (e.g. 2026-02-03 14:00):');
+        if (!proposedDate) {
+          setIsProcessing(false);
+          return;
+        }
+        const parsedDate = new Date(proposedDate);
+        if (Number.isNaN(parsedDate.getTime())) {
+          alert('Invalid date. Please try again using YYYY-MM-DD HH:mm format.');
+          setIsProcessing(false);
+          return;
+        }
+        payload.proposedDate = parsedDate.toISOString();
+      }
+
+      await tasksApi.updateApproval(task.id, payload);
+      onUpdate();
+      onClose();
+    } catch (error) {
+      console.error('Failed to update task approval:', error);
     } finally {
       setIsProcessing(false);
     }
