@@ -19,6 +19,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 
 // Windcave API Configuration
+// PROD: https://sec.windcave.com/api/v1 | UAT: https://uat.windcave.com/api/v1
 const WINDCAVE_API_URL = process.env.WINDCAVE_API_URL || 'https://sec.windcave.com/api/v1';
 const WINDCAVE_API_USER = process.env.WINDCAVE_API_USER;
 const WINDCAVE_API_KEY = process.env.WINDCAVE_API_KEY;
@@ -289,28 +290,36 @@ const getTransaction = async (transactionId, credentials = null) => {
 
 /**
  * Process a refund
+ * POST /api/v1/transactions
  *
- * @param {string} originalTransactionId - Original transaction ID to refund
- * @param {number} amount - Amount to refund in dollars (will be converted to cents)
- * @param {string} merchantReference - Reference for the refund
+ * @param {string} transactionId - Transaction ID from the approved purchase to refund
+ * @param {number} amount - Amount to refund in dollars
+ * @param {string} merchantReference - Reference for the refund (e.g. REFUND-INV-xxx)
  * @param {Object} credentials - Optional barn-specific credentials
+ * @param {string[]} metaData - Optional metadata references (e.g. invoice IDs)
  * @returns {Object} Refund transaction details
  */
-const processRefund = async (originalTransactionId, amount, merchantReference, credentials = null) => {
+const processRefund = async (transactionId, amount, merchantReference, credentials = null, metaData = null) => {
   if (!hasValidCredentials(credentials)) {
     throw new Error('Windcave is not configured');
   }
 
   const apiClient = credentials ? createApiClient(credentials) : windcaveApi;
-  const amountInCents = Math.round(amount * 100);
+
+  const payload = {
+    type: 'refund',
+    merchantReference: merchantReference || `Refund-${Date.now()}`,
+    amount: Number((Math.round(amount * 100) / 100).toFixed(2)),
+    currency: 'USD',
+    transactionId: transactionId,
+  };
+
+  if (metaData && Array.isArray(metaData) && metaData.length > 0) {
+    payload.metaData = metaData;
+  }
 
   try {
-    const response = await apiClient.post('/transactions', {
-      type: 'refund',
-      amount: amountInCents.toString(),
-      originalTransactionId: originalTransactionId,
-      merchantReference: merchantReference,
-    });
+    const response = await apiClient.post('/transactions', payload);
 
     const tx = response.data;
     return {
@@ -324,7 +333,7 @@ const processRefund = async (originalTransactionId, amount, merchantReference, c
     };
   } catch (error) {
     console.error('Windcave refund error:', error.response?.data || error.message);
-    throw new Error(error.response?.data?.errors?.[0]?.message || 'Failed to process refund');
+    throw new Error(error.response?.data?.errors?.[0]?.message || error.response?.data?.message || 'Failed to process refund');
   }
 };
 

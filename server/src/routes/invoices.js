@@ -353,7 +353,7 @@ router.post('/', [
         subtotal: feeBreakdown.subtotal,
         processingFee: feeBreakdown.processingFee,
         platformFee: feeBreakdown.platformFee,
-        total: subtotal  // Customer pays subtotal only, fees come out of barn's share
+        total: feeBreakdown.total  // Customer pays subtotal + processing fee
       }
     });
 
@@ -370,7 +370,7 @@ router.post('/', [
           name: populated.boarderId.name,
           barnName: barn?.name || 'Your Barn',
           invoiceId: populated._id.toString(),
-          amount: subtotal,
+          amount: feeBreakdown.total,
           dueDate: formatDate(dueDate)
         });
       } catch (emailError) {
@@ -432,7 +432,7 @@ router.post('/guest', [
         subtotal: feeBreakdown.subtotal,
         processingFee: feeBreakdown.processingFee,
         platformFee: feeBreakdown.platformFee,
-        total: subtotal
+        total: feeBreakdown.total  // Customer pays subtotal + processing fee
       }
     });
 
@@ -448,7 +448,7 @@ router.post('/guest', [
         barnName: barn?.name || 'Your Barn',
         invoiceId: invoice._id.toString(),
         guestToken,
-        amount: subtotal,
+        amount: feeBreakdown.total,
         dueDate: formatDate(dueDate)
       });
     } catch (emailError) {
@@ -492,7 +492,7 @@ router.put('/:id', [
         subtotal: feeBreakdown.subtotal,
         processingFee: feeBreakdown.processingFee,
         platformFee: feeBreakdown.platformFee,
-        total: subtotal
+        total: feeBreakdown.total  // Customer pays subtotal + processing fee
       };
     }
 
@@ -1032,12 +1032,15 @@ router.post('/:id/refund', [
     }
 
     const refundAmount = req.body.amount || invoice.paymentBreakdown.total;
+    const merchantReference = `REFUND-INV-${invoice._id}`;
+    const metaData = [invoice._id.toString(), merchantReference];
 
     const refund = await windcave.processRefund(
       invoice.windcavePaymentInfo.transactionId,
       refundAmount,
-      `REFUND-${invoice._id}`,
-      credentials
+      merchantReference,
+      credentials,
+      metaData
     );
 
     if (refund.authorised) {
