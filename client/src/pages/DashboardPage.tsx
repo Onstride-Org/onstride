@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { horsesApi, tasksApi, lessonsApi, invoicesApi, usersApi } from '../services/api';
+import { horsesApi, tasksApi, lessonsApi, invoicesApi, usersApi, subscriptionsApi } from '../services/api';
 import { Horse, Task, Lesson, Invoice, User } from '../types';
 import {
   Plus, Calendar, CheckSquare, ChevronLeft, ChevronRight,
-  DollarSign, Clock, FileText, Users, Sun, Sunrise, Sunset
+  DollarSign, Clock, FileText, Users, Sun, Sunrise, Sunset, AlertCircle, X
 } from 'lucide-react';
 import { isToday, parseISO, format, addDays, subDays, startOfDay, isSameDay } from 'date-fns';
 import OnboardingStepsModal from '../components/OnboardingStepsModal';
@@ -27,6 +27,8 @@ export default function DashboardPage() {
   const [staff, setStaff] = useState<User[]>([]);
   const [staffFilter, setStaffFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<'free' | 'trial' | 'active' | 'past_due' | null>(null);
+  const [showSubscriptionAlert, setShowSubscriptionAlert] = useState(true);
 
   // Day calendar state
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -35,7 +37,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const loadDashboardData = async () => {
-      if (!currentBarnId) return;
+      if (!currentBarnId) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
         const [horsesRes, tasksRes, lessonsRes, invoicesRes, usersRes] = await Promise.all([
@@ -88,6 +93,23 @@ export default function DashboardPage() {
           pendingInvoices: pendingInvoiceCount,
           totalRevenue: monthlyRevenue,
         });
+
+        // Check subscription status
+        try {
+          const subRes = await subscriptionsApi.getCurrent();
+          if (subRes?.tier === 'free') {
+            setSubscriptionStatus('free');
+          } else if (subRes?.status === 'trialing') {
+            setSubscriptionStatus('trial');
+          } else if (subRes?.status === 'past_due') {
+            setSubscriptionStatus('past_due');
+          } else if (subRes?.status === 'active') {
+            setSubscriptionStatus('active');
+          }
+        } catch (subError) {
+          console.error('Failed to check subscription:', subError);
+          setSubscriptionStatus('free'); // Default to free if can't check
+        }
       } catch (error) {
         console.error('Failed to load dashboard data:', error);
       } finally {
@@ -168,16 +190,54 @@ export default function DashboardPage() {
     return 'Good evening';
   };
 
+  // Show modals even while loading
   if (isLoading) {
     return (
-      <div className="page-loading">
-        <div className="spinner spinner-lg"></div>
-      </div>
+      <>
+        <div className="page-loading">
+          <div className="spinner spinner-lg"></div>
+        </div>
+        <PaymentPromptModal
+          isOpen={showPaymentPrompt}
+          onClose={() => setShowPaymentPrompt(false)}
+          onStartTrial={() => setShowPaymentPrompt(false)}
+        />
+        <OnboardingStepsModal
+          isOpen={showOnboarding && !showPaymentPrompt}
+          onClose={() => setShowOnboarding(false)}
+        />
+      </>
     );
   }
 
+  const needsSubscription = subscriptionStatus === 'free' || subscriptionStatus === 'past_due';
+
   return (
     <div className="page vendors-page dashboard-page">
+      {/* Subscription Alert Bar */}
+      {needsSubscription && showSubscriptionAlert && (
+        <div className={`subscription-alert ${subscriptionStatus === 'past_due' ? 'past-due' : ''}`}>
+          <div className="subscription-alert-content">
+            <AlertCircle size={18} />
+            <span>
+              {subscriptionStatus === 'past_due'
+                ? 'Your payment is past due. Please update your payment method to continue using all features.'
+                : 'You\'re on the free plan. Upgrade to unlock more features and add more horses.'}
+            </span>
+            <Link to="/app/settings/subscription" className="subscription-alert-link">
+              {subscriptionStatus === 'past_due' ? 'Update Payment' : 'View Plans'}
+            </Link>
+          </div>
+          <button
+            className="subscription-alert-close"
+            onClick={() => setShowSubscriptionAlert(false)}
+            aria-label="Dismiss"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Page header - same as Vendors (title + subtitle) */}
       <div className="page-header">
         <div>
