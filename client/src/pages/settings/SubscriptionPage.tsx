@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { subscriptionsApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
-import { SubscriptionPlan, BarnSubscription, SubscriptionTier } from '../../types';
+import { SubscriptionPlan, BarnSubscription } from '../../types';
 import { PaymentModal } from '../../components/payments';
 
 export default function SubscriptionPage() {

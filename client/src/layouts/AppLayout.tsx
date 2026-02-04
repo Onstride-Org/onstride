@@ -12,7 +12,6 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [subscriptionStatus, setSubscriptionStatus] = useState<'free' | 'trial' | 'active' | 'past_due' | null>(null);
-  const [showSubscriptionAlert, setShowSubscriptionAlert] = useState(true);
 
   const isSubscriptionPage = location.pathname === '/app/settings/subscription';
 
@@ -222,7 +221,7 @@ export default function AppLayout() {
       {/* Main content */}
       <main className="app-main">
         {/* Subscription / payment modal with blurred backdrop (hidden on subscription page) */}
-        {(subscriptionStatus === 'free' || subscriptionStatus === 'past_due') && showSubscriptionAlert && !isSubscriptionPage && (
+        {(subscriptionStatus === 'free' || subscriptionStatus === 'past_due') && !isSubscriptionPage && (
           <div className="subscription-alert-overlay">
             <div className={`subscription-alert-modal ${subscriptionStatus === 'past_due' ? 'past-due' : ''}`}>
               <div className="subscription-alert-content">
