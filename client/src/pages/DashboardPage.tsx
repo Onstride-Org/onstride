@@ -494,15 +494,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <OnboardingStepsModal
-        isOpen={showOnboarding}
-        onClose={() => setShowOnboarding(false)}
-      />
-
       <PaymentPromptModal
         isOpen={showPaymentPrompt}
         onClose={() => setShowPaymentPrompt(false)}
         onStartTrial={() => setShowPaymentPrompt(false)}
+      />
+
+      <OnboardingStepsModal
+        isOpen={showOnboarding && !showPaymentPrompt}
+        onClose={() => setShowOnboarding(false)}
       />
     </div>
   );
