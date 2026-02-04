@@ -1,16 +1,20 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { subscriptionsApi } from '../services/api';
 import { Home, FileText, CheckSquare, Calendar, UserCheck, Users, Settings, Menu, X, LogOut, Warehouse, DollarSign, Building2, ChevronDown, AlertCircle } from 'lucide-react';
 import { HorseIcon } from '../components/icons/HorseIcon';
+import OnboardingStepsModal from '../components/OnboardingStepsModal';
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, barns, currentBarnId, currentBarnRole, switchBarn, logout } = useAuthStore();
+  const { user, barns, currentBarnId, currentBarnRole, switchBarn, logout, showSubscriptionTutorial, setShowSubscriptionTutorial } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [subscriptionStatus, setSubscriptionStatus] = useState<'free' | 'trial' | 'active' | 'past_due' | null>(null);
   const [showSubscriptionAlert, setShowSubscriptionAlert] = useState(true);
+
+  const isSubscriptionPage = location.pathname === '/app/settings/subscription';
 
   useEffect(() => {
     if (!currentBarnId) {
@@ -217,32 +221,34 @@ export default function AppLayout() {
 
       {/* Main content */}
       <main className="app-main">
-        {/* Subscription / payment alert at top of app for all pages */}
-        {(subscriptionStatus === 'free' || subscriptionStatus === 'past_due') && showSubscriptionAlert && (
-          <div className={`subscription-alert subscription-alert-global ${subscriptionStatus === 'past_due' ? 'past-due' : ''}`}>
-            <div className="subscription-alert-content">
-              <AlertCircle size={18} />
-              <span>
-                {subscriptionStatus === 'past_due'
-                  ? 'Your payment is past due. Please update your payment method to continue using all features.'
-                  : "Subscribe to unlock OnStride."}
-              </span>
-              <Link to="/app/settings/subscription" className="subscription-alert-link">
-                {subscriptionStatus === 'past_due' ? 'Update Payment' : 'View Plans'}
-              </Link>
+        {/* Subscription / payment modal with blurred backdrop (hidden on subscription page) */}
+        {(subscriptionStatus === 'free' || subscriptionStatus === 'past_due') && showSubscriptionAlert && !isSubscriptionPage && (
+          <div className="subscription-alert-overlay">
+            <div className={`subscription-alert-modal ${subscriptionStatus === 'past_due' ? 'past-due' : ''}`}>
+              <div className="subscription-alert-content">
+                <AlertCircle size={22} />
+                <span>
+                  {subscriptionStatus === 'past_due'
+                    ? 'Your payment is past due. Please update your payment method to continue using all features.'
+                    : 'Subscribe to unlock OnStride.'}
+                </span>
+                <Link to="/app/settings/subscription" className="subscription-alert-link">
+                  {subscriptionStatus === 'past_due' ? 'Update Payment' : 'View Plans'}
+                </Link>
+              </div>
             </div>
-            <button
-              type="button"
-              className="subscription-alert-close"
-              onClick={() => setShowSubscriptionAlert(false)}
-              aria-label="Dismiss"
-            >
-              <X size={16} />
-            </button>
           </div>
         )}
         <Outlet />
       </main>
+
+      {/* Tutorial after subscription confirmed - shows on every screen until user exits/skips */}
+      {showSubscriptionTutorial && (
+        <OnboardingStepsModal
+          isOpen={true}
+          onClose={() => setShowSubscriptionTutorial(false)}
+        />
+      )}
     </div>
   );
 }

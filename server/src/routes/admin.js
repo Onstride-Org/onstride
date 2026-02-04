@@ -621,12 +621,16 @@ router.put('/users/:id', async (req, res, next) => {
 // Delete user (soft delete)
 router.delete('/users/:id', async (req, res, next) => {
   try {
+    const mongoose = require('mongoose');
+    const update = { deletedAt: new Date() };
+    // deletedBy only when req.userId is a valid 24-char ObjectId (app admin); standalone admin token uses string 'admin'
+    if (req.userId && /^[a-f0-9]{24}$/i.test(req.userId)) {
+      update.deletedBy = req.userId;
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      {
-        deletedAt: new Date(),
-        deletedBy: req.userId
-      },
+      update,
       { new: true }
     );
 

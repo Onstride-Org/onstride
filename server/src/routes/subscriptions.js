@@ -3,6 +3,10 @@ const { body, param } = require('express-validator');
 const { SubscriptionPlan, BarnSubscription, UsageMetrics } = require('../models/Subscription');
 const { authenticate, loadBarnContext, requireBarn, hasRole } = require('../middleware/auth');
 const validate = require('../middleware/validate');
+const Invoice = require('../models/Invoice');
+const MerchantApplication = require('../models/MerchantApplication');
+const User = require('../models/User');
+const windcave = require('../services/windcave');
 
 const router = express.Router();
 
@@ -12,8 +16,8 @@ const DEFAULT_PLANS = [
   { tier: 'starter', name: 'Starter', description: 'For small barns getting started.', monthlyPriceCents: 1500, yearlyPriceCents: 15000, maxHorses: 15, maxUsers: 10, maxLessonsPerMonth: 50, maxBarns: 1, hasBilling: true, hasFullBilling: false, hasAiFeatures: false, hasMultiBarn: false, hasBranding: false, hasApiAccess: false, hasPrioritySupport: false, isPopular: true, sortOrder: 1 },
   { tier: 'business', name: 'Business', description: 'For growing operations.', monthlyPriceCents: 9900, yearlyPriceCents: 99000, maxHorses: 50, maxUsers: 25, maxLessonsPerMonth: 200, maxBarns: 1, hasBilling: true, hasFullBilling: true, hasAiFeatures: false, hasMultiBarn: false, hasBranding: true, hasApiAccess: false, hasPrioritySupport: true, isPopular: false, sortOrder: 2 },
   { tier: 'business_pro', name: 'Business Pro', description: 'Full platform for professional barns.', monthlyPriceCents: 29900, yearlyPriceCents: 299000, maxHorses: 150, maxUsers: 75, maxLessonsPerMonth: 500, maxBarns: 3, hasBilling: true, hasFullBilling: true, hasAiFeatures: true, hasMultiBarn: true, hasBranding: true, hasApiAccess: true, hasPrioritySupport: true, isPopular: false, sortOrder: 3 },
-  { tier: 'enterprise', name: 'Enterprise', description: 'Custom solutions for large organizations.', monthlyPriceCents: 0, yearlyPriceCents: 0, contactEmail: 'gal@onstrideapp.com', maxHorses: -1, maxUsers: -1, maxLessonsPerMonth: -1, maxBarns: -1, hasBilling: true, hasFullBilling: true, hasAiFeatures: true, hasMultiBarn: true, hasBranding: true, hasApiAccess: true, hasPrioritySupport: true, hasDedicatedSupport: true, isPopular: false, sortOrder: 4 },
-  { tier: 'founders', name: 'Founders', description: 'Special pricing for early supporters.', monthlyPriceCents: 10000, yearlyPriceCents: 100000, maxHorses: 100, maxUsers: 50, maxLessonsPerMonth: 300, maxBarns: 2, hasBilling: true, hasFullBilling: true, hasAiFeatures: true, hasMultiBarn: true, hasBranding: true, hasApiAccess: true, hasPrioritySupport: true, isPopular: false, sortOrder: 5 },
+  { tier: 'founders', name: 'Founders', description: 'Special pricing for early supporters.', monthlyPriceCents: 10000, yearlyPriceCents: 100000, maxHorses: 100, maxUsers: 50, maxLessonsPerMonth: 300, maxBarns: 2, hasBilling: true, hasFullBilling: true, hasAiFeatures: true, hasMultiBarn: true, hasBranding: true, hasApiAccess: true, hasPrioritySupport: true, isPopular: false, sortOrder: 4 },
+  { tier: 'enterprise', name: 'Enterprise', description: 'Custom solutions for large organizations.', monthlyPriceCents: 0, yearlyPriceCents: 0, contactEmail: 'gal@onstrideapp.com', maxHorses: -1, maxUsers: -1, maxLessonsPerMonth: -1, maxBarns: -1, hasBilling: true, hasFullBilling: true, hasAiFeatures: true, hasMultiBarn: true, hasBranding: true, hasApiAccess: true, hasPrioritySupport: true, hasDedicatedSupport: true, isPopular: false, sortOrder: 5 },
 ];
 
 async function ensurePlansExist() {
@@ -65,6 +69,175 @@ router.get('/', requireBarn, async (req, res, next) => {
     res.json({
       subscription,
       plan
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Create subscription invoice for in-app payment (no redirect) - used with PaymentModal
+router.post('/checkout-invoice', [
+  requireBarn,
+  hasRole('owner'),
+  body('tier').isIn(['starter', 'business', 'business_pro', 'founders']),
+  body('billingInterval').isIn(['monthly', 'yearly']),
+  validate
+], async (req, res, next) => {
+  try {
+    const { tier, billingInterval } = req.body;
+
+    const plan = await SubscriptionPlan.findOne({ tier });
+    if (!plan) {
+      return res.status(400).json({ error: 'Invalid plan' });
+    }
+    if (plan.contactEmail) {
+      return res.status(400).json({ error: 'Enterprise plan requires contact. Use the Contact us link.' });
+    }
+
+    const amountDollars = billingInterval === 'yearly'
+      ? (plan.yearlyPriceCents / 100)
+      : (plan.monthlyPriceCents / 100);
+
+    if (amountDollars <= 0) {
+      return res.status(400).json({ error: 'Plan has no price' });
+    }
+
+    const dueDate = new Date();
+    const description = `${plan.name} - ${billingInterval === 'yearly' ? 'Yearly' : 'Monthly'}`;
+    const charges = [{
+      description,
+      amount: amountDollars,
+      quantity: 1,
+      type: 'other'
+    }];
+    const subtotal = amountDollars;
+    const feeBreakdown = windcave.calculateFees(subtotal, 'card');
+
+    const invoice = await Invoice.create({
+      barnId: req.barnId,
+      boarderId: req.userId,
+      createdById: req.userId,
+      dueDate,
+      charges,
+      method: 'card',
+      subscriptionTier: tier,
+      subscriptionInterval: billingInterval,
+      status: 'pending',
+      paymentBreakdown: {
+        subtotal: feeBreakdown.subtotal,
+        processingFee: feeBreakdown.processingFee,
+        platformFee: feeBreakdown.platformFee,
+        total: feeBreakdown.total
+      }
+    });
+
+    return res.json({
+      invoiceId: invoice._id.toString(),
+      amount: feeBreakdown.total,
+      description,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Create checkout session (Windcave) - creates subscription invoice and returns redirect URL
+router.post('/checkout', [
+  requireBarn,
+  hasRole('owner'),
+  body('tier').isIn(['starter', 'business', 'business_pro', 'founders']),
+  body('billingInterval').isIn(['monthly', 'yearly']),
+  validate
+], async (req, res, next) => {
+  try {
+    const { tier, billingInterval } = req.body;
+
+    const plan = await SubscriptionPlan.findOne({ tier });
+    if (!plan) {
+      return res.status(400).json({ error: 'Invalid plan' });
+    }
+    if (plan.contactEmail) {
+      return res.status(400).json({ error: 'Enterprise plan requires contact. Use the Contact us link.' });
+    }
+
+    const amountDollars = billingInterval === 'yearly'
+      ? (plan.yearlyPriceCents / 100)
+      : (plan.monthlyPriceCents / 100);
+
+    if (amountDollars <= 0) {
+      return res.status(400).json({ error: 'Plan has no price' });
+    }
+
+    const user = await User.findById(req.userId).select('name email');
+    const dueDate = new Date();
+
+    const charges = [{
+      description: `${plan.name} - ${billingInterval === 'yearly' ? 'Yearly' : 'Monthly'}`,
+      amount: amountDollars,
+      quantity: 1,
+      type: 'other'
+    }];
+    const subtotal = amountDollars;
+    const feeBreakdown = windcave.calculateFees(subtotal, 'card');
+
+    const invoice = await Invoice.create({
+      barnId: req.barnId,
+      boarderId: req.userId,
+      createdById: req.userId,
+      dueDate,
+      charges,
+      method: 'card',
+      subscriptionTier: tier,
+      subscriptionInterval: billingInterval,
+      status: 'processing',
+      paymentBreakdown: {
+        subtotal: feeBreakdown.subtotal,
+        processingFee: feeBreakdown.processingFee,
+        platformFee: feeBreakdown.platformFee,
+        total: feeBreakdown.total
+      }
+    });
+
+    const merchantApp = await MerchantApplication.findOne({ barnId: req.barnId })
+      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
+
+    let credentials = null;
+    if (merchantApp?.windcaveCredentials?.isActive) {
+      credentials = merchantApp.getWindcaveCredentials();
+    }
+
+    if (!windcave.hasValidCredentials(credentials)) {
+      invoice.status = 'pending';
+      await invoice.save();
+      return res.status(503).json({
+        error: 'Payment processing is not configured. Please add your Windcave credentials in the Payments settings.'
+      });
+    }
+
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const callbackUrl = process.env.API_URL
+      ? `${process.env.API_URL}/api/invoices/windcave-callback`
+      : 'http://localhost:5001/api/invoices/windcave-callback';
+
+    const session = await windcave.createPaymentSession({
+      invoiceId: invoice._id.toString(),
+      amount: feeBreakdown.total,
+      currency: 'USD',
+      merchantReference: `INV-${invoice._id}`,
+      customerEmail: user?.email,
+      customerName: user?.name,
+      returnUrl: `${baseUrl}/app/settings/subscription?success=1`,
+      callbackUrl,
+      credentials
+    });
+
+    invoice.windcavePaymentInfo = { sessionId: session.sessionId };
+    await invoice.save();
+
+    return res.json({
+      url: session.redirectUrl,
+      sessionId: session.sessionId,
+      invoiceId: invoice._id
     });
   } catch (error) {
     next(error);

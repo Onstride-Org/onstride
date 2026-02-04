@@ -393,8 +393,8 @@ export default function UsersPage() {
                               handleRemoveUser(user.id, user.name);
                             }}
                           >
-                            <UserMinus size={14} />
-                            Remove from Barn
+                            <Trash2 size={14} />
+                            Delete user
                           </button>
                         )}
                       </div>
@@ -493,8 +493,8 @@ export default function UsersPage() {
                                     handleRemoveUser(user.id, user.name);
                                   }}
                                 >
-                                  <UserMinus size={14} />
-                                  Remove from Barn
+                                  <Trash2 size={14} />
+                                  Delete user
                                 </button>
                               )}
                             </div>

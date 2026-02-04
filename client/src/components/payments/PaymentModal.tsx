@@ -62,6 +62,8 @@ interface PaymentModalProps {
   invoiceId: string;
   amount: number;
   description?: string;
+  /** Optional title (default: "Pay Invoice") */
+  title?: string;
 }
 
 export default function PaymentModal({
@@ -71,6 +73,7 @@ export default function PaymentModal({
   invoiceId,
   amount,
   description,
+  title = 'Pay Invoice',
 }: PaymentModalProps) {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -313,7 +316,7 @@ export default function PaymentModal({
         <div className="modal-header">
           <h2 className="modal-title">
             <CreditCard size={20} />
-            Pay Invoice
+            {title}
           </h2>
           <button className="btn btn-ghost modal-close" onClick={onClose} disabled={isProcessing}>
             <X size={20} />

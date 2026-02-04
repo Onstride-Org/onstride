@@ -134,9 +134,12 @@ export default function OnboardingStepsModal({ isOpen, onClose }: OnboardingStep
             </div>
           )}
         </div>
-        <div className="modal-footer">
+        <div className="modal-footer onboarding-modal-footer">
           <button className="btn btn-primary" onClick={onClose}>
             {allComplete ? 'Done' : 'I\'ll do this later'}
+          </button>
+          <button type="button" className="btn btn-ghost onboarding-skip" onClick={onClose}>
+            Skip
           </button>
         </div>
       </div>

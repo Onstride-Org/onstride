@@ -20,6 +20,7 @@ interface AuthState {
   currentBarnRole: BarnRole | null;
   showOnboarding: boolean;
   showPaymentPrompt: boolean;
+  showSubscriptionTutorial: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -40,6 +41,7 @@ interface AuthState {
   setCurrentBarnId: (barnId: string) => void;
   setShowOnboarding: (show: boolean) => void;
   setShowPaymentPrompt: (show: boolean) => void;
+  setShowSubscriptionTutorial: (show: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -49,6 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   currentBarnRole: null,
   showOnboarding: false,
   showPaymentPrompt: false,
+  showSubscriptionTutorial: false,
   isAuthenticated: false,
   isLoading: true,
   error: null,
@@ -293,4 +296,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   setShowOnboarding: (show: boolean) => set({ showOnboarding: show }),
   setShowPaymentPrompt: (show: boolean) => set({ showPaymentPrompt: show }),
+  setShowSubscriptionTutorial: (show: boolean) => set({ showSubscriptionTutorial: show }),
 }));

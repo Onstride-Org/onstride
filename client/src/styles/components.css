@@ -4262,6 +4262,7 @@ a.btn-primary:hover {
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-xl);
   padding: var(--spacing-4);
+  overflow: visible;
 }
 
 .user-card-header {
@@ -4270,6 +4271,21 @@ a.btn-primary:hover {
   align-items: flex-start;
   gap: var(--spacing-3);
   margin-bottom: var(--spacing-3);
+}
+
+/* User cards + table: 3-dots dropdown must display above other elements */
+.users-page .dropdown-container,
+.user-card-mobile .dropdown-container,
+.user-table-desktop .dropdown-container {
+  position: relative;
+  z-index: 1000;
+}
+
+.users-page .dropdown-menu,
+.user-card-mobile .dropdown-menu,
+.user-table-desktop .dropdown-menu {
+  z-index: 1001;
+  position: absolute;
 }
 
 .user-card-footer {
@@ -8563,7 +8579,98 @@ a.fin-transaction:hover {
   color: var(--color-neutral-600);
 }
 
-/* ============ Subscription Alert Bar ============ */
+.onboarding-modal-footer {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-2);
+}
+
+.onboarding-skip {
+  font-size: 0.875rem;
+  color: var(--color-neutral-500);
+  margin-top: var(--spacing-1);
+}
+
+.onboarding-skip:hover {
+  color: var(--color-neutral-700);
+}
+
+/* ============ Subscription Alert (Modal with blur) ============ */
+.subscription-alert-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-4);
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: subscription-alert-fade-in 0.2s ease-out;
+}
+
+@keyframes subscription-alert-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.subscription-alert-modal {
+  position: relative;
+  max-width: 420px;
+  width: 100%;
+  padding: 24px 20px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
+  animation: subscription-alert-modal-in 0.25s ease-out;
+}
+
+.subscription-alert-modal.past-due {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border-color: #ef4444;
+}
+
+@keyframes subscription-alert-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.subscription-alert-modal .subscription-alert-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 15px;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.subscription-alert-modal .subscription-alert-content svg {
+  flex-shrink: 0;
+}
+
+.subscription-alert-modal.past-due .subscription-alert-content {
+  color: #991b1b;
+}
+
+.subscription-alert-modal .subscription-alert-link {
+  display: inline-flex;
+  margin-top: 4px;
+}
+
+/* ============ Subscription Alert Bar (legacy / inline) ============ */
 .subscription-alert {
   display: flex;
   align-items: center;
@@ -8790,6 +8897,11 @@ a.fin-transaction:hover {
   background: var(--color-neutral-50);
 }
 
+.plan-card-founders.current {
+  background: linear-gradient(135deg, var(--color-neutral-900) 0%, var(--color-neutral-800) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
 .popular-badge {
   position: absolute;
   top: 0;
@@ -8844,6 +8956,94 @@ a.fin-transaction:hover {
   color: var(--color-primary-600);
 }
 
+.plan-card .price-strikethrough {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-neutral-500);
+  text-decoration: line-through;
+  margin-right: var(--spacing-2);
+}
+
+/* Founders plan card: landing founders-banner style */
+.plan-card-founders {
+  background: linear-gradient(135deg, var(--color-neutral-900) 0%, var(--color-neutral-800) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15) !important;
+}
+
+.plan-card-founders .plan-card-founders-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-warning-400);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: var(--spacing-2);
+}
+
+.plan-card-founders .plan-card-founders-eyebrow svg {
+  color: var(--color-warning-400);
+}
+
+.plan-card-founders .plan-card-founders-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  margin-bottom: var(--spacing-2);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  color: var(--color-warning-400);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.plan-card-founders .plan-card-founders-badge svg {
+  flex-shrink: 0;
+}
+
+.plan-card-founders .plan-name {
+  color: var(--color-neutral-0) !important;
+}
+
+.plan-card-founders .plan-description {
+  color: var(--color-neutral-400) !important;
+}
+
+.plan-card-founders .plan-price .price-amount,
+.plan-card-founders .plan-price .price-period {
+  color: var(--color-neutral-0) !important;
+}
+
+.plan-card-founders .plan-price .price-strikethrough {
+  color: var(--color-neutral-500) !important;
+}
+
+.plan-card-founders .plan-features li {
+  color: var(--color-neutral-300) !important;
+}
+
+.plan-card-founders .plan-features li svg {
+  color: var(--color-brand-400) !important;
+}
+
+.btn-founders-inverse {
+  background: var(--color-neutral-0) !important;
+  color: var(--color-neutral-900) !important;
+  border-color: var(--color-neutral-0) !important;
+}
+
+.btn-founders-inverse:hover {
+  background: var(--color-neutral-100) !important;
+  color: var(--color-neutral-900) !important;
+  border-color: var(--color-neutral-100) !important;
+}
+
 .plan-card .plan-features {
   list-style: none;
   margin: 0;
@@ -8869,6 +9069,16 @@ a.fin-transaction:hover {
 .plan-card .plan-action {
   margin-top: auto;
   padding-top: var(--spacing-2);
+}
+
+.plan-card .plan-processing-fee {
+  margin: var(--spacing-2) 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-neutral-500);
+}
+
+.plan-card-founders .plan-processing-fee {
+  color: var(--color-neutral-400);
 }
 
 .faq-list {

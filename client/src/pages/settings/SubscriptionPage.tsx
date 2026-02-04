@@ -1,14 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 import { subscriptionsApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 import { SubscriptionPlan, BarnSubscription, SubscriptionTier } from '../../types';
+import { PaymentModal } from '../../components/payments';
 
 export default function SubscriptionPage() {
-  const { currentBarnId } = useAuthStore();
+  const { currentBarnId, setShowSubscriptionTutorial } = useAuthStore();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<BarnSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [paymentModal, setPaymentModal] = useState<{
+    invoiceId: string;
+    amount: number;
+    description: string;
+  } | null>(null);
 
   const loadSubscriptionData = async () => {
     try {
@@ -36,16 +43,26 @@ export default function SubscriptionPage() {
       return;
     }
     try {
-      const response = await subscriptionsApi.createCheckoutSession({
+      const response = await subscriptionsApi.createCheckoutInvoice({
         tier: plan.tier,
         billingInterval: 'monthly',
       });
-      if (response.url) {
-        window.location.href = response.url;
+      if (response?.invoiceId && typeof response?.amount === 'number') {
+        setPaymentModal({
+          invoiceId: response.invoiceId,
+          amount: response.amount,
+          description: response.description || `${plan.name} - Monthly`,
+        });
       }
     } catch (error) {
-      console.error('Failed to create checkout session:', error);
+      console.error('Failed to create checkout invoice:', error);
     }
+  };
+
+  const handlePaymentSuccess = () => {
+    setPaymentModal(null);
+    loadSubscriptionData();
+    setShowSubscriptionTutorial(true); // Show tutorial on every screen until user skips
   };
 
   const handleManageBilling = async () => {
@@ -133,14 +150,26 @@ export default function SubscriptionPage() {
         <h2 className="plans-title">Available Plans</h2>
         <p className="plans-processor">Payments processed by Windcave.</p>
         <div className="plans-grid">
-          {plans.map((plan) => (
+          {plans.filter((p) => p.tier !== 'free').map((plan) => (
             <div
               key={plan.tier}
-              className={`plan-card ${plan.isPopular ? 'popular' : ''} ${currentSubscription?.tier === plan.tier ? 'current' : ''}`}
+              className={`plan-card ${plan.tier === 'founders' ? 'plan-card-founders' : ''} ${plan.isPopular ? 'popular' : ''} ${currentSubscription?.tier === plan.tier ? 'current' : ''}`}
             >
-              {plan.isPopular && <div className="popular-badge">Most Popular</div>}
+              {plan.tier === 'founders' && (
+                <div className="plan-card-founders-eyebrow">
+                  <Sparkles size={14} />
+                  <span>Limited availability</span>
+                </div>
+              )}
+              {plan.isPopular && plan.tier !== 'founders' && <div className="popular-badge">Most Popular</div>}
 
               <div className="plan-header">
+                {plan.tier === 'founders' && (
+                  <div className="plan-card-founders-badge">
+                    <Sparkles size={20} />
+                    <span>Founder</span>
+                  </div>
+                )}
                 <h3 className="plan-name">{plan.name}</h3>
                 <p className="plan-description">{plan.description}</p>
               </div>
@@ -148,6 +177,12 @@ export default function SubscriptionPage() {
               <div className="plan-price">
                 {plan.contactEmail ? (
                   <span className="price-contact">Contact us</span>
+                ) : plan.tier === 'founders' ? (
+                  <>
+                    <span className="price-strikethrough">$500</span>
+                    <span className="price-amount">$100</span>
+                    <span className="price-period">/month</span>
+                  </>
                 ) : (
                   <>
                     <span className="price-amount">
@@ -226,13 +261,14 @@ export default function SubscriptionPage() {
                   </button>
                 ) : (
                   <button
-                    className={`btn ${plan.isPopular ? 'btn-primary' : 'btn-outline'}`}
+                    className={`btn ${plan.tier === 'founders' ? 'btn-founders-inverse' : plan.isPopular ? 'btn-primary' : 'btn-outline'}`}
                     onClick={() => handleUpgrade(plan)}
                   >
-                    {plan.contactEmail ? 'Contact us' : plan.tier === 'free' ? 'Downgrade' : 'Upgrade'}
+                    {plan.contactEmail ? 'Contact us' : 'Upgrade'}
                   </button>
                 )}
               </div>
+              <p className="plan-processing-fee">+ 3% Processing Fee</p>
             </div>
           ))}
         </div>
@@ -265,6 +301,19 @@ export default function SubscriptionPage() {
           </div>
         </div>
       </div>
+
+      {/* Subscription payment modal (same UI as pay invoice) */}
+      {paymentModal && (
+        <PaymentModal
+          isOpen={true}
+          onClose={() => setPaymentModal(null)}
+          onSuccess={handlePaymentSuccess}
+          invoiceId={paymentModal.invoiceId}
+          amount={paymentModal.amount}
+          description={paymentModal.description}
+          title="Subscribe"
+        />
+      )}
     </div>
   );
 }

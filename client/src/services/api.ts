@@ -768,6 +768,12 @@ export const subscriptionsApi = {
     return response.data;
   },
 
+  /** Create subscription invoice for in-app payment modal (returns invoiceId, amount, description) */
+  createCheckoutInvoice: async (data: { tier: string; billingInterval: string }) => {
+    const response = await api.post('/subscriptions/checkout-invoice', data);
+    return response.data;
+  },
+
   createPortalSession: async () => {
     const response = await api.post('/subscriptions/portal');
     return response.data;

@@ -70,7 +70,7 @@ const hasValidCredentials = (credentials = null) => {
  *
  * @param {Object} options - Payment options
  * @param {string} options.invoiceId - Internal invoice ID
- * @param {number} options.amount - Amount in dollars (will be converted to cents)
+ * @param {number} options.amount - Amount in dollars (sent as dollars to Windcave)
  * @param {string} options.currency - Currency code (default: USD)
  * @param {string} options.merchantReference - Unique merchant reference
  * @param {string} options.customerEmail - Customer email for receipt
@@ -100,12 +100,12 @@ const createPaymentSession = async (options) => {
   // Use barn-specific credentials if provided, otherwise fall back to global
   const apiClient = credentials ? createApiClient(credentials) : windcaveApi;
 
-  // Convert dollars to cents (Windcave uses minor units)
-  const amountInCents = Math.round(amount * 100);
+  // Windcave expects amount in dollars (major units), not cents
+  const amountDollars = Number((Math.round(amount * 100) / 100).toFixed(2));
 
   const sessionData = {
     type: 'purchase',
-    amount: amountInCents.toString(),
+    amount: amountDollars,
     currency: currency,
     merchantReference: merchantReference || invoiceId,
     callbackUrls: {
@@ -169,11 +169,12 @@ const createHostedFieldsSession = async (options) => {
   }
 
   const apiClient = credentials ? createApiClient(credentials) : windcaveApi;
-  const amountInCents = Math.round(amount * 100);
+  // Windcave expects amount in dollars (major units), not cents
+  const amountDollars = Number((Math.round(amount * 100) / 100).toFixed(2));
 
   const sessionData = {
     type: 'purchase',
-    amount: amountInCents.toString(),
+    amount: amountDollars,
     currency: currency,
     merchantReference: merchantReference || invoiceId,
     methods: ['card'],
@@ -414,7 +415,7 @@ const parseNotification = (data) => {
     type: data.type,
     status: data.authorised ? 'approved' : 'declined',
     authorised: data.authorised,
-    amount: data.amount ? parseInt(data.amount) / 100 : null, // Convert from cents
+    amount: data.amount != null ? Number(data.amount) : null, // Windcave sends amount in dollars
     currency: data.currency,
     responseCode: data.responseCode,
     responseText: data.responseText,
@@ -459,13 +460,14 @@ const processDirectPayment = async (options) => {
   }
 
   const apiClient = credentials ? createApiClient(credentials) : windcaveApi;
-  const amountInCents = Math.round(amount * 100);
+  // Windcave expects amount in dollars (major units), not cents
+  const amountDollars = Number((Math.round(amount * 100) / 100).toFixed(2));
 
   try {
     // Create a session with card details included for immediate processing
     const sessionData = {
       type: 'purchase',
-      amount: amountInCents.toString(),
+      amount: amountDollars,
       currency: currency,
       merchantReference: merchantReference,
       methods: ['card'],
