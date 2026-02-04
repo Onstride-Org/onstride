@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, Navigate } from 'react-router-dom';
+import { useParams, Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import axios from 'axios';
 import { getTokens, getCurrentBarn } from '../../services/api';
 import { format } from 'date-fns';
 import {
   Building2, Database, DollarSign, ChevronLeft,
-  Mail, Phone, Calendar, Shield, CheckCircle, XCircle
+  Mail, Phone, Calendar, Shield, CheckCircle, XCircle, Trash2
 } from 'lucide-react';
 import { formatPhoneNumber } from '../../utils/formatters';
 
@@ -24,13 +24,45 @@ interface UserDetail {
 
 export default function AdminUserDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user: currentUser } = useAuthStore();
   const [data, setData] = useState<UserDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (currentUser?.accountType !== 'admin') {
     return <Navigate to="/app/dashboard" replace />;
   }
+
+  const handleDeleteUser = async () => {
+    if (!data?.user) return;
+
+    const confirmed = confirm(
+      `Are you sure you want to delete ${data.user.name}?\n\nThis will:\n- Remove their access to all barns\n- Soft-delete their account\n\nThis action cannot be easily undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setIsDeleting(true);
+      const { accessToken } = getTokens();
+      const barnId = getCurrentBarn();
+      const headers: Record<string, string> = {};
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+      if (barnId) headers['X-Barn-Id'] = barnId;
+
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      await axios.delete(`${apiBase}/admin/users/${id}`, { headers });
+
+      alert('User deleted successfully');
+      navigate('/admin');
+    } catch (error: any) {
+      console.error('Failed to delete user:', error);
+      alert(error.response?.data?.error || 'Failed to delete user');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   useEffect(() => {
     loadUserDetail();
@@ -116,6 +148,16 @@ export default function AdminUserDetailPage() {
                 </p>
               </div>
             </div>
+          </div>
+          <div className="detail-actions">
+            <button
+              className="btn btn-outline btn-error"
+              onClick={handleDeleteUser}
+              disabled={isDeleting}
+            >
+              <Trash2 size={16} />
+              {isDeleting ? 'Deleting...' : 'Delete User'}
+            </button>
           </div>
         </div>
       </div>
