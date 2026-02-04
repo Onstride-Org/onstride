@@ -8,9 +8,10 @@ import {
   DollarSign, Clock, FileText, Users, Sun, Sunrise, Sunset
 } from 'lucide-react';
 import { isToday, parseISO, format, addDays, subDays, startOfDay, isSameDay } from 'date-fns';
+import OnboardingStepsModal from '../components/OnboardingStepsModal';
 
 export default function DashboardPage() {
-  const { user, currentBarnId, currentBarnRole } = useAuthStore();
+  const { user, currentBarnId, currentBarnRole, showOnboarding, setShowOnboarding } = useAuthStore();
   const [stats, setStats] = useState({
     horses: 0,
     tasks: 0,
@@ -491,6 +492,11 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      <OnboardingStepsModal
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+      />
     </div>
   );
 }

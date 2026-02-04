@@ -30,6 +30,7 @@ export default function AppLayout() {
   const allNavItems = [
     { path: '/app/dashboard', icon: 'home', label: 'Dashboard', staffOnly: false, groomerAllowed: false },
     { path: '/app/horses', icon: 'horse', label: 'Horses', staffOnly: false, groomerAllowed: true },
+    { path: '/app/tasks', icon: 'tasks', label: 'Tasks', staffOnly: false, groomerAllowed: true },
     { path: '/app/calendar', icon: 'calendar', label: 'Calendar', staffOnly: false, groomerAllowed: true },
     { path: '/app/financials', icon: 'financials', label: 'Financials', staffOnly: false, groomerAllowed: false },
     // { path: '/app/stable', icon: 'stable', label: 'Stable', staffOnly: true }, // Hidden until feature is complete

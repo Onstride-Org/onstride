@@ -50,6 +50,7 @@ import AdminAvailabilityPage from './pages/admin/AdminAvailabilityPage';
 import BillingTemplatesPage from './pages/billing/BillingTemplatesPage';
 import StablePage from './pages/stable/StablePage';
 import FinancialsPage from './pages/financials/FinancialsPage';
+import TasksPage from './pages/tasks/TasksPage';
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -190,11 +191,13 @@ function App() {
         <Route path="invoices" element={<Navigate to="/app/financials" replace />} />
         <Route path="invoices/:id" element={<InvoiceDetailPage />} />
 
+        {/* Tasks */}
+        <Route path="tasks" element={<TasksPage />} />
+
         {/* Calendar (combined Tasks & Lessons) */}
         <Route path="calendar" element={<CalendarPage />} />
 
         {/* Legacy routes redirect to calendar */}
-        <Route path="tasks" element={<Navigate to="/app/calendar" replace />} />
         <Route path="lessons" element={<Navigate to="/app/calendar" replace />} />
 
         {/* Stable */}
