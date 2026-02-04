@@ -324,7 +324,7 @@ router.post('/', [
   body('dueDate').isISO8601(),
   body('charges').isArray({ min: 1 }),
   body('method').optional().isIn(['card', 'credit', 'debit', 'ach', 'cash', 'check', 'other']),
-  body('subscriptionTier').optional().isIn(['free', 'basic', 'pro', 'enterprise']),
+  body('subscriptionTier').optional().isIn(['free', 'starter', 'business', 'business_pro', 'enterprise', 'founders']),
   body('subscriptionInterval').optional().isIn(['monthly', 'yearly']),
   validate
 ], async (req, res, next) => {
@@ -394,7 +394,7 @@ router.post('/guest', [
   body('dueDate').isISO8601(),
   body('charges').isArray({ min: 1 }),
   body('method').optional().isIn(['card', 'credit', 'debit', 'ach', 'cash', 'check', 'other']),
-  body('subscriptionTier').optional().isIn(['free', 'basic', 'pro', 'enterprise']),
+  body('subscriptionTier').optional().isIn(['free', 'starter', 'business', 'business_pro', 'enterprise', 'founders']),
   body('subscriptionInterval').optional().isIn(['monthly', 'yearly']),
   validate
 ], async (req, res, next) => {
@@ -466,7 +466,7 @@ router.put('/:id', [
   hasPermission('generateInvoices'),
   param('id').isMongoId(),
   body('method').optional().isIn(['card', 'credit', 'debit', 'ach', 'cash', 'check', 'other']),
-  body('subscriptionTier').optional().isIn(['free', 'basic', 'pro', 'enterprise']),
+  body('subscriptionTier').optional().isIn(['free', 'starter', 'business', 'business_pro', 'enterprise', 'founders']),
   body('subscriptionInterval').optional().isIn(['monthly', 'yearly']),
   validate
 ], async (req, res, next) => {

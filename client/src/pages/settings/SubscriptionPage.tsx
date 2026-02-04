@@ -16,8 +16,9 @@ export default function SubscriptionPage() {
         subscriptionsApi.getPlans(),
         subscriptionsApi.getCurrent(),
       ]);
-      setPlans(plansRes.plans || []);
-      setCurrentSubscription(currentRes);
+      // getPlans returns array; getCurrent returns { subscription, plan }
+      setPlans(Array.isArray(plansRes) ? plansRes : (plansRes?.plans || []));
+      setCurrentSubscription(currentRes?.subscription ?? null);
     } catch (error) {
       console.error('Failed to load subscription data:', error);
     } finally {
@@ -29,10 +30,14 @@ export default function SubscriptionPage() {
     loadSubscriptionData();
   }, [currentBarnId]);
 
-  const handleUpgrade = async (tier: SubscriptionTier) => {
+  const handleUpgrade = async (plan: SubscriptionPlan) => {
+    if (plan.contactEmail) {
+      window.location.href = `mailto:${plan.contactEmail}?subject=Enterprise plan inquiry - OnStride`;
+      return;
+    }
     try {
       const response = await subscriptionsApi.createCheckoutSession({
-        tier,
+        tier: plan.tier,
         billingInterval: 'monthly',
       });
       if (response.url) {
@@ -126,6 +131,7 @@ export default function SubscriptionPage() {
 
         {/* Plans Grid */}
         <h2 className="plans-title">Available Plans</h2>
+        <p className="plans-processor">Payments processed by Windcave.</p>
         <div className="plans-grid">
           {plans.map((plan) => (
             <div
@@ -140,10 +146,16 @@ export default function SubscriptionPage() {
               </div>
 
               <div className="plan-price">
-                <span className="price-amount">
-                  ${(plan.monthlyPriceCents / 100).toFixed(0)}
-                </span>
-                <span className="price-period">/month</span>
+                {plan.contactEmail ? (
+                  <span className="price-contact">Contact us</span>
+                ) : (
+                  <>
+                    <span className="price-amount">
+                      ${(plan.monthlyPriceCents / 100).toFixed(0)}
+                    </span>
+                    <span className="price-period">/month</span>
+                  </>
+                )}
               </div>
 
               <ul className="plan-features">
@@ -215,15 +227,16 @@ export default function SubscriptionPage() {
                 ) : (
                   <button
                     className={`btn ${plan.isPopular ? 'btn-primary' : 'btn-outline'}`}
-                    onClick={() => handleUpgrade(plan.tier)}
+                    onClick={() => handleUpgrade(plan)}
                   >
-                    {plan.tier === 'free' ? 'Downgrade' : 'Start trial'}
+                    {plan.contactEmail ? 'Contact us' : plan.tier === 'free' ? 'Downgrade' : 'Upgrade'}
                   </button>
                 )}
               </div>
             </div>
           ))}
         </div>
+        <p className="plans-processor-footer">Payments processed by Windcave.</p>
 
         {/* FAQ */}
         <div className="card">

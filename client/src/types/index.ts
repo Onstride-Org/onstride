@@ -340,8 +340,8 @@ export interface PeriodCharge {
   horseName?: string;
 }
 
-// Subscription types
-export type SubscriptionTier = 'free' | 'basic' | 'pro' | 'enterprise';
+// Subscription types (Windcave as processor: Starter $15, Business $99, Business Pro $299, Enterprise contact, Founders $100)
+export type SubscriptionTier = 'free' | 'starter' | 'business' | 'business_pro' | 'enterprise' | 'founders';
 export type SubscriptionStatus = 'active' | 'trialing' | 'pastDue' | 'canceled' | 'expired';
 
 export interface SubscriptionPlan {
@@ -350,6 +350,8 @@ export interface SubscriptionPlan {
   description: string;
   monthlyPriceCents: number;
   yearlyPriceCents: number;
+  /** For contact-only plans (e.g. Enterprise), email for "Contact us" */
+  contactEmail?: string;
   maxHorses: number;
   maxUsers: number;
   maxLessonsPerMonth: number;

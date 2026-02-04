@@ -6,11 +6,36 @@ const validate = require('../middleware/validate');
 
 const router = express.Router();
 
-// Get available plans (public)
+// Default plans: Windcave as processor. $15 Starter, $99 Business, $299 Business Pro, Enterprise contact, $100 Founders
+const DEFAULT_PLANS = [
+  { tier: 'free', name: 'Free', description: 'Get started with core features.', monthlyPriceCents: 0, yearlyPriceCents: 0, maxHorses: 5, maxUsers: 3, maxLessonsPerMonth: 10, maxBarns: 1, hasBilling: false, hasFullBilling: false, hasAiFeatures: false, hasMultiBarn: false, hasBranding: false, hasApiAccess: false, hasPrioritySupport: false, isPopular: false, sortOrder: 0 },
+  { tier: 'starter', name: 'Starter', description: 'For small barns getting started.', monthlyPriceCents: 1500, yearlyPriceCents: 15000, maxHorses: 15, maxUsers: 10, maxLessonsPerMonth: 50, maxBarns: 1, hasBilling: true, hasFullBilling: false, hasAiFeatures: false, hasMultiBarn: false, hasBranding: false, hasApiAccess: false, hasPrioritySupport: false, isPopular: true, sortOrder: 1 },
+  { tier: 'business', name: 'Business', description: 'For growing operations.', monthlyPriceCents: 9900, yearlyPriceCents: 99000, maxHorses: 50, maxUsers: 25, maxLessonsPerMonth: 200, maxBarns: 1, hasBilling: true, hasFullBilling: true, hasAiFeatures: false, hasMultiBarn: false, hasBranding: true, hasApiAccess: false, hasPrioritySupport: true, isPopular: false, sortOrder: 2 },
+  { tier: 'business_pro', name: 'Business Pro', description: 'Full platform for professional barns.', monthlyPriceCents: 29900, yearlyPriceCents: 299000, maxHorses: 150, maxUsers: 75, maxLessonsPerMonth: 500, maxBarns: 3, hasBilling: true, hasFullBilling: true, hasAiFeatures: true, hasMultiBarn: true, hasBranding: true, hasApiAccess: true, hasPrioritySupport: true, isPopular: false, sortOrder: 3 },
+  { tier: 'enterprise', name: 'Enterprise', description: 'Custom solutions for large organizations.', monthlyPriceCents: 0, yearlyPriceCents: 0, contactEmail: 'gal@onstrideapp.com', maxHorses: -1, maxUsers: -1, maxLessonsPerMonth: -1, maxBarns: -1, hasBilling: true, hasFullBilling: true, hasAiFeatures: true, hasMultiBarn: true, hasBranding: true, hasApiAccess: true, hasPrioritySupport: true, hasDedicatedSupport: true, isPopular: false, sortOrder: 4 },
+  { tier: 'founders', name: 'Founders', description: 'Special pricing for early supporters.', monthlyPriceCents: 10000, yearlyPriceCents: 100000, maxHorses: 100, maxUsers: 50, maxLessonsPerMonth: 300, maxBarns: 2, hasBilling: true, hasFullBilling: true, hasAiFeatures: true, hasMultiBarn: true, hasBranding: true, hasApiAccess: true, hasPrioritySupport: true, isPopular: false, sortOrder: 5 },
+];
+
+async function ensurePlansExist() {
+  for (const plan of DEFAULT_PLANS) {
+    await SubscriptionPlan.findOneAndUpdate(
+      { tier: plan.tier },
+      { $set: plan },
+      { upsert: true, new: true }
+    );
+  }
+}
+
+const PLAN_TIERS = ['free', 'starter', 'business', 'business_pro', 'enterprise', 'founders'];
+
+// Get available plans (public); ensures default plans exist (Windcave as processor)
 router.get('/plans', async (req, res, next) => {
   try {
-    const plans = await SubscriptionPlan.find({ isActive: true })
-      .sort({ sortOrder: 1 });
+    await ensurePlansExist();
+    const plans = await SubscriptionPlan.find({
+      isActive: true,
+      tier: { $in: PLAN_TIERS }
+    }).sort({ sortOrder: 1 });
 
     res.json(plans);
   } catch (error) {
@@ -130,7 +155,7 @@ router.get('/features/:feature', requireBarn, async (req, res, next) => {
 router.post('/', [
   requireBarn,
   hasRole('owner'),
-  body('tier').isIn(['free', 'basic', 'pro', 'enterprise']),
+  body('tier').isIn(PLAN_TIERS),
   body('billingInterval').optional().isIn(['monthly', 'yearly']),
   validate
 ], async (req, res, next) => {
@@ -277,99 +302,13 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 
 // ============ Admin Routes ============
 
-// Seed subscription plans (admin only)
+// Seed subscription plans (admin only); uses same default plans as GET /plans
 router.post('/plans/seed', async (req, res, next) => {
   try {
-    if (req.user.accountType !== 'admin') {
+    if (req.user?.accountType !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
-
-    const plans = [
-      {
-        tier: 'free',
-        name: 'Free',
-        description: 'Basic barn management for small operations',
-        monthlyPriceCents: 0,
-        yearlyPriceCents: 0,
-        maxHorses: 5,
-        maxUsers: 3,
-        maxLessonsPerMonth: 10,
-        maxBarns: 1,
-        hasBilling: false,
-        hasFullBilling: false,
-        hasAiFeatures: false,
-        hasMultiBarn: false,
-        hasBranding: false,
-        hasApiAccess: false,
-        sortOrder: 0
-      },
-      {
-        tier: 'basic',
-        name: 'Basic',
-        description: 'Essential features for growing barns',
-        monthlyPriceCents: 2900,
-        yearlyPriceCents: 29000,
-        maxHorses: 25,
-        maxUsers: 10,
-        maxLessonsPerMonth: 100,
-        maxBarns: 1,
-        hasBilling: true,
-        hasFullBilling: false,
-        hasAiFeatures: false,
-        hasMultiBarn: false,
-        hasBranding: false,
-        hasApiAccess: false,
-        sortOrder: 1
-      },
-      {
-        tier: 'pro',
-        name: 'Professional',
-        description: 'Advanced features for professional operations',
-        monthlyPriceCents: 7900,
-        yearlyPriceCents: 79000,
-        maxHorses: 100,
-        maxUsers: 50,
-        maxLessonsPerMonth: -1,
-        maxBarns: 3,
-        hasBilling: true,
-        hasFullBilling: true,
-        hasAiFeatures: true,
-        hasMultiBarn: true,
-        hasBranding: false,
-        hasApiAccess: false,
-        hasPrioritySupport: true,
-        isPopular: true,
-        sortOrder: 2
-      },
-      {
-        tier: 'enterprise',
-        name: 'Enterprise',
-        description: 'Unlimited access for large operations',
-        monthlyPriceCents: 19900,
-        yearlyPriceCents: 199000,
-        maxHorses: -1,
-        maxUsers: -1,
-        maxLessonsPerMonth: -1,
-        maxBarns: -1,
-        hasBilling: true,
-        hasFullBilling: true,
-        hasAiFeatures: true,
-        hasMultiBarn: true,
-        hasBranding: true,
-        hasApiAccess: true,
-        hasPrioritySupport: true,
-        hasDedicatedSupport: true,
-        sortOrder: 3
-      }
-    ];
-
-    for (const plan of plans) {
-      await SubscriptionPlan.findOneAndUpdate(
-        { tier: plan.tier },
-        plan,
-        { upsert: true }
-      );
-    }
+    await ensurePlansExist();
 
     res.json({ message: 'Plans seeded successfully' });
   } catch (error) {

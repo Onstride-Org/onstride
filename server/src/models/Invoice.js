@@ -114,7 +114,7 @@ const invoiceSchema = new mongoose.Schema({
   },
   subscriptionTier: {
     type: String,
-    enum: ['free', 'basic', 'pro', 'enterprise', null],
+    enum: ['free', 'starter', 'business', 'business_pro', 'enterprise', 'founders', null],
     default: null
   },
   subscriptionInterval: {

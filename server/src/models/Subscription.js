@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const subscriptionPlanSchema = new mongoose.Schema({
   tier: {
     type: String,
-    enum: ['free', 'basic', 'pro', 'enterprise'],
+    enum: ['free', 'starter', 'business', 'business_pro', 'enterprise', 'founders'],
     required: true,
     unique: true
   },
@@ -21,6 +21,8 @@ const subscriptionPlanSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  /** For contact-only plans (e.g. Enterprise), email to show "Contact us" */
+  contactEmail: String,
   stripePriceIdMonthly: String,
   stripePriceIdYearly: String,
 
@@ -104,7 +106,7 @@ const barnSubscriptionSchema = new mongoose.Schema({
   },
   tier: {
     type: String,
-    enum: ['free', 'basic', 'pro', 'enterprise'],
+    enum: ['free', 'starter', 'business', 'business_pro', 'enterprise', 'founders'],
     default: 'free'
   },
   status: {
