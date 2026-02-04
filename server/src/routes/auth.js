@@ -32,7 +32,7 @@ const generateTokens = (userId) => {
 
 // Register
 router.post('/register', [
-  body('email').isEmail().normalizeEmail(),
+  body('email').isEmail().normalizeEmail({ gmail_remove_dots: false }),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('name').trim().notEmpty(),
   body('phoneNumber').trim().notEmpty().withMessage('Phone number is required'),
@@ -114,7 +114,7 @@ router.post('/register', [
 
 // Login
 router.post('/login', [
-  body('email').isEmail().normalizeEmail(),
+  body('email').isEmail().normalizeEmail({ gmail_remove_dots: false }),
   body('password').notEmpty(),
   validate
 ], async (req, res, next) => {
@@ -449,7 +449,7 @@ router.get('/me', authenticate, async (req, res, next) => {
 
 // Forgot password
 router.post('/forgot-password', [
-  body('email').isEmail().normalizeEmail(),
+  body('email').isEmail().normalizeEmail({ gmail_remove_dots: false }),
   validate
 ], async (req, res, next) => {
   try {
@@ -582,7 +582,7 @@ router.post('/verify-email', [
 
 // Resend verification email
 router.post('/resend-verification', [
-  body('email').isEmail().normalizeEmail(),
+  body('email').isEmail().normalizeEmail({ gmail_remove_dots: false }),
   validate
 ], async (req, res, next) => {
   try {
@@ -630,7 +630,7 @@ router.post('/resend-verification', [
 
 // Check verification status (for polling from waiting screen)
 router.post('/check-verification', [
-  body('email').isEmail().normalizeEmail(),
+  body('email').isEmail().normalizeEmail({ gmail_remove_dots: false }),
   validate
 ], async (req, res, next) => {
   try {

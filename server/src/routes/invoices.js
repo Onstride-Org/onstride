@@ -389,7 +389,7 @@ router.post('/', [
 router.post('/guest', [
   requireBarn,
   hasPermission('generateInvoices'),
-  body('guestEmail').isEmail().normalizeEmail(),
+  body('guestEmail').isEmail().normalizeEmail({ gmail_remove_dots: false }),
   body('guestName').notEmpty().trim(),
   body('dueDate').isISO8601(),
   body('charges').isArray({ min: 1 }),
