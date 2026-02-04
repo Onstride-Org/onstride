@@ -931,8 +931,10 @@ function EditUserRoleModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { user: currentUser } = useAuthStore();
   const [role, setRole] = useState<AccountType>(user.accountType);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [error, setError] = useState('');
 
   const roles: { value: AccountType; label: string }[] = [
@@ -956,6 +958,25 @@ function EditUserRoleModal({
       setIsLoading(false);
     }
   };
+
+  const handleRemoveUser = async () => {
+    if (!confirm(`Remove ${user.name} from this barn? They will lose access but can be re-invited later.`)) {
+      return;
+    }
+
+    setError('');
+    setIsRemoving(true);
+
+    try {
+      await usersApi.remove(user.id);
+      onSuccess();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to remove user');
+      setIsRemoving(false);
+    }
+  };
+
+  const canRemove = user.id !== currentUser?.id && user.accountType !== 'owner';
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -994,6 +1015,24 @@ function EditUserRoleModal({
                 ))}
               </select>
             </div>
+
+            {canRemove && (
+              <div className="form-group" style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--color-neutral-200)' }}>
+                <label className="form-label text-error">Danger Zone</label>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-error btn-block"
+                  onClick={handleRemoveUser}
+                  disabled={isRemoving}
+                >
+                  <UserMinus size={16} />
+                  {isRemoving ? 'Removing...' : 'Remove from Barn'}
+                </button>
+                <p className="form-hint text-muted" style={{ marginTop: '8px' }}>
+                  This will remove the user's access to this barn. They can be re-invited later.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="modal-footer">
