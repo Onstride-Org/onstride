@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function LoginPage() {
@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const {
     login,
@@ -18,16 +19,40 @@ export default function LoginPage() {
     error,
     clearError,
     twoFactor,
+    setShowPaymentPrompt,
+    setShowOnboarding,
   } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Check for success message from account setup
+  useEffect(() => {
+    const state = location.state as { message?: string; email?: string } | null;
+    if (state?.message) {
+      setSuccessMessage(state.message);
+      if (state.email) {
+        setEmail(state.email);
+      }
+      // Clear the state so message doesn't persist on page refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
+    setSuccessMessage('');
 
     try {
       const result = await login(email, password);
       if (!result?.requiresTwoFactor) {
+        // Check if user just came from account setup (new signup flow)
+        const state = location.state as { message?: string } | null;
+        if (state?.message?.includes('created successfully')) {
+          // Show payment prompt for new users
+          setShowPaymentPrompt(true);
+          setShowOnboarding(true);
+        }
         navigate('/app/dashboard');
       }
     } catch (err: any) {
@@ -180,6 +205,15 @@ export default function LoginPage() {
       <p className="auth-form-subtitle">Sign in to manage your barn</p>
 
       <form onSubmit={handleSubmit} className="auth-form">
+        {successMessage && (
+          <div className="alert alert-success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <span>{successMessage}</span>
+          </div>
+        )}
         {error && (
           <div className="alert alert-error">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">

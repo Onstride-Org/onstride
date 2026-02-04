@@ -9,9 +9,10 @@ import {
 } from 'lucide-react';
 import { isToday, parseISO, format, addDays, subDays, startOfDay, isSameDay } from 'date-fns';
 import OnboardingStepsModal from '../components/OnboardingStepsModal';
+import PaymentPromptModal from '../components/PaymentPromptModal';
 
 export default function DashboardPage() {
-  const { user, currentBarnId, currentBarnRole, showOnboarding, setShowOnboarding } = useAuthStore();
+  const { user, currentBarnId, currentBarnRole, showOnboarding, setShowOnboarding, showPaymentPrompt, setShowPaymentPrompt } = useAuthStore();
   const [stats, setStats] = useState({
     horses: 0,
     tasks: 0,
@@ -496,6 +497,12 @@ export default function DashboardPage() {
       <OnboardingStepsModal
         isOpen={showOnboarding}
         onClose={() => setShowOnboarding(false)}
+      />
+
+      <PaymentPromptModal
+        isOpen={showPaymentPrompt}
+        onClose={() => setShowPaymentPrompt(false)}
+        onStartTrial={() => setShowPaymentPrompt(false)}
       />
     </div>
   );

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 const demoRequestSchema = new mongoose.Schema({
   name: {
@@ -41,7 +42,7 @@ const demoRequestSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['new', 'contacted', 'scheduled', 'completed', 'cancelled'],
+    enum: ['new', 'contacted', 'scheduled', 'completed', 'cancelled', 'email_sent', 'email_verified', 'account_created'],
     default: 'new'
   },
   notes: {
@@ -55,9 +56,35 @@ const demoRequestSchema = new mongoose.Schema({
   meetLink: {
     type: String,
     trim: true
+  },
+  // Signup flow fields
+  emailVerificationToken: {
+    type: String
+  },
+  emailVerificationExpires: {
+    type: Date
+  },
+  emailVerified: {
+    type: Boolean,
+    default: false
+  },
+  emailVerifiedAt: {
+    type: Date
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }
 }, {
   timestamps: true
 });
+
+// Generate verification token
+demoRequestSchema.methods.generateVerificationToken = function() {
+  const token = crypto.randomBytes(32).toString('hex');
+  this.emailVerificationToken = crypto.createHash('sha256').update(token).digest('hex');
+  this.emailVerificationExpires = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
+  return token;
+};
 
 module.exports = mongoose.model('DemoRequest', demoRequestSchema);

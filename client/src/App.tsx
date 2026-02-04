@@ -18,6 +18,7 @@ import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import AcceptInvitePage from './pages/auth/AcceptInvitePage';
 import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 import VerificationRequiredPage from './pages/auth/VerificationRequiredPage';
+import SetupAccountPage from './pages/auth/SetupAccountPage';
 
 // App Pages
 import DashboardPage from './pages/DashboardPage';
@@ -164,6 +165,14 @@ function App() {
         element={
           <AuthLayout>
             <VerificationRequiredPage />
+          </AuthLayout>
+        }
+      />
+      <Route
+        path="/setup-account/:token"
+        element={
+          <AuthLayout>
+            <SetupAccountPage />
           </AuthLayout>
         }
       />

@@ -1270,6 +1270,112 @@ ${adminUrl}
   return sendEmail({ to: 'admin@onstrideapp.com', subject, text, html });
 };
 
+/**
+ * Send signup verification email (for demo/signup flow)
+ * @param {Object} options
+ * @param {string} options.to - Recipient email
+ * @param {string} options.name - User's name
+ * @param {string} options.token - Verification token
+ * @param {string} options.barnName - Barn name (optional)
+ */
+const sendSignupVerificationEmail = async ({ to, name, token, barnName }) => {
+  const verifyUrl = `${CLIENT_URL}/setup-account/${token}`;
+
+  const subject = 'Complete your OnStride account setup';
+
+  const text = `
+Hi ${name || 'there'},
+
+Thanks for signing up for OnStride! You're just one step away from getting started.
+
+Click the link below to set your password and complete your account setup:
+${verifyUrl}
+
+This link will expire in 7 days.
+
+${barnName ? `Once you're set up, you'll have access to manage "${barnName}" on OnStride.` : ''}
+
+If you didn't sign up for OnStride, you can safely ignore this email.
+
+Best regards,
+The OnStride Team
+  `.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Complete Your Account Setup</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <tr>
+      <td style="background-color: #ffffff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <div style="display: inline-block; width: 60px; height: 60px; background-color: #2563eb; border-radius: 50%; line-height: 60px; text-align: center;">
+            <span style="color: white; font-size: 30px;">✉</span>
+          </div>
+        </div>
+
+        <h1 style="color: #1a1a1a; font-size: 24px; margin: 0 0 20px 0; text-align: center;">Complete Your Account Setup</h1>
+
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+          Hi ${name || 'there'},
+        </p>
+
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+          Thanks for signing up for OnStride! You're just one step away from getting started. Click the button below to set your password and complete your account setup.
+        </p>
+
+        ${barnName ? `
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0; background-color: #f0fdf4; padding: 15px; border-radius: 6px; border-left: 4px solid #10b981;">
+          🏇 You'll be managing <strong>"${barnName}"</strong> on OnStride
+        </p>
+        ` : ''}
+
+        <table role="presentation" cellspacing="0" cellpadding="0" style="margin: 0 auto 30px auto;">
+          <tr>
+            <td style="background-color: #2563eb; border-radius: 6px;">
+              <a href="${verifyUrl}" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600;">
+                Set Password & Continue
+              </a>
+            </td>
+          </tr>
+        </table>
+
+        <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 0 0 10px 0;">
+          This link will expire in 7 days.
+        </p>
+
+        <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
+          If the button doesn't work, copy and paste this link into your browser:<br>
+          <a href="${verifyUrl}" style="color: #2563eb; word-break: break-all;">${verifyUrl}</a>
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+          If you didn't sign up for OnStride, you can safely ignore this email.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px; text-align: center;">
+        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+          &copy; ${new Date().getFullYear()} OnStride. All rights reserved.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  return sendEmail({ to, subject, text, html });
+};
+
 module.exports = {
   isConfigured,
   sendEmail,
@@ -1283,4 +1389,5 @@ module.exports = {
   sendTaskApprovalEmail,
   sendDemoConfirmationEmail,
   sendDemoAdminNotification,
+  sendSignupVerificationEmail,
 };

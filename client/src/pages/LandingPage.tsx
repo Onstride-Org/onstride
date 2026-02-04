@@ -19,16 +19,14 @@ import {
   ChevronRight
 } from 'lucide-react';
 
-// Demo booking form data interface
-interface DemoFormData {
+// Signup form data interface
+interface SignupFormData {
   isDecisionMaker: string;
   discipline: string;
   horseCount: string;
   barnName: string;
   userName: string;
   email: string;
-  selectedDate: string;
-  selectedTime: string;
 }
 
 export default function LandingPage() {
@@ -570,55 +568,20 @@ export default function LandingPage() {
   );
 }
 
-// Multi-step Demo Booking Modal
-interface AvailabilitySlot {
-  dayOfWeek: number;
-  timeSlots: string[];
-}
-
+// Multi-step Signup Modal
 function DemoBookingModal({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState<DemoFormData>({
+  const [formData, setFormData] = useState<SignupFormData>({
     isDecisionMaker: '',
     discipline: '',
     horseCount: '',
     barnName: '',
     userName: '',
     email: '',
-    selectedDate: '',
-    selectedTime: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
-  const [, setIsLoadingAvailability] = useState(true);
-
-  // Fetch availability on mount
-  useEffect(() => {
-    const fetchAvailability = async () => {
-      try {
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        const response = await fetch(`${apiBase}/demo-requests/availability`);
-        if (response.ok) {
-          const data = await response.json();
-          setAvailability(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch availability:', error);
-        // Use defaults if fetch fails
-        setAvailability([
-          { dayOfWeek: 1, timeSlots: ['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] },
-          { dayOfWeek: 2, timeSlots: ['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] },
-          { dayOfWeek: 3, timeSlots: ['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] },
-          { dayOfWeek: 4, timeSlots: ['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] },
-          { dayOfWeek: 5, timeSlots: ['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] }
-        ]);
-      } finally {
-        setIsLoadingAvailability(false);
-      }
-    };
-    fetchAvailability();
-  }, []);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const disciplines = [
     'Hunters',
@@ -643,40 +606,7 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
     '100+'
   ];
 
-  // Get enabled days of week from availability
-  const enabledDays = availability.map(a => a.dayOfWeek);
-
-  // Generate next 14 days for date selection (only enabled days)
-  const getAvailableDates = () => {
-    const dates = [];
-    const today = new Date();
-    for (let i = 1; i <= 21; i++) { // Look ahead 21 days to ensure we get enough available dates
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      // Only include days that are enabled in availability
-      if (enabledDays.includes(date.getDay())) {
-        dates.push(date);
-      }
-      // Stop once we have 10 available dates
-      if (dates.length >= 10) break;
-    }
-    return dates;
-  };
-
-  // Get available times for selected date
-  const getAvailableTimesForDate = () => {
-    if (!formData.selectedDate) return [];
-    const selectedDate = new Date(formData.selectedDate);
-    const dayOfWeek = selectedDate.getDay();
-    const dayAvailability = availability.find(a => a.dayOfWeek === dayOfWeek);
-    return dayAvailability?.timeSlots || [];
-  };
-
-  const formatDateValue = (date: Date) => {
-    return date.toISOString().split('T')[0];
-  };
-
-  const totalSteps = 6;
+  const totalSteps = 5; // Reduced from 6 (removed scheduling step)
 
   const canProceed = () => {
     switch (step) {
@@ -684,8 +614,7 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
       case 2: return formData.discipline !== '';
       case 3: return formData.horseCount !== '';
       case 4: return formData.barnName.trim() !== '';
-      case 5: return formData.userName.trim() !== '' && formData.email.trim() !== '';
-      case 6: return formData.selectedDate !== '' && formData.selectedTime !== '';
+      case 5: return formData.userName.trim() !== '' && formData.email.trim() !== '' && formData.email.includes('@');
       default: return false;
     }
   };
@@ -706,9 +635,7 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
     if (!canProceed()) return;
 
     setIsSubmitting(true);
-
-    // Save to localStorage for use when creating account
-    localStorage.setItem('demoFormData', JSON.stringify(formData));
+    setErrorMessage('');
 
     try {
       const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -724,20 +651,20 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
           discipline: formData.discipline,
           horseCount: formData.horseCount,
           isDecisionMaker: formData.isDecisionMaker,
-          selectedDate: formData.selectedDate,
-          selectedTime: formData.selectedTime,
         }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to submit demo request');
+        setErrorMessage(data.error || 'Failed to submit. Please try again.');
+        return;
       }
 
       setIsSuccess(true);
     } catch (error) {
-      console.error('Failed to submit demo request:', error);
-      // Still show success to user - data is saved in localStorage
-      setIsSuccess(true);
+      console.error('Failed to submit signup request:', error);
+      setErrorMessage('Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -751,13 +678,13 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
             <div className="success-icon-large">
               <Check size={48} />
             </div>
-            <h2>Demo Scheduled!</h2>
+            <h2>Check Your Email!</h2>
             <p>
-              We've received your demo request for {formData.selectedDate} at {formData.selectedTime}.
+              We've sent a verification link to <strong>{formData.email}</strong>.
             </p>
             <p className="success-details">
-              A confirmation email has been sent to <strong>{formData.email}</strong>.
-              Our team will reach out shortly to confirm your appointment.
+              Click the link in your email to set your password and complete your account setup.
+              The link expires in 7 days.
             </p>
             <button className="btn btn-primary btn-lg" onClick={onClose}>
               Got it!
@@ -865,7 +792,7 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
           {step === 5 && (
             <div className="demo-step">
               <h2>How can we reach you?</h2>
-              <p className="demo-step-desc">We'll send confirmation and reminder emails.</p>
+              <p className="demo-step-desc">We'll send you an email to complete your account setup.</p>
               <div className="demo-input-group">
                 <input
                   type="text"
@@ -883,47 +810,11 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
-            </div>
-          )}
-
-          {/* Step 6: Schedule */}
-          {step === 6 && (
-            <div className="demo-step">
-              <h2>Pick a time for your demo</h2>
-              <p className="demo-step-desc">Choose a date and time that works for you.</p>
-
-              <div className="demo-calendar">
-                <h4>Select a date</h4>
-                <div className="demo-dates">
-                  {getAvailableDates().map((date) => (
-                    <button
-                      key={formatDateValue(date)}
-                      className={`demo-date ${formData.selectedDate === formatDateValue(date) ? 'selected' : ''}`}
-                      onClick={() => setFormData({ ...formData, selectedDate: formatDateValue(date), selectedTime: '' })}
-                    >
-                      <span className="demo-date-day">{date.getDate()}</span>
-                      <span className="demo-date-weekday">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {formData.selectedDate && (
-                  <>
-                    <h4>Select a time</h4>
-                    <div className="demo-times">
-                      {getAvailableTimesForDate().map((time) => (
-                        <button
-                          key={time}
-                          className={`demo-time ${formData.selectedTime === time ? 'selected' : ''}`}
-                          onClick={() => setFormData({ ...formData, selectedTime: time })}
-                        >
-                          {time}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
+              {errorMessage && (
+                <p className="demo-error" style={{ color: '#ef4444', marginTop: '12px', fontSize: '14px' }}>
+                  {errorMessage}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -953,8 +844,8 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
               onClick={handleSubmit}
               disabled={!canProceed() || isSubmitting}
             >
-              {isSubmitting ? 'Scheduling...' : 'Schedule Demo'}
-              {!isSubmitting && <Check size={18} />}
+              {isSubmitting ? 'Creating account...' : 'Sign Up'}
+              {!isSubmitting && <ArrowRight size={18} />}
             </button>
           )}
         </div>
