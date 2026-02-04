@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { clearTokens, clearCurrentBarn } from '../../services/api';
 
 interface SignupData {
   id: string;
@@ -95,6 +96,10 @@ export default function SetupAccountPage() {
       }
 
       setSuccess(true);
+
+      // Clear any existing session before redirecting to login
+      clearTokens();
+      clearCurrentBarn();
 
       // Redirect to login after 2 seconds
       setTimeout(() => {
