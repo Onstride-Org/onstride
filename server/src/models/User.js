@@ -55,7 +55,7 @@ const userSchema = new mongoose.Schema({
   },
   registrationMethod: {
     type: String,
-    enum: ['email', 'phone', 'oauth', 'invitation'],
+    enum: ['email', 'phone', 'oauth', 'invitation', 'signup_form'],
     default: 'email'
   },
   barnId: {

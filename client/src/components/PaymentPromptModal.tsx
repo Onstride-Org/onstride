@@ -12,7 +12,7 @@ const plans = [
   {
     id: 'free',
     name: 'Free',
-    price: 0,
+    price: 15,
     description: 'For small operations getting started',
     features: ['Up to 6 horses', 'Basic scheduling', 'Horse profiles', 'Email support'],
     highlighted: false,

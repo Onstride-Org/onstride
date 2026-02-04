@@ -217,7 +217,7 @@ export default function SubscriptionPage() {
                     className={`btn ${plan.isPopular ? 'btn-primary' : 'btn-outline'}`}
                     onClick={() => handleUpgrade(plan.tier)}
                   >
-                    {plan.tier === 'free' ? 'Downgrade' : 'Upgrade'}
+                    {plan.tier === 'free' ? 'Downgrade' : 'Start trial'}
                   </button>
                 )}
               </div>

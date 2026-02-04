@@ -2166,3 +2166,261 @@
     margin-bottom: 8px;
   }
 }
+
+/* ============ Founders Program Modal ============ */
+.founders-modal {
+  max-width: 560px;
+  width: 90%;
+  padding: 0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.founders-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  color: var(--color-neutral-500);
+}
+
+.founders-modal-close:hover {
+  color: var(--color-neutral-700);
+  background: var(--color-neutral-100);
+}
+
+.founders-modal-header {
+  text-align: center;
+  padding: 32px 32px 24px;
+  background: linear-gradient(135deg, #faf5ff 0%, #f0f9ff 100%);
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.founders-badge-modal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.founders-badge-modal svg {
+  width: 18px;
+  height: 18px;
+}
+
+.founders-modal-header h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  margin: 0 0 8px;
+}
+
+.founders-modal-header p {
+  font-size: 16px;
+  color: var(--color-neutral-600);
+  margin: 0;
+}
+
+.founders-benefits {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 24px 32px;
+  background: var(--color-neutral-50);
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.founders-benefit {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid var(--color-neutral-200);
+}
+
+.founders-benefit svg {
+  color: #8b5cf6;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.founders-benefit div {
+  display: flex;
+  flex-direction: column;
+}
+
+.founders-benefit strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-900);
+}
+
+.founders-benefit span {
+  font-size: 12px;
+  color: var(--color-neutral-500);
+}
+
+.founders-form {
+  padding: 24px 32px 32px;
+}
+
+.founders-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.founders-form .form-group {
+  margin-bottom: 0;
+}
+
+.founders-form .form-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-neutral-700);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.founders-form .form-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.founders-form .form-input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.founders-form .btn-block {
+  margin-top: 24px;
+}
+
+.founders-spots-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: #8b5cf6;
+  font-weight: 500;
+}
+
+.founders-modal-success {
+  padding: 48px 32px;
+  text-align: center;
+}
+
+.founders-modal-success .success-icon-large {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+}
+
+.founders-modal-success h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  margin: 0 0 12px;
+}
+
+.founders-modal-success p {
+  font-size: 15px;
+  color: var(--color-neutral-600);
+  margin: 0 0 8px;
+}
+
+.founders-modal-success .success-details {
+  color: var(--color-neutral-500);
+  font-size: 14px;
+}
+
+.founders-perks-summary {
+  background: var(--color-neutral-50);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 24px 0;
+  text-align: left;
+}
+
+.founders-perks-summary h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-neutral-900);
+  margin: 0 0 12px;
+}
+
+.founders-perks-summary ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.founders-perks-summary li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-neutral-700);
+  padding: 6px 0;
+}
+
+.founders-perks-summary li svg {
+  color: #8b5cf6;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .founders-modal {
+    max-width: 100%;
+    width: 100%;
+    margin: 16px;
+    border-radius: 12px;
+  }
+
+  .founders-modal-header {
+    padding: 24px 20px 20px;
+  }
+
+  .founders-modal-header h2 {
+    font-size: 22px;
+  }
+
+  .founders-benefits {
+    grid-template-columns: 1fr;
+    padding: 16px 20px;
+  }
+
+  .founders-form {
+    padding: 20px;
+  }
+
+  .founders-form .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .founders-modal-success {
+    padding: 32px 20px;
+  }
+}

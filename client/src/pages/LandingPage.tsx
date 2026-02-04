@@ -34,6 +34,7 @@ export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isAnnouncementClosed, setIsAnnouncementClosed] = useState(false);
   const [showDemoModal, setShowDemoModal] = useState(false);
+  const [showFoundersModal, setShowFoundersModal] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -364,7 +365,7 @@ export default function LandingPage() {
                 <p className="pricing-tier-desc">For small operations getting started</p>
                 <div className="pricing-amount">
                   <span className="pricing-currency">$</span>
-                  <span className="pricing-value">0</span>
+                  <span className="pricing-value">15</span>
                   <span className="pricing-period">/month</span>
                 </div>
               </div>
@@ -376,7 +377,7 @@ export default function LandingPage() {
                   <li><Check size={18} /> Email support</li>
                 </ul>
                 <button className="btn btn-outline btn-block" onClick={openDemoModal}>
-                  Get started free
+                  Start trial
                 </button>
               </div>
             </div>
@@ -426,7 +427,7 @@ export default function LandingPage() {
                   <li><Check size={18} /> API access</li>
                 </ul>
                 <button className="btn btn-primary btn-block" onClick={openDemoModal}>
-                  Get a demo
+                  Start trial
                 </button>
               </div>
             </div>
@@ -477,7 +478,7 @@ export default function LandingPage() {
                 <li><Check size={18} /> Priority support</li>
                 <li><Check size={18} /> Founding member pricing</li>
               </ul>
-              <button className="btn btn-primary btn-lg" onClick={openDemoModal}>
+              <button className="btn btn-primary btn-lg" onClick={() => setShowFoundersModal(true)}>
                 Apply now
                 <ArrowRight size={18} />
               </button>
@@ -514,6 +515,11 @@ export default function LandingPage() {
       {/* Demo Booking Modal */}
       {showDemoModal && (
         <DemoBookingModal onClose={() => setShowDemoModal(false)} />
+      )}
+
+      {/* Founders Program Modal */}
+      {showFoundersModal && (
+        <FoundersProgramModal onClose={() => setShowFoundersModal(false)} />
       )}
 
       {/* Footer */}
@@ -849,6 +855,228 @@ function DemoBookingModal({ onClose }: { onClose: () => void }) {
             </button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Founders Program Modal
+function FoundersProgramModal({ onClose }: { onClose: () => void }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    barnName: '',
+    horseCount: '',
+    message: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const horseCounts = ['1-5', '6-10', '11-25', '26-50', '51-100', '100+'];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.email || !formData.barnName) {
+      setErrorMessage('Please fill in all required fields');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage('');
+
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiBase}/demo-requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          barnName: formData.barnName,
+          horseCount: formData.horseCount,
+          isDecisionMaker: 'yes',
+          discipline: 'Founders Program Application',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorMessage(data.error || 'Failed to submit. Please try again.');
+        return;
+      }
+
+      setIsSuccess(true);
+    } catch (error) {
+      console.error('Failed to submit founders application:', error);
+      setErrorMessage('Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isSuccess) {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal founders-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="founders-modal-success">
+            <div className="success-icon-large">
+              <Sparkles size={48} />
+            </div>
+            <h2>Application Received!</h2>
+            <p>
+              Thank you for your interest in the Founders Program, <strong>{formData.name}</strong>.
+            </p>
+            <p className="success-details">
+              We've sent a verification email to <strong>{formData.email}</strong>.
+              Click the link to complete your account setup and secure your spot.
+            </p>
+            <div className="founders-perks-summary">
+              <h4>As a Founder, you'll get:</h4>
+              <ul>
+                <li><Check size={16} /> Lifetime founding member pricing</li>
+                <li><Check size={16} /> Priority support & feature requests</li>
+                <li><Check size={16} /> Early access to new features</li>
+              </ul>
+            </div>
+            <button className="btn btn-primary btn-lg" onClick={onClose}>
+              Got it!
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal founders-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="btn btn-ghost founders-modal-close" onClick={onClose}>
+          <X size={20} />
+        </button>
+
+        <div className="founders-modal-header">
+          <div className="founders-badge-modal">
+            <Sparkles size={24} />
+            <span>Founders Program</span>
+          </div>
+          <h2>Join the First 50 Barns</h2>
+          <p>Be an early partner and help shape the future of OnStride</p>
+        </div>
+
+        <div className="founders-benefits">
+          <div className="founders-benefit">
+            <Check size={18} />
+            <div>
+              <strong>Founding Member Pricing</strong>
+              <span>Lock in special rates for life</span>
+            </div>
+          </div>
+          <div className="founders-benefit">
+            <Check size={18} />
+            <div>
+              <strong>Direct Feedback Channel</strong>
+              <span>Shape product development</span>
+            </div>
+          </div>
+          <div className="founders-benefit">
+            <Check size={18} />
+            <div>
+              <strong>Priority Support</strong>
+              <span>Get help when you need it</span>
+            </div>
+          </div>
+          <div className="founders-benefit">
+            <Check size={18} />
+            <div>
+              <strong>Full Platform Access</strong>
+              <span>All features, no limits</span>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="founders-form">
+          {errorMessage && (
+            <div className="alert alert-error" style={{ marginBottom: '16px' }}>
+              {errorMessage}
+            </div>
+          )}
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Your Name *</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Enter your name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email *</label>
+              <input
+                type="email"
+                className="form-input"
+                placeholder="you@example.com"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Barn Name *</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Your barn's name"
+                value={formData.barnName}
+                onChange={(e) => setFormData({ ...formData, barnName: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Number of Horses</label>
+              <select
+                className="form-input"
+                value={formData.horseCount}
+                onChange={(e) => setFormData({ ...formData, horseCount: e.target.value })}
+              >
+                <option value="">Select...</option>
+                {horseCounts.map((count) => (
+                  <option key={count} value={count}>{count} horses</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="btn btn-primary btn-lg btn-block"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>Creating account...</>
+            ) : (
+              <>
+                Apply for Founders Program
+                <ArrowRight size={18} />
+              </>
+            )}
+          </button>
+
+          <p className="founders-spots-left">
+            <Sparkles size={14} />
+            Limited to first 50 barns
+          </p>
+        </form>
       </div>
     </div>
   );
