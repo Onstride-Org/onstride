@@ -4,7 +4,7 @@ import axios from 'axios';
 import { format } from 'date-fns';
 import {
   Building2, Users, Database, DollarSign,
-  ChevronLeft, Mail, Phone, MapPin, Calendar, Save
+  ChevronLeft, Mail, Phone, MapPin, Save
 } from 'lucide-react';
 
 const SUBSCRIPTION_TIERS = ['free', 'starter', 'business', 'business_pro', 'founders', 'enterprise'];
