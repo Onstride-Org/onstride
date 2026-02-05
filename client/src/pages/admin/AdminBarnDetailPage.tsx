@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, Navigate } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
+import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { getTokens, getCurrentBarn } from '../../services/api';
 import { format } from 'date-fns';
 import {
   Building2, Users, Database, DollarSign,
@@ -28,15 +26,10 @@ interface BarnDetail {
 
 export default function AdminBarnDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuthStore();
   const [data, setData] = useState<BarnDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [subscriptionTier, setSubscriptionTier] = useState<string>('');
   const [subscriptionSaving, setSubscriptionSaving] = useState(false);
-
-  if (user?.accountType !== 'admin') {
-    return <Navigate to="/app/dashboard" replace />;
-  }
 
   useEffect(() => {
     loadBarnDetail();
@@ -45,11 +38,9 @@ export default function AdminBarnDetailPage() {
   const loadBarnDetail = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('adminToken') || getTokens().accessToken;
-      const barnId = getCurrentBarn();
+      const token = localStorage.getItem('adminToken');
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      if (barnId) headers['X-Barn-Id'] = barnId;
 
       const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       const response = await axios.get(`${apiBase}/admin/barns/${id}`, { headers });
