@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, ChevronLeft, ChevronRight, Users, Database } from 'lucide-react';
 
 interface Barn {
@@ -11,6 +12,7 @@ interface Barn {
 }
 
 export default function AdminBarnsListPage() {
+  const navigate = useNavigate();
   const [barns, setBarns] = useState<Barn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -100,7 +102,13 @@ export default function AdminBarnsListPage() {
             </thead>
             <tbody>
               {barns.map(barn => (
-                <tr key={barn._id} style={{ borderBottom: '1px solid #1f1f1f' }}>
+                <tr
+                  key={barn._id}
+                  onClick={() => navigate(`/admin/barns/${barn._id}`)}
+                  style={{ borderBottom: '1px solid #1f1f1f', cursor: 'pointer', transition: 'background 0.15s' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#1a1a1a'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
                   <td style={{ padding: '8px 12px', color: 'white', fontSize: '12px' }}>{barn.name}</td>
                   <td style={{ padding: '8px 12px' }}>
                     {barn.ownerId ? (
