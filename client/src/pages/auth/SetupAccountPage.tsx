@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { clearTokens, clearCurrentBarn } from '../../services/api';
 
@@ -7,13 +7,18 @@ interface SignupData {
   id: string;
   name: string;
   email: string;
-  barnName: string;
-  discipline: string;
-  horseCount: string;
+  barnName?: string;
+  discipline?: string;
+  horseCount?: string;
+  accountType?: string;
 }
 
 export default function SetupAccountPage() {
-  const { token } = useParams<{ token: string }>();
+  const { token: paramToken } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
+  const queryToken = searchParams.get('token');
+  const token = paramToken || queryToken;
+  const isAdminInvite = !!queryToken && !paramToken;
   const navigate = useNavigate();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -26,6 +31,7 @@ export default function SetupAccountPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [name, setName] = useState('');
 
   // Verify token on mount
   useEffect(() => {
@@ -38,7 +44,11 @@ export default function SetupAccountPage() {
 
       try {
         const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        const response = await fetch(`${apiBase}/demo-requests/verify/${token}`);
+        // Use different endpoint for admin invites vs demo requests
+        const endpoint = isAdminInvite
+          ? `${apiBase}/auth/verify-setup-token/${token}`
+          : `${apiBase}/demo-requests/verify/${token}`;
+        const response = await fetch(endpoint);
         const data = await response.json();
 
         if (!response.ok) {
@@ -48,6 +58,10 @@ export default function SetupAccountPage() {
         }
 
         setSignupData(data.data);
+        // Pre-fill name if available
+        if (data.data?.name) {
+          setName(data.data.name);
+        }
       } catch (err) {
         setError('Failed to verify link. Please try again.');
       } finally {
@@ -56,13 +70,18 @@ export default function SetupAccountPage() {
     };
 
     verifyToken();
-  }, [token]);
+  }, [token, isAdminInvite]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     // Validation
+    if (isAdminInvite && !signupData?.name && !name.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+
     if (password.length < 8) {
       setError('Password must be at least 8 characters');
       return;
@@ -77,7 +96,11 @@ export default function SetupAccountPage() {
 
     try {
       const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${apiBase}/demo-requests/complete-signup`, {
+      // Use different endpoint for admin invites vs demo requests
+      const endpoint = isAdminInvite
+        ? `${apiBase}/auth/complete-setup`
+        : `${apiBase}/demo-requests/complete-signup`;
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,6 +108,7 @@ export default function SetupAccountPage() {
         body: JSON.stringify({
           token,
           password,
+          ...(isAdminInvite && name && { name }),
         }),
       });
 
@@ -187,10 +211,12 @@ export default function SetupAccountPage() {
 
           {signupData && (
             <div className="signup-info-card">
-              <div className="signup-info-row">
-                <span className="signup-info-label">Name</span>
-                <span className="signup-info-value">{signupData.name}</span>
-              </div>
+              {signupData.name && (
+                <div className="signup-info-row">
+                  <span className="signup-info-label">Name</span>
+                  <span className="signup-info-value">{signupData.name}</span>
+                </div>
+              )}
               <div className="signup-info-row">
                 <span className="signup-info-label">Email</span>
                 <span className="signup-info-value">{signupData.email}</span>
@@ -201,6 +227,12 @@ export default function SetupAccountPage() {
                   <span className="signup-info-value">{signupData.barnName}</span>
                 </div>
               )}
+              {signupData.accountType && (
+                <div className="signup-info-row">
+                  <span className="signup-info-label">Role</span>
+                  <span className="signup-info-value" style={{ textTransform: 'capitalize' }}>{signupData.accountType}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -209,6 +241,23 @@ export default function SetupAccountPage() {
               <div className="alert alert-error">
                 <AlertCircle size={16} />
                 {error}
+              </div>
+            )}
+
+            {/* Show name input for admin invites if name wasn't provided */}
+            {isAdminInvite && !signupData?.name && (
+              <div className="form-group">
+                <label htmlFor="name" className="form-label">Your Name</label>
+                <input
+                  type="text"
+                  id="name"
+                  className="form-input"
+                  placeholder="Enter your name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  autoFocus
+                />
               </div>
             )}
 

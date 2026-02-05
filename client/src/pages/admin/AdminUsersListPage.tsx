@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Trash2, X, UserPlus } from 'lucide-react';
 
 interface User {
   _id: string;
@@ -9,10 +9,17 @@ interface User {
   createdAt: string;
 }
 
+interface Barn {
+  _id: string;
+  name: string;
+}
+
 const CONFIRM_WORD = 'delete';
+const ACCOUNT_TYPES = ['owner', 'manager', 'boarder', 'groomer', 'trainer', 'vendor'];
 
 export default function AdminUsersListPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [barns, setBarns] = useState<Barn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -20,6 +27,13 @@ export default function AdminUsersListPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteConfirmUser, setDeleteConfirmUser] = useState<{ _id: string; name: string } | null>(null);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
+
+  // Add user modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addUserForm, setAddUserForm] = useState({ email: '', name: '', accountType: 'owner', barnId: '' });
+  const [addUserLoading, setAddUserLoading] = useState(false);
+  const [addUserError, setAddUserError] = useState<string | null>(null);
+  const [addUserSuccess, setAddUserSuccess] = useState<string | null>(null);
 
   const openDeleteConfirm = (user: User) => {
     setDeleteConfirmUser({ _id: user._id, name: user.name });
@@ -54,7 +68,59 @@ export default function AdminUsersListPage() {
 
   useEffect(() => {
     loadData();
+    loadBarns();
   }, [search, page]);
+
+  const loadBarns = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiBase}/admin/barns?limit=100`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).then(r => r.json());
+      setBarns(res.data || []);
+    } catch (error) {
+      console.error('Failed to load barns:', error);
+    }
+  };
+
+  const handleAddUser = async () => {
+    if (!addUserForm.email) {
+      setAddUserError('Email is required');
+      return;
+    }
+    try {
+      setAddUserLoading(true);
+      setAddUserError(null);
+      setAddUserSuccess(null);
+      const token = localStorage.getItem('adminToken');
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiBase}/admin/users/invite`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(addUserForm)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to create user');
+      }
+      setAddUserSuccess(`Invitation sent to ${addUserForm.email}`);
+      setAddUserForm({ email: '', name: '', accountType: 'owner', barnId: '' });
+      await loadData();
+      // Auto-close after 2 seconds
+      setTimeout(() => {
+        setShowAddModal(false);
+        setAddUserSuccess(null);
+      }, 2000);
+    } catch (err: any) {
+      setAddUserError(err.message || 'Failed to create user');
+    } finally {
+      setAddUserLoading(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -99,26 +165,48 @@ export default function AdminUsersListPage() {
     <div style={{ padding: '20px 24px' }}>
       <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ color: 'white', fontSize: '18px', fontWeight: 600, margin: 0 }}>Users</h1>
-        {/* Search */}
-        <div style={{ position: 'relative', width: '240px' }}>
-          <Search size={14} color="#525252" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
-          <input
-            type="text"
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Add User Button */}
+          <button
+            onClick={() => { setShowAddModal(true); setAddUserError(null); setAddUserSuccess(null); }}
             style={{
-              width: '100%',
-              padding: '6px 8px 6px 32px',
-              background: '#141414',
-              border: '1px solid #1f1f1f',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              background: '#2563eb',
+              border: 'none',
               borderRadius: '4px',
               color: 'white',
               fontSize: '12px',
-              outline: 'none',
-              boxSizing: 'border-box'
+              fontWeight: 500,
+              cursor: 'pointer'
             }}
-          />
+          >
+            <UserPlus size={14} />
+            Add User
+          </button>
+          {/* Search */}
+          <div style={{ position: 'relative', width: '240px' }}>
+            <Search size={14} color="#525252" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              style={{
+                width: '100%',
+                padding: '6px 8px 6px 32px',
+                background: '#141414',
+                border: '1px solid #1f1f1f',
+                borderRadius: '4px',
+                color: 'white',
+                fontSize: '12px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -215,6 +303,188 @@ export default function AdminUsersListPage() {
           </div>
         )}
       </div>
+
+      {/* Add User Modal */}
+      {showAddModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowAddModal(false)}
+        >
+          <div
+            style={{
+              background: '#141414',
+              border: '1px solid #262626',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '440px',
+              width: '90%',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 600, margin: 0 }}>Add New User</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                style={{ background: 'none', border: 'none', color: '#737373', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {addUserSuccess ? (
+              <div style={{ background: '#052e16', border: '1px solid #166534', borderRadius: '6px', padding: '12px', color: '#4ade80', fontSize: '13px' }}>
+                {addUserSuccess}
+              </div>
+            ) : (
+              <>
+                <p style={{ color: '#a3a3a3', fontSize: '13px', marginBottom: '16px' }}>
+                  Send an invitation email to set up their account.
+                </p>
+
+                {addUserError && (
+                  <div style={{ background: '#450a0a', border: '1px solid #7f1d1d', borderRadius: '6px', padding: '10px', color: '#fca5a5', fontSize: '12px', marginBottom: '12px' }}>
+                    {addUserError}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', color: '#737373', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase' }}>Email *</label>
+                    <input
+                      type="email"
+                      value={addUserForm.email}
+                      onChange={(e) => setAddUserForm({ ...addUserForm, email: e.target.value })}
+                      placeholder="user@example.com"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        background: '#0a0a0a',
+                        border: '1px solid #262626',
+                        borderRadius: '6px',
+                        color: 'white',
+                        fontSize: '14px',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', color: '#737373', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase' }}>Name (optional)</label>
+                    <input
+                      type="text"
+                      value={addUserForm.name}
+                      onChange={(e) => setAddUserForm({ ...addUserForm, name: e.target.value })}
+                      placeholder="John Doe"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        background: '#0a0a0a',
+                        border: '1px solid #262626',
+                        borderRadius: '6px',
+                        color: 'white',
+                        fontSize: '14px',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', color: '#737373', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase' }}>Account Type</label>
+                    <select
+                      value={addUserForm.accountType}
+                      onChange={(e) => setAddUserForm({ ...addUserForm, accountType: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        background: '#0a0a0a',
+                        border: '1px solid #262626',
+                        borderRadius: '6px',
+                        color: 'white',
+                        fontSize: '14px',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    >
+                      {ACCOUNT_TYPES.map(t => (
+                        <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', color: '#737373', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase' }}>Assign to Barn (optional)</label>
+                    <select
+                      value={addUserForm.barnId}
+                      onChange={(e) => setAddUserForm({ ...addUserForm, barnId: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        background: '#0a0a0a',
+                        border: '1px solid #262626',
+                        borderRadius: '6px',
+                        color: 'white',
+                        fontSize: '14px',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    >
+                      <option value="">No barn (standalone user)</option>
+                      {barns.map(b => (
+                        <option key={b._id} value={b._id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    style={{
+                      padding: '8px 16px',
+                      background: 'transparent',
+                      border: '1px solid #404040',
+                      borderRadius: '6px',
+                      color: '#a3a3a3',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddUser}
+                    disabled={addUserLoading || !addUserForm.email}
+                    style={{
+                      padding: '8px 16px',
+                      background: addUserLoading || !addUserForm.email ? '#404040' : '#2563eb',
+                      border: 'none',
+                      borderRadius: '6px',
+                      color: 'white',
+                      fontSize: '13px',
+                      cursor: addUserLoading || !addUserForm.email ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {addUserLoading ? 'Sending...' : 'Send Invitation'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation modal: type "delete" to confirm */}
       {deleteConfirmUser && (

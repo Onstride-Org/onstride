@@ -468,8 +468,7 @@ router.get('/barns/:id', async (req, res, next) => {
       UserBarnRole.find({ barnId: barn._id, status: 'active' })
         .populate('userId', 'name email phoneNumber accountType')
         .sort({ role: 1, joinedAt: 1 }),
-      BarnSubscription.findOne({ barnId: barn._id })
-        .populate('planId'),
+      BarnSubscription.findOne({ barnId: barn._id }),
       Invoice.find({ barnId: barn._id })
         .sort({ createdAt: -1 })
         .limit(10)
@@ -513,8 +512,7 @@ router.get('/subscriptions', async (req, res, next) => {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
-      .populate('barnId', 'name')
-      .populate('planId');
+      .populate('barnId', 'name');
 
     const total = await BarnSubscription.countDocuments(filter);
 
@@ -639,6 +637,121 @@ router.delete('/users/:id', async (req, res, next) => {
     }
 
     res.json({ message: 'User deleted' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Create/invite a new user (admin)
+router.post('/users/invite', async (req, res, next) => {
+  try {
+    const { email, name, accountType, barnId } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: email.toLowerCase(), deletedAt: null });
+    if (existingUser) {
+      return res.status(400).json({ error: 'A user with this email already exists' });
+    }
+
+    // Generate a verification token
+    const crypto = require('crypto');
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    // Create user in pending state (no password yet)
+    const user = await User.create({
+      email: email.toLowerCase(),
+      name: name || '',
+      accountType: accountType || 'owner',
+      emailVerified: false,
+      finishedRegistration: false,
+      verificationToken,
+      verificationExpires,
+      registrationMethod: 'admin_invite',
+      ...(barnId && { barnId })
+    });
+
+    // If barnId provided, create barn role
+    if (barnId) {
+      const barn = await Barn.findById(barnId);
+      if (barn) {
+        const UserBarnRole = require('../models/UserBarnRole');
+        await UserBarnRole.create({
+          userId: user._id,
+          barnId: barnId,
+          role: accountType || 'owner',
+          isPrimary: true,
+          barnName: barn.name,
+          userName: name || email
+        });
+      }
+    }
+
+    // Send setup email
+    const emailService = require('../services/email');
+    const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+    const setupUrl = `${CLIENT_URL}/setup-account?token=${verificationToken}`;
+
+    try {
+      await emailService.sendEmail({
+        to: email,
+        subject: 'Complete your OnStride account setup',
+        text: `
+Hello${name ? ` ${name}` : ''},
+
+You've been invited to join OnStride, a modern barn management platform.
+
+Click the link below to set up your password and complete your account:
+${setupUrl}
+
+This link will expire in 7 days.
+
+Best regards,
+The OnStride Team
+        `.trim(),
+        html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5;">
+  <div style="max-width: 480px; margin: 0 auto; background: white; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <h1 style="margin: 0 0 16px 0; font-size: 24px; color: #1a1a1a;">Welcome to OnStride</h1>
+    <p style="color: #525252; line-height: 1.6; margin: 0 0 24px 0;">
+      ${name ? `Hi ${name},<br><br>` : ''}You've been invited to join OnStride, a modern barn management platform.
+    </p>
+    <a href="${setupUrl}" style="display: inline-block; background: #2563eb; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 500;">
+      Set Up Your Account
+    </a>
+    <p style="color: #737373; font-size: 14px; margin-top: 24px;">
+      This link will expire in 7 days.
+    </p>
+  </div>
+</body>
+</html>
+        `.trim()
+      });
+    } catch (emailError) {
+      console.error('Failed to send setup email:', emailError.message);
+      // Don't fail - user is created, they can use forgot password
+    }
+
+    res.status(201).json({
+      message: 'User created and invitation sent',
+      user: {
+        _id: user._id,
+        email: user.email,
+        name: user.name,
+        accountType: user.accountType
+      },
+      setupUrl // Include for testing/debug
+    });
   } catch (error) {
     next(error);
   }

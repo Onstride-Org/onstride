@@ -11,13 +11,14 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: false,
     select: false
   },
   name: {
     type: String,
-    required: true,
-    trim: true
+    required: false,
+    trim: true,
+    default: ''
   },
   avatarUrl: String,
   phoneNumber: String,
@@ -55,9 +56,11 @@ const userSchema = new mongoose.Schema({
   },
   registrationMethod: {
     type: String,
-    enum: ['email', 'phone', 'oauth', 'invitation', 'signup_form'],
+    enum: ['email', 'phone', 'oauth', 'invitation', 'signup_form', 'admin_invite'],
     default: 'email'
   },
+  verificationToken: String,
+  verificationExpires: Date,
   barnId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Barn'

@@ -176,6 +176,14 @@ function App() {
           </AuthLayout>
         }
       />
+      <Route
+        path="/setup-account"
+        element={
+          <AuthLayout>
+            <SetupAccountPage />
+          </AuthLayout>
+        }
+      />
 
       {/* Protected Routes */}
       <Route

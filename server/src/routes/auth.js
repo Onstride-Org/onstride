@@ -835,4 +835,75 @@ router.delete('/account', [
   }
 });
 
+// ============ Admin Invite Setup ============
+
+// Verify admin invite token (for setup-account page)
+router.get('/verify-setup-token/:token', async (req, res, next) => {
+  try {
+    const { token } = req.params;
+
+    const user = await User.findOne({
+      verificationToken: token,
+      verificationExpires: { $gt: Date.now() },
+      deletedAt: null
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired setup link' });
+    }
+
+    res.json({
+      data: {
+        id: user._id,
+        email: user.email,
+        name: user.name || '',
+        accountType: user.accountType
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Complete admin invite setup (set password)
+router.post('/complete-setup', [
+  body('token').notEmpty(),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  body('name').optional().trim(),
+  validate
+], async (req, res, next) => {
+  try {
+    const { token, password, name } = req.body;
+
+    const user = await User.findOne({
+      verificationToken: token,
+      verificationExpires: { $gt: Date.now() },
+      deletedAt: null
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired setup link' });
+    }
+
+    // Update user with password and mark as verified
+    user.password = password;
+    user.emailVerified = true;
+    user.finishedRegistration = true;
+    user.verificationToken = undefined;
+    user.verificationExpires = undefined;
+    if (name) {
+      user.name = name;
+    }
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Account setup complete. Please sign in.',
+      email: user.email
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
