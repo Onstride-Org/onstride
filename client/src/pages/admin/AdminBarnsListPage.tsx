@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, ChevronLeft, ChevronRight, Users, Database } from 'lucide-react';
 
 interface Barn {
@@ -13,15 +13,17 @@ interface Barn {
 
 export default function AdminBarnsListPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [barns, setBarns] = useState<Barn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Refresh when navigating back to this page (e.g. after add/delete)
   useEffect(() => {
     loadData();
-  }, [search, page]);
+  }, [search, page, location.key]);
 
   const loadData = async () => {
     try {

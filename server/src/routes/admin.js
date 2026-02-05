@@ -645,7 +645,7 @@ router.delete('/users/:id', async (req, res, next) => {
 // Create/invite a new user (admin)
 router.post('/users/invite', async (req, res, next) => {
   try {
-    const { email, name, accountType, barnId } = req.body;
+    const { email, name, accountType, barnId, barnName } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
@@ -662,11 +662,13 @@ router.post('/users/invite', async (req, res, next) => {
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
+    const role = accountType || 'owner';
+
     // Create user in pending state (no password yet)
     const user = await User.create({
       email: email.toLowerCase(),
       name: name || '',
-      accountType: accountType || 'owner',
+      accountType: role,
       emailVerified: false,
       finishedRegistration: false,
       verificationToken,
@@ -675,20 +677,48 @@ router.post('/users/invite', async (req, res, next) => {
       ...(barnId && { barnId })
     });
 
-    // If barnId provided, create barn role
-    if (barnId) {
-      const barn = await Barn.findById(barnId);
-      if (barn) {
-        const UserBarnRole = require('../models/UserBarnRole');
-        await UserBarnRole.create({
-          userId: user._id,
-          barnId: barnId,
-          role: accountType || 'owner',
-          isPrimary: true,
-          barnName: barn.name,
-          userName: name || email
-        });
+    let assignedBarnId = barnId;
+    let assignedBarnName = '';
+
+    // If this is an owner and no barnId was provided, create a new barn + subscription
+    // (mirrors the self-registration flow so owners get the same experience)
+    if (role === 'owner' && !barnId) {
+      const newBarn = await Barn.create({
+        name: barnName || (name ? `${name}'s Barn` : `${email.split('@')[0]}'s Barn`),
+        ownerId: user._id
+      });
+
+      // Update user with barn
+      user.barnId = newBarn._id;
+      await user.save();
+
+      // Create free subscription for the barn (user must upgrade after login)
+      await BarnSubscription.create({
+        barnId: newBarn._id,
+        tier: 'free',
+        status: 'active'
+      });
+
+      assignedBarnId = newBarn._id;
+      assignedBarnName = newBarn.name;
+    }
+
+    // Create barn role if we have a barnId (either provided or newly created)
+    if (assignedBarnId) {
+      let barn;
+      if (!assignedBarnName) {
+        barn = await Barn.findById(assignedBarnId);
+        assignedBarnName = barn?.name || '';
       }
+
+      await UserBarnRole.create({
+        userId: user._id,
+        barnId: assignedBarnId,
+        role: role,
+        isPrimary: true,
+        barnName: assignedBarnName,
+        userName: name || email
+      });
     }
 
     // Send setup email
@@ -750,6 +780,7 @@ The OnStride Team
         name: user.name,
         accountType: user.accountType
       },
+      barnId: assignedBarnId,
       setupUrl // Include for testing/debug
     });
   } catch (error) {

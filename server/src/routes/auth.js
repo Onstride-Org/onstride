@@ -852,12 +852,24 @@ router.get('/verify-setup-token/:token', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid or expired setup link' });
     }
 
+    // Look up barn name if user has a barn
+    let barnName = '';
+    if (user.barnId) {
+      const barn = await Barn.findById(user.barnId);
+      barnName = barn?.name || '';
+    } else {
+      // Check UserBarnRole for assigned barn
+      const role = await UserBarnRole.findOne({ userId: user._id }).populate('barnId', 'name');
+      barnName = role?.barnId?.name || '';
+    }
+
     res.json({
       data: {
         id: user._id,
         email: user.email,
         name: user.name || '',
-        accountType: user.accountType
+        accountType: user.accountType,
+        barnName
       }
     });
   } catch (error) {

@@ -30,7 +30,7 @@ export default function AdminUsersListPage() {
 
   // Add user modal state
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addUserForm, setAddUserForm] = useState({ email: '', name: '', accountType: 'owner', barnId: '' });
+  const [addUserForm, setAddUserForm] = useState({ email: '', name: '', accountType: 'owner', barnId: '', barnName: '' });
   const [addUserLoading, setAddUserLoading] = useState(false);
   const [addUserError, setAddUserError] = useState<string | null>(null);
   const [addUserSuccess, setAddUserSuccess] = useState<string | null>(null);
@@ -108,7 +108,7 @@ export default function AdminUsersListPage() {
         throw new Error(data.error || 'Failed to create user');
       }
       setAddUserSuccess(`Invitation sent to ${addUserForm.email}`);
-      setAddUserForm({ email: '', name: '', accountType: 'owner', barnId: '' });
+      setAddUserForm({ email: '', name: '', accountType: 'owner', barnId: '', barnName: '' });
       await loadData();
       // Auto-close after 2 seconds
       setTimeout(() => {
@@ -423,7 +423,9 @@ export default function AdminUsersListPage() {
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', color: '#737373', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase' }}>Assign to Barn (optional)</label>
+                    <label style={{ display: 'block', color: '#737373', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase' }}>
+                      {addUserForm.accountType === 'owner' ? 'Assign to Existing Barn (or create new)' : 'Assign to Barn'}
+                    </label>
                     <select
                       value={addUserForm.barnId}
                       onChange={(e) => setAddUserForm({ ...addUserForm, barnId: e.target.value })}
@@ -439,12 +441,44 @@ export default function AdminUsersListPage() {
                         boxSizing: 'border-box',
                       }}
                     >
-                      <option value="">No barn (standalone user)</option>
+                      {addUserForm.accountType === 'owner' ? (
+                        <option value="">Create new barn</option>
+                      ) : (
+                        <option value="">Select a barn...</option>
+                      )}
                       {barns.map(b => (
                         <option key={b._id} value={b._id}>{b.name}</option>
                       ))}
                     </select>
+                    {addUserForm.accountType === 'owner' && !addUserForm.barnId && (
+                      <p style={{ color: '#525252', fontSize: '11px', margin: '4px 0 0' }}>
+                        A new barn and free subscription will be created. The user must purchase a plan after logging in.
+                      </p>
+                    )}
                   </div>
+
+                  {addUserForm.accountType === 'owner' && !addUserForm.barnId && (
+                    <div>
+                      <label style={{ display: 'block', color: '#737373', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase' }}>Barn Name (optional)</label>
+                      <input
+                        type="text"
+                        value={addUserForm.barnName}
+                        onChange={(e) => setAddUserForm({ ...addUserForm, barnName: e.target.value })}
+                        placeholder={addUserForm.name ? `${addUserForm.name}'s Barn` : 'My Barn'}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          background: '#0a0a0a',
+                          border: '1px solid #262626',
+                          borderRadius: '6px',
+                          color: 'white',
+                          fontSize: '14px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px' }}>

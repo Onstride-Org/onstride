@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import axios from 'axios';
 import { getTokens, getCurrentBarn } from '../../services/api';
 import {
-  Building2, Search, ChevronRight, ChevronLeft, Shield, ArrowLeft
+  Building2, Search, ChevronRight, ChevronLeft, Shield, ArrowLeft, RefreshCw
 } from 'lucide-react';
 
 interface Barn {
@@ -18,6 +18,7 @@ interface Barn {
 
 export default function AdminBarnsPage() {
   const { user } = useAuthStore();
+  const location = useLocation();
   const [barns, setBarns] = useState<Barn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -28,9 +29,10 @@ export default function AdminBarnsPage() {
     return <Navigate to="/app/dashboard" replace />;
   }
 
+  // Refresh when navigating back to this page (e.g. after add/delete on detail page)
   useEffect(() => {
     loadBarns();
-  }, [page, search]);
+  }, [page, search, location.key]);
 
   const loadBarns = async () => {
     try {
@@ -70,6 +72,10 @@ export default function AdminBarnsPage() {
           </h1>
           <p className="page-subtitle">Manage all platform barns</p>
         </div>
+        <button className="btn btn-outline btn-sm" onClick={() => loadBarns()}>
+          <RefreshCw size={16} />
+          Refresh
+        </button>
       </div>
 
       <div className="page-filters">

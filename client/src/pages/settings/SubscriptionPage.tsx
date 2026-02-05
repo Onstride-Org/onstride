@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Sparkles, CheckCircle, DollarSign } from 'lucide-react';
 import { subscriptionsApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 import { SubscriptionPlan, BarnSubscription } from '../../types';
 import { PaymentModal } from '../../components/payments';
 
 export default function SubscriptionPage() {
+  const navigate = useNavigate();
   const { currentBarnId, setShowSubscriptionTutorial } = useAuthStore();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<BarnSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showPostPaymentNotice, setShowPostPaymentNotice] = useState(false);
   const [paymentModal, setPaymentModal] = useState<{
     invoiceId: string;
     amount: number;
@@ -66,6 +68,7 @@ export default function SubscriptionPage() {
   const handlePaymentSuccess = () => {
     setPaymentModal(null);
     loadSubscriptionData();
+    setShowPostPaymentNotice(true); // Show Windcave setup notice
     setShowSubscriptionTutorial(true); // Show tutorial on every screen until user skips
   };
 
@@ -101,6 +104,42 @@ export default function SubscriptionPage() {
       </div>
 
       <div className="subscription-content">
+        {/* Post-payment notification: complete Windcave setup */}
+        {showPostPaymentNotice && (
+          <div className="card" style={{ borderColor: 'var(--color-success-500)', marginBottom: 'var(--spacing-6)' }}>
+            <div className="card-content" style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-4)', padding: 'var(--spacing-6)' }}>
+              <CheckCircle size={28} style={{ color: 'var(--color-success-500)', flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: '0 0 var(--spacing-2) 0', fontSize: '1.1rem' }}>Payment Successful!</h3>
+                <p style={{ margin: '0 0 var(--spacing-3) 0', color: 'var(--color-text-secondary)' }}>
+                  Your subscription is now active. To start accepting payments from your clients, you need to complete the <strong>Windcave merchant application</strong>.
+                </p>
+                <p style={{ margin: '0 0 var(--spacing-4) 0', color: 'var(--color-text-secondary)' }}>
+                  <strong>Next step:</strong> Go to the <strong>Financials</strong> tab in the sidebar and complete the Windcave application to enable payment processing for your barn.
+                </p>
+                <div style={{ display: 'flex', gap: 'var(--spacing-3)' }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setShowPostPaymentNotice(false);
+                      navigate('/app/financials');
+                    }}
+                  >
+                    <DollarSign size={16} />
+                    Go to Financials
+                  </button>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => setShowPostPaymentNotice(false)}
+                  >
+                    I'll do this later
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Current Plan Card */}
         {currentSubscription && (
           <div className="card current-plan-card">

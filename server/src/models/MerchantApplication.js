@@ -27,9 +27,11 @@ const beneficialOwnerSchema = new mongoose.Schema({
 });
 
 // Controlling person schema
+// Note: required validation is handled by isComplete() before submission, not at schema level,
+// so draft applications can be saved without all fields filled in.
 const controllingPersonSchema = new mongoose.Schema({
-  firstName: { type: String, required: true, trim: true },
-  lastName: { type: String, required: true, trim: true },
+  firstName: { type: String, trim: true },
+  lastName: { type: String, trim: true },
   title: { type: String, trim: true },
   percentOwnership: Number,
   homePhone: { type: String, trim: true },
