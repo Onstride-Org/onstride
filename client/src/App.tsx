@@ -246,7 +246,9 @@ function App() {
         <Route path="dashboard" element={<AdminHomePage />} />
         <Route path="demo-requests" element={<AdminDemoPage />} />
         <Route path="users" element={<AdminUsersListPage />} />
+        <Route path="users/:id" element={<AdminUserDetailPage />} />
         <Route path="barns" element={<AdminBarnsListPage />} />
+        <Route path="barns/:id" element={<AdminBarnDetailPage />} />
         <Route path="analytics" element={<AdminAnalyticsPage />} />
         <Route path="availability" element={<AdminAvailabilityPage />} />
       </Route>
