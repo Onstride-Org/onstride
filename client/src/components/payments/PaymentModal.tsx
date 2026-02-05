@@ -64,6 +64,10 @@ interface PaymentModalProps {
   description?: string;
   /** Optional title (default: "Pay Invoice") */
   title?: string;
+  /** Optional subtotal - when provided with processingFee, shows line item breakdown */
+  subtotal?: number;
+  /** Optional processing fee - when provided with subtotal, shows line item breakdown */
+  processingFee?: number;
 }
 
 export default function PaymentModal({
@@ -74,6 +78,8 @@ export default function PaymentModal({
   amount,
   description,
   title = 'Pay Invoice',
+  subtotal,
+  processingFee,
 }: PaymentModalProps) {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -336,9 +342,31 @@ export default function PaymentModal({
             <div className="modal-body">
               {/* Amount Display */}
               <div className="payment-amount">
-                <span className="payment-amount-label">Amount Due</span>
-                <span className="payment-amount-value">${amount.toFixed(2)}</span>
-                {description && <span className="payment-description">{description}</span>}
+                {subtotal != null && processingFee != null ? (
+                  <div className="payment-breakdown">
+                    {description && <span className="payment-description">{description}</span>}
+                    <div className="payment-breakdown-rows">
+                      <div className="payment-breakdown-row">
+                        <span>Plan subtotal</span>
+                        <span>${subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="payment-breakdown-row">
+                        <span>Processing fee (3%)</span>
+                        <span>${processingFee.toFixed(2)}</span>
+                      </div>
+                      <div className="payment-breakdown-row payment-breakdown-total">
+                        <span>Total</span>
+                        <span>${amount.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <span className="payment-amount-label">Amount Due</span>
+                    <span className="payment-amount-value">${amount.toFixed(2)}</span>
+                    {description && <span className="payment-description">{description}</span>}
+                  </>
+                )}
               </div>
 
               {error && (

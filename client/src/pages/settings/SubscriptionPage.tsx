@@ -15,6 +15,8 @@ export default function SubscriptionPage() {
     invoiceId: string;
     amount: number;
     description: string;
+    subtotal?: number;
+    processingFee?: number;
   } | null>(null);
 
   const loadSubscriptionData = async () => {
@@ -52,6 +54,8 @@ export default function SubscriptionPage() {
           invoiceId: response.invoiceId,
           amount: response.amount,
           description: response.description || `${plan.name} - Monthly`,
+          subtotal: response.subtotal,
+          processingFee: response.processingFee,
         });
       }
     } catch (error) {
@@ -268,7 +272,6 @@ export default function SubscriptionPage() {
                   </button>
                 )}
               </div>
-              <p className="plan-processing-fee">+ 3% Processing Fee</p>
             </div>
           ))}
         </div>
@@ -312,6 +315,8 @@ export default function SubscriptionPage() {
           amount={paymentModal.amount}
           description={paymentModal.description}
           title="Subscribe"
+          subtotal={paymentModal.subtotal}
+          processingFee={paymentModal.processingFee}
         />
       )}
     </div>

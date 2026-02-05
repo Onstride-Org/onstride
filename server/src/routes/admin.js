@@ -670,6 +670,37 @@ router.put('/barns/:id', async (req, res, next) => {
   }
 });
 
+// Set barn subscription tier (admin override for testing - no payment required)
+const VALID_TIERS = ['free', 'starter', 'business', 'business_pro', 'enterprise', 'founders'];
+router.put('/barns/:id/subscription', async (req, res, next) => {
+  try {
+    const { tier } = req.body;
+
+    if (!tier || !VALID_TIERS.includes(tier)) {
+      return res.status(400).json({ error: `Invalid tier. Must be one of: ${VALID_TIERS.join(', ')}` });
+    }
+
+    const barn = await Barn.findById(req.params.id);
+    if (!barn) {
+      return res.status(404).json({ error: 'Barn not found' });
+    }
+
+    const subscription = await BarnSubscription.findOneAndUpdate(
+      { barnId: barn._id },
+      {
+        tier,
+        status: 'active',
+        $unset: { stripeSubscriptionId: 1, stripeCustomerId: 1 }
+      },
+      { new: true, upsert: true }
+    );
+
+    res.json(subscription);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Delete barn (soft delete)
 router.delete('/barns/:id', async (req, res, next) => {
   try {

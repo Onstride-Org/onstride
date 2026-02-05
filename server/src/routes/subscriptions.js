@@ -135,6 +135,8 @@ router.post('/checkout-invoice', [
       invoiceId: invoice._id.toString(),
       amount: feeBreakdown.total,
       description,
+      subtotal: feeBreakdown.subtotal,
+      processingFee: feeBreakdown.processingFee,
     });
   } catch (error) {
     next(error);

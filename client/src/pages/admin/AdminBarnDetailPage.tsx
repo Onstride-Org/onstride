@@ -6,9 +6,11 @@ import { getTokens, getCurrentBarn } from '../../services/api';
 import { format } from 'date-fns';
 import {
   Building2, Users, Database, DollarSign,
-  ChevronLeft, Mail, Phone, MapPin, Calendar
+  ChevronLeft, Mail, Phone, MapPin, Calendar, Save
 } from 'lucide-react';
 import { formatPhoneNumber } from '../../utils/formatters';
+
+const SUBSCRIPTION_TIERS = ['free', 'starter', 'business', 'business_pro', 'founders', 'enterprise'];
 
 interface BarnDetail {
   barn: any;
@@ -29,6 +31,8 @@ export default function AdminBarnDetailPage() {
   const { user } = useAuthStore();
   const [data, setData] = useState<BarnDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [subscriptionTier, setSubscriptionTier] = useState<string>('');
+  const [subscriptionSaving, setSubscriptionSaving] = useState(false);
 
   if (user?.accountType !== 'admin') {
     return <Navigate to="/app/dashboard" replace />;
@@ -41,19 +45,38 @@ export default function AdminBarnDetailPage() {
   const loadBarnDetail = async () => {
     try {
       setIsLoading(true);
-      const { accessToken } = getTokens();
+      const token = localStorage.getItem('adminToken') || getTokens().accessToken;
       const barnId = getCurrentBarn();
       const headers: Record<string, string> = {};
-      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
       if (barnId) headers['X-Barn-Id'] = barnId;
 
       const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       const response = await axios.get(`${apiBase}/admin/barns/${id}`, { headers });
       setData(response.data);
+      const sub = response.data?.subscription;
+      setSubscriptionTier(sub?.tier ?? 'free');
     } catch (error) {
       console.error('Failed to load barn detail:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSaveSubscription = async () => {
+    if (!id) return;
+    try {
+      setSubscriptionSaving(true);
+      const token = localStorage.getItem('adminToken') || getTokens().accessToken;
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      await axios.put(`${apiBase}/admin/barns/${id}/subscription`, { tier: subscriptionTier }, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      await loadBarnDetail();
+    } catch (error) {
+      console.error('Failed to update subscription:', error);
+    } finally {
+      setSubscriptionSaving(false);
     }
   };
 
@@ -171,19 +194,46 @@ export default function AdminBarnDetailPage() {
               <dd>{format(new Date(barn.createdAt), 'MMM d, yyyy h:mm a')}</dd>
             </dl>
 
-            {subscription && (
-              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
-                <h4 style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>Subscription</h4>
-                <span className={`badge badge-${subscription.status === 'active' ? 'success' : 'warning'}`}>
+            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
+              <h4 style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>Subscription (admin override)</h4>
+              {subscription && (
+                <span className={`badge badge-${subscription.status === 'active' ? 'success' : 'warning'}`} style={{ marginRight: '0.5rem' }}>
                   {subscription.status}
                 </span>
-                {subscription.planId && (
-                  <span style={{ marginLeft: '0.5rem', color: 'var(--color-text-secondary)' }}>
-                    {subscription.planId.name} - ${subscription.planId.price}/mo
-                  </span>
-                )}
+              )}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>
+                <select
+                  value={subscriptionTier}
+                  onChange={(e) => setSubscriptionTier(e.target.value)}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-neutral-50)',
+                    color: 'var(--color-text-primary)',
+                    fontSize: '14px',
+                  }}
+                >
+                  {SUBSCRIPTION_TIERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t.charAt(0).toUpperCase() + t.slice(1).replace('_', ' ')}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleSaveSubscription}
+                  disabled={subscriptionSaving}
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Save size={14} />
+                  {subscriptionSaving ? 'Saving...' : 'Set plan'}
+                </button>
               </div>
-            )}
+              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '8px' }}>
+                Manually set plan for testing without payment.
+              </p>
+            </div>
           </div>
         </div>
 
