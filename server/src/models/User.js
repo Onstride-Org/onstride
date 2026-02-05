@@ -5,7 +5,6 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
     lowercase: true,
     trim: true
   },
@@ -83,8 +82,14 @@ const userSchema = new mongoose.Schema({
 
 // Index for soft delete queries
 userSchema.index({ deletedAt: 1 });
-userSchema.index({ email: 1, deletedAt: 1 });
 userSchema.index({ barnId: 1, deletedAt: 1 });
+
+// Partial unique index: only enforce email uniqueness for non-deleted users
+// This allows re-registration with the same email after account deletion
+userSchema.index(
+  { email: 1 },
+  { unique: true, partialFilterExpression: { deletedAt: null } }
+);
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
