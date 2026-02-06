@@ -517,6 +517,75 @@ router.get('/barns/:id', async (req, res, next) => {
   }
 });
 
+// Debug: Get subscription status for a barn by email
+router.get('/debug/subscription/:email', async (req, res, next) => {
+  try {
+    const { email } = req.params;
+
+    // Find user by email
+    const user = await User.findOne({ email: email.toLowerCase(), deletedAt: null });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Find user's barn roles
+    const barnRoles = await UserBarnRole.find({ userId: user._id, status: 'active' })
+      .populate('barnId', 'name');
+
+    // Get subscription for each barn
+    const results = await Promise.all(barnRoles.map(async (role) => {
+      if (!role.barnId) return null;
+
+      const subscription = await BarnSubscription.findOne({ barnId: role.barnId._id });
+
+      // Find recent invoices for this barn
+      const recentInvoices = await Invoice.find({
+        barnId: role.barnId._id,
+        subscriptionTier: { $exists: true }
+      })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('status subscriptionTier subscriptionInterval paidAt createdAt windcavePaymentInfo')
+        .lean();
+
+      return {
+        barn: {
+          id: role.barnId._id,
+          name: role.barnId.name
+        },
+        role: role.role,
+        subscription: subscription ? {
+          id: subscription._id,
+          tier: subscription.tier,
+          status: subscription.status,
+          billingInterval: subscription.billingInterval,
+          currentPeriodEnd: subscription.currentPeriodEnd
+        } : null,
+        recentSubscriptionInvoices: recentInvoices.map(inv => ({
+          id: inv._id,
+          status: inv.status,
+          tier: inv.subscriptionTier,
+          interval: inv.subscriptionInterval,
+          paidAt: inv.paidAt,
+          createdAt: inv.createdAt,
+          hasWindcaveInfo: !!inv.windcavePaymentInfo?.transactionId
+        }))
+      };
+    }));
+
+    res.json({
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name
+      },
+      barns: results.filter(Boolean)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get subscriptions
 router.get('/subscriptions', async (req, res, next) => {
   try {
