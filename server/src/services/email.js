@@ -876,6 +876,121 @@ The OnStride Team
 };
 
 /**
+ * Send task assignment email to assignee
+ * @param {Object} options
+ * @param {string} options.to - Recipient email
+ * @param {string} options.recipientName - Recipient name
+ * @param {Object} options.task - Task details
+ * @param {string} options.task.name - Task name
+ * @param {string} options.task.description - Task description
+ * @param {string} options.task.dueDate - Formatted due date
+ * @param {string} options.createdByName - Name of person who created task
+ */
+const sendTaskAssignmentEmail = async ({ to, recipientName, task, createdByName }) => {
+  const calendarUrl = `${CLIENT_URL}/app/calendar`;
+
+  const subject = `New Task Assigned: ${task.name}`;
+
+  const text = `
+Hi ${recipientName || 'there'},
+
+You have been assigned a new task by ${createdByName || 'your manager'}.
+
+Task Details:
+- Task: ${task.name}
+${task.description ? `- Description: ${task.description}` : ''}
+- Due: ${task.dueDate}
+
+View your tasks in OnStride:
+${calendarUrl}
+
+Best regards,
+The OnStride Team
+  `.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Task Assigned</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <tr>
+      <td style="background-color: #ffffff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="display: inline-block; padding: 6px 12px; background-color: #3b82f6; color: white; border-radius: 4px; font-size: 12px; font-weight: 600; margin-bottom: 20px; text-transform: uppercase;">
+          New Task
+        </div>
+
+        <h1 style="color: #1a1a1a; font-size: 24px; margin: 0 0 20px 0;">You've Been Assigned a Task</h1>
+
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+          Hi ${recipientName || 'there'},
+        </p>
+
+        <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+          ${createdByName || 'Your manager'} has assigned you a new task.
+        </p>
+
+        <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%; margin: 0 0 30px 0; background-color: #f9fafb; border-radius: 8px;">
+          <tr>
+            <td style="padding: 20px;">
+              <h3 style="color: #1a1a1a; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">Task Details</h3>
+              <table role="presentation" cellspacing="0" cellpadding="0" style="width: 100%;">
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px; width: 100px;">Task</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${task.name}</td>
+                </tr>
+                ${task.description ? `
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px;">Description</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${task.description}</td>
+                </tr>
+                ` : ''}
+                <tr>
+                  <td style="padding: 5px 0; color: #6b7280; font-size: 14px;">Due Date</td>
+                  <td style="padding: 5px 0; color: #1a1a1a; font-size: 14px; font-weight: 500;">${task.dueDate}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <table role="presentation" cellspacing="0" cellpadding="0" style="margin: 0 auto 30px auto;">
+          <tr>
+            <td style="background-color: #2563eb; border-radius: 6px;">
+              <a href="${calendarUrl}" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600;">
+                View Task
+              </a>
+            </td>
+          </tr>
+        </table>
+
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+          Best regards,<br>The OnStride Team
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px; text-align: center;">
+        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+          &copy; ${new Date().getFullYear()} OnStride. All rights reserved.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  return sendEmail({ to, subject, text, html });
+};
+
+/**
  * Send task assignment response email (approve/deny/reschedule)
  * @param {Object} options
  * @param {string} options.to - Recipient email
@@ -1502,6 +1617,7 @@ module.exports = {
   sendGuestInvoiceEmail,
   sendEmailVerificationEmail,
   sendLessonNotificationEmail,
+  sendTaskAssignmentEmail,
   sendTaskApprovalEmail,
   sendDemoConfirmationEmail,
   sendDemoAdminNotification,

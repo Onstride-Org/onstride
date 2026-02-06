@@ -3,7 +3,7 @@ const { body, param } = require('express-validator');
 const Task = require('../models/Task');
 const User = require('../models/User');
 const { Notification } = require('../models/Notification');
-const { sendTaskApprovalEmail } = require('../services/email');
+const { sendTaskApprovalEmail, sendTaskAssignmentEmail } = require('../services/email');
 const { format } = require('date-fns');
 const { authenticate, loadBarnContext, requireBarn, hasPermission, isStaff, restrictGroomer } = require('../middleware/auth');
 const validate = require('../middleware/validate');
@@ -113,7 +113,7 @@ router.post('/', [
       createdById: req.userId
     });
 
-    // Send notifications to assigned users
+    // Send notifications and emails to assigned users
     if (assignees && assignees.length > 0) {
       const notifications = assignees.map(assignee => ({
         userId: assignee.id,
@@ -125,6 +125,29 @@ router.post('/', [
       }));
 
       await Notification.insertMany(notifications);
+
+      // Send email notifications to assignees
+      const creator = await User.findById(req.userId).select('name');
+      const formattedDueDate = format(new Date(dueDate), 'EEEE, MMMM d, yyyy \'at\' h:mm a');
+
+      // Get user emails for assignees
+      const assigneeIds = assignees.map(a => a.id);
+      const assigneeUsers = await User.find({ _id: { $in: assigneeIds } }).select('email name');
+
+      for (const assigneeUser of assigneeUsers) {
+        if (assigneeUser.email) {
+          sendTaskAssignmentEmail({
+            to: assigneeUser.email,
+            recipientName: assigneeUser.name,
+            task: {
+              name,
+              description,
+              dueDate: formattedDueDate
+            },
+            createdByName: creator?.name
+          }).catch(err => console.error('Failed to send task assignment email:', err));
+        }
+      }
     }
 
     res.status(201).json(task);

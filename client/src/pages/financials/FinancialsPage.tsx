@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { financialsApi, invoicesApi, usersApi, horsesApi, billingApi } from '../../services/api';
+import { financialsApi, invoicesApi, usersApi, horsesApi, billingApi, windcaveApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 import {
   Invoice,
@@ -61,8 +61,12 @@ export default function FinancialsPage() {
   const [showTimeframeDropdown, setShowTimeframeDropdown] = useState(false);
   const timeframeBtnRef = useRef<HTMLButtonElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const [showMerchantPrompt, setShowMerchantPrompt] = useState(false);
+  const [showMerchantWizard, setShowMerchantWizard] = useState(false);
+  const [showMerchantCredentials, setShowMerchantCredentials] = useState(false);
 
   const isStaff = currentBarnRole && !['boarder'].includes(currentBarnRole.role);
+  const isOwner = currentBarnRole?.role === 'owner';
   const timeframeRange = getTimeframeRange(timeframe);
 
   // Check for connection success from callback
@@ -96,6 +100,19 @@ export default function FinancialsPage() {
           setDashboard(dashboardData);
         } catch (err) {
           console.error('Failed to load QB dashboard:', err);
+        }
+      }
+
+      // Check merchant application status for owners - prompt if not submitted
+      if (isOwner) {
+        try {
+          const merchantApp = await windcaveApi.getApplication();
+          // Show prompt if no application or draft status (not submitted yet)
+          if (!merchantApp?.exists || merchantApp?.status === 'draft') {
+            setShowMerchantPrompt(true);
+          }
+        } catch (err) {
+          console.error('Failed to check merchant application:', err);
         }
       }
     } catch (error) {
@@ -326,6 +343,100 @@ export default function FinancialsPage() {
           dashboard={dashboard}
           formatCurrency={formatCurrency}
           isConnected={connectionStatus?.connected}
+        />
+      )}
+
+      {/* Merchant Application Prompt Modal - shows for owners without submitted application */}
+      {showMerchantPrompt && (
+        <div className="modal-overlay" onClick={() => setShowMerchantPrompt(false)}>
+          <div className="modal modal-md" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">
+                <CreditCard size={24} />
+                Enable Payment Processing
+              </h2>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowMerchantPrompt(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="text-secondary mb-4">
+                Set up payment processing to accept credit cards and ACH payments directly through OnStride.
+                Funds are deposited directly into your bank account.
+              </p>
+              <div className="merchant-prompt-features">
+                <div className="merchant-prompt-feature">
+                  <CheckCircle size={18} className="text-success" />
+                  <span>Accept Visa, Mastercard, Discover, Amex</span>
+                </div>
+                <div className="merchant-prompt-feature">
+                  <CheckCircle size={18} className="text-success" />
+                  <span>ACH bank transfers</span>
+                </div>
+                <div className="merchant-prompt-feature">
+                  <CheckCircle size={18} className="text-success" />
+                  <span>Automatic invoice payment tracking</span>
+                </div>
+                <div className="merchant-prompt-feature">
+                  <CheckCircle size={18} className="text-success" />
+                  <span>PCI-DSS compliant security</span>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setShowMerchantPrompt(false)}>
+                Remind Me Later
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setShowMerchantPrompt(false);
+                  setShowMerchantCredentials(true);
+                }}
+              >
+                <CreditCard size={18} />
+                I Have Credentials
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setShowMerchantPrompt(false);
+                  setShowMerchantWizard(true);
+                }}
+              >
+                Apply for Account
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Merchant Application Wizard */}
+      {showMerchantWizard && (
+        <WindcaveApplicationWizard
+          onClose={() => {
+            setShowMerchantWizard(false);
+            loadData();
+          }}
+          onSuccess={() => {
+            setShowMerchantWizard(false);
+            loadData();
+          }}
+        />
+      )}
+
+      {/* Merchant Credentials Form */}
+      {showMerchantCredentials && (
+        <WindcaveCredentialsForm
+          onClose={() => {
+            setShowMerchantCredentials(false);
+            loadData();
+          }}
+          onSuccess={() => {
+            setShowMerchantCredentials(false);
+            loadData();
+          }}
         />
       )}
     </div>

@@ -6871,6 +6871,27 @@ a.fin-transaction:hover {
   font-weight: var(--font-weight-medium);
 }
 
+/* Merchant Application Prompt Modal */
+.merchant-prompt-features {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-4);
+}
+
+.merchant-prompt-feature {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  font-size: var(--font-size-sm);
+}
+
+@media (max-width: 480px) {
+  .merchant-prompt-features {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Full-screen overlay for Merchant Application wizard */
 .windcave-wizard-overlay {
   padding: 0;

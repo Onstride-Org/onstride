@@ -855,7 +855,8 @@ function HealthInfoTab({ horse, onRefresh }: { horse: Horse; onRefresh: () => vo
   const loadHealthRecords = async () => {
     try {
       const response = await horsesApi.getHealthRecords(horse.id);
-      setHealthRecords(response.healthRecords || []);
+      // API returns array directly, not wrapped in object
+      setHealthRecords(Array.isArray(response) ? response : []);
     } catch (error) {
       console.error('Failed to load health records:', error);
       // Fallback to existing data from horse object

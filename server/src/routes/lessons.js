@@ -261,6 +261,9 @@ router.post('/', [
       .populate('clientId', 'name email')
       .populate('horseId', 'name');
 
+    // Send email notification to client about the scheduled lesson
+    sendLessonNotification(lesson, 'approved');
+
     res.status(201).json(populated);
   } catch (error) {
     next(error);
