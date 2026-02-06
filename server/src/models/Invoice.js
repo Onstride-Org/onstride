@@ -150,8 +150,11 @@ invoiceSchema.index({ guestToken: 1 });
 
 // Calculate subtotal
 invoiceSchema.virtual('subtotal').get(function() {
+  if (!this.charges || !Array.isArray(this.charges)) {
+    return 0;
+  }
   return this.charges.reduce((sum, charge) => {
-    return sum + (charge.amount * charge.quantity);
+    return sum + ((charge.amount || 0) * (charge.quantity || 1));
   }, 0);
 });
 
