@@ -293,7 +293,7 @@ export default function WindcaveStatusCard({
                 <p className="text-secondary">{application.rejectionReason}</p>
               )}
               <p className="text-secondary mt-2">
-                Please contact support@onstride.app for assistance.
+                Please contact admin@onstrideapp.com for assistance.
               </p>
             </div>
           </div>

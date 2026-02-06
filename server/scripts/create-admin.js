@@ -8,7 +8,7 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('../src/models/User');
 
-const ADMIN_EMAIL = 'Gal@onstrideapp.com';
+const ADMIN_EMAIL = 'admin@onstrideapp.com';
 const ADMIN_PASSWORD = 'Galadmin0118';
 const ADMIN_NAME = 'Gal';
 

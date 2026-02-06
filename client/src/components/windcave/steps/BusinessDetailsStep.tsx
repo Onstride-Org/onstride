@@ -233,7 +233,7 @@ export default function BusinessDetailsStep({
         <AlertCircle size={20} />
         <div>
           <strong>Note:</strong> Most equine businesses do not have any compliance issues.
-          If you're unsure about any question, contact support@onstride.app for guidance.
+          If you're unsure about any question, contact admin@onstrideapp.com for guidance.
         </div>
       </div>
     </div>
