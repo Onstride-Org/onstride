@@ -472,12 +472,24 @@ router.get('/barns/:id', async (req, res, next) => {
       Invoice.find({ barnId: barn._id })
         .sort({ createdAt: -1 })
         .limit(10)
-        .select('subtotal status createdAt paidAt'),
+        .select('charges status createdAt paidAt paymentBreakdown')
+        .lean(),
       Invoice.aggregate([
         { $match: { barnId: barn._id, status: 'paid' } },
-        { $group: { _id: null, total: { $sum: '$subtotal' }, platformFees: { $sum: '$paymentBreakdown.platformFee' } } }
+        { $group: {
+          _id: null,
+          total: { $sum: { $ifNull: ['$paymentBreakdown.subtotal', 0] } },
+          platformFees: { $sum: { $ifNull: ['$paymentBreakdown.platformFee', 0] } }
+        } }
       ]).then(result => result[0] || { total: 0, platformFees: 0 })
     ]);
+
+    // Compute subtotal for each invoice
+    const invoicesWithSubtotal = recentInvoices.map(inv => {
+      const subtotal = inv.paymentBreakdown?.subtotal ||
+        (inv.charges || []).reduce((sum, c) => sum + ((c.amount || 0) * (c.quantity || 1)), 0);
+      return { ...inv, subtotal };
+    });
 
     res.json({
       barn,
@@ -492,12 +504,12 @@ router.get('/barns/:id', async (req, res, next) => {
           };
         }),
       subscription,
-      recentInvoices,
+      recentInvoices: invoicesWithSubtotal,
       stats: {
         horseCount: horses.length,
         userCount: users.filter(u => u.userId).length,
-        totalRevenue: totalRevenue.total,
-        platformFeesCollected: totalRevenue.platformFees
+        totalRevenue: totalRevenue.total || 0,
+        platformFeesCollected: totalRevenue.platformFees || 0
       }
     });
   } catch (error) {
@@ -862,6 +874,47 @@ router.put('/barns/:id/subscription', async (req, res, next) => {
   } catch (error) {
     console.error('Admin subscription update error:', error.message);
     res.status(500).json({ error: 'Failed to update subscription: ' + error.message });
+  }
+});
+
+// Sync subscription from paid invoices (admin fix for missed callbacks)
+router.post('/barns/:id/sync-subscription', async (req, res, next) => {
+  try {
+    const barn = await Barn.findById(req.params.id);
+    if (!barn) {
+      return res.status(404).json({ error: 'Barn not found' });
+    }
+
+    // Find the most recent paid subscription invoice for this barn
+    const paidInvoice = await Invoice.findOne({
+      barnId: barn._id,
+      status: 'paid',
+      subscriptionTier: { $exists: true, $ne: null }
+    }).sort({ paidAt: -1 });
+
+    if (!paidInvoice) {
+      return res.status(404).json({ error: 'No paid subscription invoice found for this barn' });
+    }
+
+    // Update subscription based on the paid invoice
+    const { updateSubscriptionAfterPayment } = require('../services/subscriptions');
+    await updateSubscriptionAfterPayment(paidInvoice);
+
+    const subscription = await BarnSubscription.findOne({ barnId: barn._id });
+
+    res.json({
+      message: 'Subscription synced successfully',
+      invoice: {
+        id: paidInvoice._id,
+        tier: paidInvoice.subscriptionTier,
+        interval: paidInvoice.subscriptionInterval,
+        paidAt: paidInvoice.paidAt
+      },
+      subscription
+    });
+  } catch (error) {
+    console.error('Admin subscription sync error:', error.message);
+    res.status(500).json({ error: 'Failed to sync subscription: ' + error.message });
   }
 });
 

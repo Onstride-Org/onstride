@@ -983,6 +983,10 @@ router.post('/windcave-callback', express.json(), async (req, res, next) => {
         responseCode: notification.responseCode,
         responseText: notification.responseText,
       };
+
+      // Log subscription fields for debugging
+      console.log(`Invoice subscription fields: tier=${invoice.subscriptionTier}, interval=${invoice.subscriptionInterval}, barnId=${invoice.barnId}`);
+
       await updateSubscriptionAfterPayment(invoice);
     } else {
       invoice.status = 'failed';
