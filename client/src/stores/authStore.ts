@@ -21,6 +21,7 @@ interface AuthState {
   showOnboarding: boolean;
   showPaymentPrompt: boolean;
   showSubscriptionTutorial: boolean;
+  subscriptionRefreshTrigger: number;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -42,6 +43,7 @@ interface AuthState {
   setShowOnboarding: (show: boolean) => void;
   setShowPaymentPrompt: (show: boolean) => void;
   setShowSubscriptionTutorial: (show: boolean) => void;
+  refreshSubscriptionStatus: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -52,6 +54,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   showOnboarding: false,
   showPaymentPrompt: false,
   showSubscriptionTutorial: false,
+  subscriptionRefreshTrigger: 0,
   isAuthenticated: false,
   isLoading: true,
   error: null,
@@ -297,4 +300,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setShowOnboarding: (show: boolean) => set({ showOnboarding: show }),
   setShowPaymentPrompt: (show: boolean) => set({ showPaymentPrompt: show }),
   setShowSubscriptionTutorial: (show: boolean) => set({ showSubscriptionTutorial: show }),
+  refreshSubscriptionStatus: () => set((state) => ({ subscriptionRefreshTrigger: state.subscriptionRefreshTrigger + 1 })),
 }));

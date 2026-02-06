@@ -32,6 +32,7 @@ export default function SetupAccountPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [name, setName] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Verify token on mount
   useEffect(() => {
@@ -92,6 +93,11 @@ export default function SetupAccountPage() {
       return;
     }
 
+    if (!termsAccepted) {
+      setError('You must accept the Terms of Service and Privacy Policy');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -108,6 +114,7 @@ export default function SetupAccountPage() {
         body: JSON.stringify({
           token,
           password,
+          termsAccepted: true,
           ...(isAdminInvite && name && { name }),
         }),
       });
@@ -310,10 +317,31 @@ export default function SetupAccountPage() {
               </div>
             </div>
 
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  className="checkbox-input"
+                />
+                <span className="checkbox-text">
+                  I agree to the{' '}
+                  <a href="https://onstrideapp.com/terms" target="_blank" rel="noopener noreferrer" className="link">
+                    Terms of Service
+                  </a>{' '}
+                  and{' '}
+                  <a href="https://onstrideapp.com/privacy" target="_blank" rel="noopener noreferrer" className="link">
+                    Privacy Policy
+                  </a>
+                </span>
+              </label>
+            </div>
+
             <button
               type="submit"
               className="btn btn-primary btn-block btn-lg"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !termsAccepted}
             >
               {isSubmitting ? (
                 <>

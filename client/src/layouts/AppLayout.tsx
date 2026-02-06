@@ -8,7 +8,7 @@ import OnboardingStepsModal from '../components/OnboardingStepsModal';
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, barns, currentBarnId, currentBarnRole, switchBarn, logout, showSubscriptionTutorial, setShowSubscriptionTutorial } = useAuthStore();
+  const { user, barns, currentBarnId, currentBarnRole, switchBarn, logout, showSubscriptionTutorial, setShowSubscriptionTutorial, subscriptionRefreshTrigger } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [subscriptionStatus, setSubscriptionStatus] = useState<'free' | 'trial' | 'active' | 'past_due' | null>(null);
@@ -41,7 +41,7 @@ export default function AppLayout() {
       })
       .catch(() => setSubscriptionStatus('free'));
     return () => { cancelled = true; };
-  }, [currentBarnId]);
+  }, [currentBarnId, subscriptionRefreshTrigger]);
 
   const currentBarn = barns.find(b => b.id === currentBarnId);
 

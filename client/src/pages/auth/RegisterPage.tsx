@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const navigate = useNavigate();
 
@@ -39,10 +40,15 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!termsAccepted) {
+      setValidationError('You must accept the Terms of Service and Privacy Policy');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await authApi.register({ email, password, name, phoneNumber, barnName: barnName.trim() });
+      await authApi.register({ email, password, name, phoneNumber, barnName: barnName.trim(), termsAccepted: true });
 
       // Registration successful - redirect to verification required page
       navigate('/verification-required', {
@@ -176,10 +182,31 @@ export default function RegisterPage() {
           />
         </div>
 
+        <div className="form-group">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              className="checkbox-input"
+            />
+            <span className="checkbox-text">
+              I agree to the{' '}
+              <a href="https://onstrideapp.com/terms" target="_blank" rel="noopener noreferrer" className="link">
+                Terms of Service
+              </a>{' '}
+              and{' '}
+              <a href="https://onstrideapp.com/privacy" target="_blank" rel="noopener noreferrer" className="link">
+                Privacy Policy
+              </a>
+            </span>
+          </label>
+        </div>
+
         <button
           type="submit"
           className="btn btn-primary btn-block"
-          disabled={isLoading}
+          disabled={isLoading || !termsAccepted}
         >
           {isLoading ? (
             <>

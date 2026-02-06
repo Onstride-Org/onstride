@@ -8,7 +8,7 @@ import { PaymentModal } from '../../components/payments';
 
 export default function SubscriptionPage() {
   const navigate = useNavigate();
-  const { currentBarnId, setShowSubscriptionTutorial } = useAuthStore();
+  const { currentBarnId, setShowSubscriptionTutorial, refreshSubscriptionStatus } = useAuthStore();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<BarnSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,6 +68,7 @@ export default function SubscriptionPage() {
   const handlePaymentSuccess = () => {
     setPaymentModal(null);
     loadSubscriptionData();
+    refreshSubscriptionStatus(); // Trigger AppLayout to refresh subscription status
     setShowPostPaymentNotice(true); // Show Windcave setup notice
     setShowSubscriptionTutorial(true); // Show tutorial on every screen until user skips
   };

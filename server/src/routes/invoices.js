@@ -211,7 +211,6 @@ router.post('/guest/:token/pay', [
       };
       await invoice.save();
       await updateSubscriptionAfterPayment(invoice);
-      await updateSubscriptionAfterPayment(invoice);
 
       return res.json({
         status: 'paid',

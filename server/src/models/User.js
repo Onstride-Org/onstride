@@ -75,7 +75,10 @@ const userSchema = new mongoose.Schema({
   deletedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  }
+  },
+  // Terms and privacy acceptance
+  termsAcceptedAt: Date,
+  privacyAcceptedAt: Date
 }, {
   timestamps: true
 });

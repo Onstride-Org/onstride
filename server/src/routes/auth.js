@@ -36,10 +36,11 @@ router.post('/register', [
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('name').trim().notEmpty(),
   body('phoneNumber').trim().notEmpty().withMessage('Phone number is required'),
+  body('termsAccepted').optional(),
   validate
 ], async (req, res, next) => {
   try {
-    const { email, password, name, phoneNumber, barnName } = req.body;
+    const { email, password, name, phoneNumber, barnName, termsAccepted } = req.body;
 
     // Check if user exists
     const existingUser = await User.findOne({ email });
@@ -47,14 +48,16 @@ router.post('/register', [
       return res.status(400).json({ error: 'Email already registered' });
     }
 
-    // Create user
+    // Create user with terms acceptance timestamp
+    const now = new Date();
     const user = await User.create({
       email,
       password,
       name,
       phoneNumber,
       accountType: 'owner',
-      registrationMethod: 'email'
+      registrationMethod: 'email',
+      ...(termsAccepted && { termsAcceptedAt: now, privacyAcceptedAt: now })
     });
 
     // Create default barn for owner with provided name or default
@@ -254,12 +257,14 @@ router.post('/login', [
         twoFactorEnabled: user.twoFactorEnabled,
         phoneVerified: user.phoneVerified,
       },
-      barns: barnRoles.map(r => ({
-        id: r.barnId._id,
-        name: r.barnId.name,
-        role: r.role,
-        isPrimary: r.isPrimary
-      })),
+      barns: barnRoles
+        .filter(r => r.barnId) // Filter out roles with deleted barns
+        .map(r => ({
+          id: r.barnId._id,
+          name: r.barnId.name,
+          role: r.role,
+          isPrimary: r.isPrimary
+        })),
       accessToken,
       refreshToken
     });
@@ -326,12 +331,14 @@ router.post('/verify-2fa', [
         twoFactorEnabled: user.twoFactorEnabled,
         phoneVerified: user.phoneVerified,
       },
-      barns: barnRoles.map(r => ({
-        id: r.barnId._id,
-        name: r.barnId.name,
-        role: r.role,
-        isPrimary: r.isPrimary
-      })),
+      barns: barnRoles
+        .filter(r => r.barnId) // Filter out roles with deleted barns
+        .map(r => ({
+          id: r.barnId._id,
+          name: r.barnId.name,
+          role: r.role,
+          isPrimary: r.isPrimary
+        })),
       accessToken,
       refreshToken
     });
@@ -882,10 +889,11 @@ router.post('/complete-setup', [
   body('token').notEmpty(),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('name').optional().trim(),
+  body('termsAccepted').optional(),
   validate
 ], async (req, res, next) => {
   try {
-    const { token, password, name } = req.body;
+    const { token, password, name, termsAccepted } = req.body;
 
     const user = await User.findOne({
       verificationToken: token,
@@ -898,6 +906,7 @@ router.post('/complete-setup', [
     }
 
     // Update user with password and mark as verified
+    const now = new Date();
     user.password = password;
     user.emailVerified = true;
     user.finishedRegistration = true;
@@ -905,6 +914,10 @@ router.post('/complete-setup', [
     user.verificationExpires = undefined;
     if (name) {
       user.name = name;
+    }
+    if (termsAccepted) {
+      user.termsAcceptedAt = now;
+      user.privacyAcceptedAt = now;
     }
     await user.save();
 

@@ -1,4 +1,7 @@
-const { BarnSubscription } = require('../models/Subscription');
+const { BarnSubscription, SubscriptionPlan } = require('../models/Subscription');
+const Barn = require('../models/Barn');
+const User = require('../models/User');
+const emailService = require('./email');
 
 const BILLING_INTERVAL_DAYS = {
   monthly: 30,
@@ -7,6 +10,7 @@ const BILLING_INTERVAL_DAYS = {
 
 const updateSubscriptionAfterPayment = async (invoice) => {
   if (!invoice.subscriptionTier || !invoice.subscriptionInterval) {
+    console.log('Invoice missing subscriptionTier or subscriptionInterval, skipping subscription update');
     return;
   }
 
@@ -31,7 +35,7 @@ const updateSubscriptionAfterPayment = async (invoice) => {
       subscription.canceledAt = null;
       await subscription.save();
     } else {
-      await BarnSubscription.create({
+      subscription = await BarnSubscription.create({
         barnId: invoice.barnId,
         tier: invoice.subscriptionTier,
         billingInterval: interval,
@@ -40,8 +44,36 @@ const updateSubscriptionAfterPayment = async (invoice) => {
         currentPeriodEnd: periodEnd
       });
     }
+
+    console.log(`Subscription updated: barnId=${invoice.barnId}, tier=${invoice.subscriptionTier}, status=active`);
+
+    // Send confirmation email
+    try {
+      const barn = await Barn.findById(invoice.barnId);
+      const user = await User.findById(invoice.boarderId || invoice.createdById);
+      const plan = await SubscriptionPlan.findOne({ tier: invoice.subscriptionTier });
+
+      if (user?.email) {
+        const amount = invoice.paymentBreakdown?.subtotal ||
+          (invoice.charges?.reduce((sum, c) => sum + (c.amount * (c.quantity || 1)), 0)) || 0;
+
+        await emailService.sendSubscriptionConfirmationEmail({
+          to: user.email,
+          name: user.name || '',
+          barnName: barn?.name || 'Your barn',
+          planName: plan?.name || invoice.subscriptionTier,
+          amount,
+          billingInterval: interval
+        });
+        console.log(`Subscription confirmation email sent to ${user.email}`);
+      }
+    } catch (emailError) {
+      console.error('Failed to send subscription confirmation email:', emailError.message);
+      // Don't fail the whole operation for email errors
+    }
   } catch (error) {
     console.error('Failed to update subscription after payment:', error);
+    throw error; // Re-throw so caller knows it failed
   }
 };
 

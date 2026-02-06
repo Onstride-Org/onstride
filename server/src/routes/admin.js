@@ -482,15 +482,20 @@ router.get('/barns/:id', async (req, res, next) => {
     res.json({
       barn,
       horses,
-      users: users.map(u => ({
-        ...u.toObject(),
-        user: u.userId
-      })),
+      users: users
+        .filter(u => u.userId) // Filter out roles with deleted users
+        .map(u => {
+          const userObj = u.toObject();
+          return {
+            ...userObj,
+            user: userObj.userId // userId is already populated with user data
+          };
+        }),
       subscription,
       recentInvoices,
       stats: {
         horseCount: horses.length,
-        userCount: users.length,
+        userCount: users.filter(u => u.userId).length,
         totalRevenue: totalRevenue.total,
         platformFeesCollected: totalRevenue.platformFees
       }
@@ -719,6 +724,10 @@ router.post('/users/invite', async (req, res, next) => {
         barnName: assignedBarnName,
         userName: name || email
       });
+    } else if (role !== 'owner') {
+      // For non-owners without a barn, return an error - they must be assigned to a barn
+      await User.findByIdAndDelete(user._id);
+      return res.status(400).json({ error: 'Non-owner accounts must be assigned to a barn' });
     }
 
     // Send setup email
@@ -829,19 +838,30 @@ router.put('/barns/:id/subscription', async (req, res, next) => {
       return res.status(404).json({ error: 'Barn not found' });
     }
 
-    const subscription = await BarnSubscription.findOneAndUpdate(
-      { barnId: barn._id },
-      {
+    // Try to find existing subscription first
+    let subscription = await BarnSubscription.findOne({ barnId: barn._id });
+
+    if (subscription) {
+      // Update existing subscription
+      subscription.tier = tier;
+      subscription.status = 'active';
+      subscription.stripeSubscriptionId = undefined;
+      subscription.stripeCustomerId = undefined;
+      await subscription.save();
+    } else {
+      // Create new subscription
+      subscription = await BarnSubscription.create({
+        barnId: barn._id,
         tier,
         status: 'active',
-        $unset: { stripeSubscriptionId: 1, stripeCustomerId: 1 }
-      },
-      { new: true, upsert: true }
-    );
+        billingInterval: 'monthly'
+      });
+    }
 
     res.json(subscription);
   } catch (error) {
-    next(error);
+    console.error('Admin subscription update error:', error.message);
+    res.status(500).json({ error: 'Failed to update subscription: ' + error.message });
   }
 });
 
