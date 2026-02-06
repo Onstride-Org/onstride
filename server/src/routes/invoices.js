@@ -266,7 +266,14 @@ router.get('/', requireBarn, async (req, res, next) => {
       ...(isBoarder ? { boarderId: req.userId } : (boarderId && { boarderId })),
       ...(startDate && endDate && {
         createdAt: { $gte: new Date(startDate), $lte: new Date(endDate) }
-      })
+      }),
+      // Hide failed/processing subscription invoices from users - they're internal payment attempts
+      $or: [
+        { subscriptionTier: { $exists: false } },
+        { subscriptionTier: null },
+        { status: 'paid' },
+        { status: 'pending' }
+      ]
     };
 
     const invoices = await Invoice.find(filter)

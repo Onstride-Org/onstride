@@ -1,6 +1,7 @@
 const { BarnSubscription, SubscriptionPlan } = require('../models/Subscription');
 const Barn = require('../models/Barn');
 const User = require('../models/User');
+const Invoice = require('../models/Invoice');
 const emailService = require('./email');
 
 const BILLING_INTERVAL_DAYS = {
@@ -46,6 +47,27 @@ const updateSubscriptionAfterPayment = async (invoice) => {
     }
 
     console.log(`Subscription updated: barnId=${invoice.barnId}, tier=${invoice.subscriptionTier}, status=active`);
+
+    // Clean up failed/processing subscription invoices for this barn (except the current one)
+    try {
+      const cleanupResult = await Invoice.updateMany(
+        {
+          barnId: invoice.barnId,
+          _id: { $ne: invoice._id },
+          subscriptionTier: { $exists: true, $ne: null },
+          status: { $in: ['failed', 'processing'] }
+        },
+        {
+          $set: { deletedAt: new Date() }
+        }
+      );
+      if (cleanupResult.modifiedCount > 0) {
+        console.log(`Cleaned up ${cleanupResult.modifiedCount} failed/processing subscription invoices for barn ${invoice.barnId}`);
+      }
+    } catch (cleanupError) {
+      console.error('Failed to cleanup old subscription invoices:', cleanupError.message);
+      // Don't fail the main operation
+    }
 
     // Send confirmation email
     try {
