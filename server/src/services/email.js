@@ -1607,6 +1607,88 @@ The OnStride Team
   return sendEmail({ to, subject, text, html });
 };
 
+/**
+ * Send merchant application submission notification to admin
+ * @param {Object} options
+ * @param {string} options.barnName - Barn name
+ * @param {string} options.barnId - Barn ID
+ * @param {string} options.legalName - Legal business name
+ * @param {Date} options.submittedAt - Submission timestamp
+ */
+const sendMerchantApplicationNotification = async ({ barnName, barnId, legalName, submittedAt }) => {
+  const subject = `New Merchant Application: ${barnName}`;
+
+  const text = `
+A new merchant application has been submitted.
+
+Barn: ${barnName}
+Barn ID: ${barnId}
+Legal Name: ${legalName || 'Not provided'}
+Submitted At: ${submittedAt ? new Date(submittedAt).toLocaleString() : 'N/A'}
+
+Please review the application in the admin panel.
+
+- OnStride System
+  `.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Merchant Application</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <tr>
+      <td style="background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">New Merchant Application</h1>
+      </td>
+    </tr>
+    <tr>
+      <td style="background-color: white; padding: 30px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+        <p style="color: #374151; font-size: 16px; margin: 0 0 20px 0;">
+          A new merchant application has been submitted and is awaiting review.
+        </p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #6b7280; width: 40%;">Barn Name</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #111827; font-weight: 500;">${barnName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Barn ID</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #111827; font-family: monospace; font-size: 14px;">${barnId}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Legal Name</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #111827;">${legalName || 'Not provided'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px; color: #6b7280;">Submitted At</td>
+            <td style="padding: 12px; color: #111827;">${submittedAt ? new Date(submittedAt).toLocaleString() : 'N/A'}</td>
+          </tr>
+        </table>
+        <p style="color: #6b7280; font-size: 14px; margin: 20px 0 0 0;">
+          Please review this application in the admin panel.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px; text-align: center;">
+        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+          OnStride Admin Notification
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  return sendEmail({ to: 'admin@onstrideapp.com', subject, text, html });
+};
+
 module.exports = {
   isConfigured,
   sendEmail,
@@ -1623,4 +1705,5 @@ module.exports = {
   sendDemoAdminNotification,
   sendSignupVerificationEmail,
   sendSubscriptionConfirmationEmail,
+  sendMerchantApplicationNotification,
 };

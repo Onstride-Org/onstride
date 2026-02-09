@@ -7,6 +7,7 @@ const MerchantApplication = require('../models/MerchantApplication');
 const Barn = require('../models/Barn');
 const User = require('../models/User');
 const { authenticate, loadBarnContext, requireBarn, hasRole } = require('../middleware/auth');
+const emailService = require('../services/email');
 
 const router = express.Router();
 
@@ -550,8 +551,14 @@ router.post('/application/submit', [
     application.addAuditLog('submitted', req.userId, 'Application submitted for review', req.ip);
     await application.save();
 
-    // TODO: Send notification to OnStride admin for manual processing
-    // TODO: Generate PDF of application
+    // Send notification to OnStride admin
+    const barn = await Barn.findById(req.barnId);
+    emailService.sendMerchantApplicationNotification({
+      barnName: barn?.name || 'Unknown Barn',
+      barnId: req.barnId,
+      legalName: application.merchantInfo?.legalName,
+      submittedAt: application.submittedAt,
+    }).catch(err => console.error('Failed to send merchant application notification:', err));
 
     res.json({
       success: true,

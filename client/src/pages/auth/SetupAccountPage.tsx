@@ -327,11 +327,11 @@ export default function SetupAccountPage() {
                 />
                 <span className="checkbox-text">
                   I agree to the{' '}
-                  <a href="https://onstrideapp.com/terms" target="_blank" rel="noopener noreferrer" className="link">
+                  <a href="/OnStride_Full_Privacy_Policy.pdf" target="_blank" rel="noopener noreferrer" className="link" onClick={(e) => e.stopPropagation()}>
                     Terms of Service
                   </a>{' '}
                   and{' '}
-                  <a href="https://onstrideapp.com/privacy" target="_blank" rel="noopener noreferrer" className="link">
+                  <a href="/OnStride_Full_Privacy_Policy.pdf" target="_blank" rel="noopener noreferrer" className="link" onClick={(e) => e.stopPropagation()}>
                     Privacy Policy
                   </a>
                 </span>

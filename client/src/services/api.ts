@@ -611,6 +611,11 @@ export const lessonsApi = {
     return transformLesson(response.data);
   },
 
+  delete: async (id: string) => {
+    const response = await api.delete(`/lessons/${id}`);
+    return response.data;
+  },
+
   getAvailability: async (trainerId: string) => {
     const response = await api.get(`/lessons/availability/${trainerId}`);
     return response.data;

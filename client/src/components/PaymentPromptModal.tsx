@@ -26,7 +26,7 @@ const FALLBACK_PLANS: PlanData[] = [
     name: 'Starter',
     price: 15,
     description: 'For small barns getting started',
-    features: ['Up to 15 horses', 'Up to 10 users', '50 lessons/month', 'Billing & Invoicing'],
+    features: ['Up to 10 horses', 'Up to 5 users', '50 lessons/month', 'Billing & Invoicing'],
     highlighted: false,
   },
   {

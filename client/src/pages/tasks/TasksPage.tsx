@@ -1,44 +1,124 @@
 import { useState, useEffect } from 'react';
-import { tasksApi, usersApi, horsesApi } from '../../services/api';
+import { tasksApi, lessonsApi, usersApi, horsesApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
-import { Task, TaskStatus, User as UserType, Horse } from '../../types';
+import { Task, TaskStatus, Lesson, LessonStatus, User as UserType, Horse } from '../../types';
 import { format, isToday, isPast, parseISO } from 'date-fns';
-import { Plus, CheckSquare, Calendar, User, Trash2, X, Check, Bell } from 'lucide-react';
+import { Plus, CheckSquare, Calendar, User, Trash2, X, Check, Bell, BookOpen } from 'lucide-react';
 import { HorseIcon } from '../../components/icons/HorseIcon';
 import FilterTabs from '../../components/FilterTabs';
 
+// Combined item type for tasks and lessons
+type TodoItem = {
+  id: string;
+  type: 'task' | 'lesson';
+  name: string;
+  description?: string;
+  date: string;
+  status: 'pending' | 'completed';
+  originalStatus: string;
+  horses: { id: string; name: string }[];
+  assignees: { id: string; name: string }[];
+  approvalStatus?: Task['approvalStatus'];
+  lessonData?: Lesson;
+  taskData?: Task;
+};
+
+type FilterStatus = 'all' | 'pending' | 'completed';
+
 export default function TasksPage() {
   const { currentBarnRole, user } = useAuthStore();
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'task' | 'lesson'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
 
   // Check if user is staff
   const isStaff = currentBarnRole && !['boarder'].includes(currentBarnRole.role);
 
-  const loadTasks = async () => {
+  const loadData = async () => {
     try {
       setIsLoading(true);
-      const params: any = { page: pagination.page, limit: 20 };
-      if (statusFilter !== 'all') params.status = statusFilter;
 
-      const response = await tasksApi.getAll(params);
-      setTasks(response.tasks || []);
-      setPagination(response.pagination || { page: 1, pages: 1, total: 0 });
+      // Fetch tasks and lessons in parallel
+      const [tasksRes, lessonsRes] = await Promise.all([
+        tasksApi.getAll({ limit: 100 }),
+        lessonsApi.getAll({ limit: 100 }),
+      ]);
+
+      const tasks = tasksRes.tasks || [];
+      const lessons = lessonsRes.lessons || [];
+
+      // Transform tasks to TodoItem
+      const taskItems: TodoItem[] = tasks.map((task: Task) => ({
+        id: task.id,
+        type: 'task' as const,
+        name: task.name,
+        description: task.description,
+        date: task.dueDate,
+        status: task.status === 'completed' ? 'completed' : 'pending',
+        originalStatus: task.status,
+        horses: task.horses || [],
+        assignees: task.assignees || [],
+        approvalStatus: task.approvalStatus,
+        taskData: task,
+      }));
+
+      // Transform pending lessons to TodoItem (only requested/approved lessons that aren't completed)
+      const pendingLessonStatuses: LessonStatus[] = ['requested', 'approved', 'countered'];
+      const lessonItems: TodoItem[] = lessons
+        .filter((lesson: Lesson) => {
+          // Show lessons where user is trainer or client
+          const isTrainer = lesson.trainerId === user?.id;
+          const isClient = lesson.clientId === user?.id;
+          const isPending = pendingLessonStatuses.includes(lesson.status);
+          const isCompleted = lesson.status === 'completed';
+          return (isTrainer || isClient || isStaff) && (isPending || isCompleted);
+        })
+        .map((lesson: Lesson) => ({
+          id: lesson.id,
+          type: 'lesson' as const,
+          name: `Lesson: ${lesson.type.replace(/([A-Z])/g, ' $1').trim()}`,
+          description: lesson.notes,
+          date: lesson.scheduledDate,
+          status: lesson.status === 'completed' ? 'completed' : 'pending',
+          originalStatus: lesson.status,
+          horses: lesson.horse ? [{ id: lesson.horseId || '', name: lesson.horse.name }] : [],
+          assignees: [
+            ...(lesson.trainer ? [{ id: lesson.trainerId, name: lesson.trainer.name }] : []),
+            ...(lesson.client ? [{ id: lesson.clientId, name: lesson.client.name }] : []),
+          ],
+          lessonData: lesson,
+        }));
+
+      // Combine and sort by date
+      let combined = [...taskItems, ...lessonItems];
+      combined.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      // Apply filters
+      if (statusFilter !== 'all') {
+        combined = combined.filter(item => item.status === statusFilter);
+      }
+      if (typeFilter !== 'all') {
+        combined = combined.filter(item => item.type === typeFilter);
+      }
+
+      setTodoItems(combined);
     } catch (error) {
-      console.error('Failed to load tasks:', error);
+      console.error('Failed to load data:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadTasks();
-  }, [pagination.page, statusFilter]);
+    loadData();
+  }, [statusFilter, typeFilter]);
 
-  const handleToggleStatus = async (task: Task) => {
+  const handleToggleTaskStatus = async (item: TodoItem) => {
+    if (item.type !== 'task' || !item.taskData) return;
+
+    const task = item.taskData;
     if (task.approvalStatus && task.approvalStatus !== 'approved') {
       alert('This task must be approved before updating its status.');
       return;
@@ -46,31 +126,81 @@ export default function TasksPage() {
     const newStatus: TaskStatus = task.status === 'completed' ? 'notStarted' : 'completed';
     try {
       await tasksApi.updateStatus(task.id, newStatus);
-      loadTasks();
+      loadData();
     } catch (error) {
       console.error('Failed to update task:', error);
     }
   };
 
-  const handleDelete = async (taskId: string) => {
+  const handleCompleteLesson = async (item: TodoItem) => {
+    if (item.type !== 'lesson' || !item.lessonData) return;
+    try {
+      await lessonsApi.complete(item.lessonData.id);
+      loadData();
+    } catch (error) {
+      console.error('Failed to complete lesson:', error);
+    }
+  };
+
+  const handleCancelLesson = async (item: TodoItem) => {
+    if (item.type !== 'lesson' || !item.lessonData) return;
+    if (!confirm('Cancel this lesson?')) return;
+    try {
+      await lessonsApi.cancel(item.lessonData.id);
+      loadData();
+    } catch (error) {
+      console.error('Failed to cancel lesson:', error);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
     if (!confirm('Delete this task?')) return;
     try {
       await tasksApi.delete(taskId);
-      loadTasks();
+      loadData();
     } catch (error) {
       console.error('Failed to delete task:', error);
     }
   };
 
-  const getStatusBadge = (status: TaskStatus, dueDate: string, approvalStatus?: Task['approvalStatus']) => {
-    if (approvalStatus && approvalStatus !== 'approved') return 'info';
-    if (status === 'completed') return 'success';
-    if (isPast(parseISO(dueDate)) && !isToday(parseISO(dueDate))) return 'error';
-    if (isToday(parseISO(dueDate))) return 'warning';
+  const handleDeleteLesson = async (lessonId: string) => {
+    if (!confirm('Delete this lesson? This action cannot be undone.')) return;
+    try {
+      await lessonsApi.delete(lessonId);
+      loadData();
+    } catch (error) {
+      console.error('Failed to delete lesson:', error);
+    }
+  };
+
+  const getStatusBadge = (item: TodoItem) => {
+    if (item.type === 'task' && item.approvalStatus && item.approvalStatus !== 'approved') return 'info';
+    if (item.status === 'completed') return 'success';
+    if (isPast(parseISO(item.date)) && !isToday(parseISO(item.date))) return 'error';
+    if (isToday(parseISO(item.date))) return 'warning';
     return 'neutral';
   };
 
-  const handleApprovalAction = async (task: Task, action: 'approve' | 'deny' | 'reschedule') => {
+  const getStatusLabel = (item: TodoItem) => {
+    if (item.type === 'task') {
+      if (item.approvalStatus && item.approvalStatus !== 'approved') {
+        if (item.approvalStatus === 'pending') return 'Pending Approval';
+        if (item.approvalStatus === 'denied') return 'Denied';
+        return 'Reschedule Requested';
+      }
+    }
+    if (item.type === 'lesson') {
+      if (item.originalStatus === 'requested') return 'Requested';
+      if (item.originalStatus === 'countered') return 'Counter Offered';
+    }
+    if (item.status === 'completed') return 'Completed';
+    if (isPast(parseISO(item.date)) && !isToday(parseISO(item.date))) return 'Overdue';
+    if (isToday(parseISO(item.date))) return 'Due Today';
+    return 'Upcoming';
+  };
+
+  const handleApprovalAction = async (item: TodoItem, action: 'approve' | 'deny' | 'reschedule') => {
+    if (item.type !== 'task' || !item.taskData) return;
     try {
       let payload: any = { action };
       if (action === 'reschedule') {
@@ -81,19 +211,40 @@ export default function TasksPage() {
         const reason = prompt('Reason for denying this task?');
         if (reason) payload.reason = reason;
       }
-      await tasksApi.updateApproval(task.id, payload);
-      loadTasks();
+      await tasksApi.updateApproval(item.taskData.id, payload);
+      loadData();
     } catch (error) {
       console.error('Failed to update task approval:', error);
     }
   };
 
+  const handleLessonAction = async (item: TodoItem, action: 'approve' | 'reject') => {
+    if (item.type !== 'lesson' || !item.lessonData) return;
+    try {
+      if (action === 'approve') {
+        await lessonsApi.approve(item.lessonData.id);
+      } else {
+        const reason = prompt('Reason for rejecting this lesson?');
+        await lessonsApi.reject(item.lessonData.id, reason || undefined);
+      }
+      loadData();
+    } catch (error) {
+      console.error('Failed to update lesson:', error);
+    }
+  };
+
+  const pendingCount = todoItems.filter(i => i.status === 'pending').length;
+  const completedCount = todoItems.filter(i => i.status === 'completed').length;
+
   return (
     <div className="page tasks-page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">{isStaff ? 'Tasks' : 'My Tasks'}</h1>
-          <p className="page-subtitle">{pagination.total} task{pagination.total !== 1 ? 's' : ''}</p>
+          <h1 className="page-title">{isStaff ? 'To-Do' : 'My To-Do'}</h1>
+          <p className="page-subtitle">
+            {todoItems.length} item{todoItems.length !== 1 ? 's' : ''}
+            {statusFilter === 'all' && ` (${pendingCount} pending, ${completedCount} completed)`}
+          </p>
         </div>
         {isStaff && (
           <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
@@ -104,20 +255,26 @@ export default function TasksPage() {
       </div>
 
       {/* Filters */}
-      <div className="page-filters">
+      <div className="page-filters" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
         <FilterTabs
           options={[
             { value: 'all', label: 'All' },
-            { value: 'notStarted', label: 'Not Started' },
+            { value: 'pending', label: 'Pending' },
             { value: 'completed', label: 'Completed' },
-            { value: 'overdue', label: 'Overdue' },
           ]}
           value={statusFilter}
-          onChange={(value) => {
-            setStatusFilter(value as TaskStatus | 'all');
-            setPagination(prev => ({ ...prev, page: 1 }));
-          }}
+          onChange={(value) => setStatusFilter(value as FilterStatus)}
           label="Filter by status"
+        />
+        <FilterTabs
+          options={[
+            { value: 'all', label: 'All Types' },
+            { value: 'task', label: 'Tasks' },
+            { value: 'lesson', label: 'Lessons' },
+          ]}
+          value={typeFilter}
+          onChange={(value) => setTypeFilter(value as 'all' | 'task' | 'lesson')}
+          label="Filter by type"
         />
       </div>
 
@@ -126,91 +283,132 @@ export default function TasksPage() {
         <div className="page-loading">
           <div className="spinner spinner-lg"></div>
         </div>
-      ) : tasks.length === 0 ? (
+      ) : todoItems.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">
             <CheckSquare size={64} strokeWidth={1.5} />
           </div>
-          <h3>No tasks found</h3>
+          <h3>No items found</h3>
           <p>
-            {statusFilter !== 'all'
+            {statusFilter !== 'all' || typeFilter !== 'all'
               ? 'Try adjusting your filters'
-              : 'Create a task to get started'}
+              : 'Create a task or schedule a lesson to get started'}
           </p>
         </div>
       ) : (
         <div className="task-list-container">
-          {tasks.map((task) => (
-            <div key={task.id} className={`task-card ${task.status}`}>
-              <button
-                className={`task-checkbox ${task.status === 'completed' ? 'checked' : ''}`}
-                onClick={() => handleToggleStatus(task)}
-              >
-                {task.status === 'completed' && (
-                  <Check size={16} strokeWidth={3} />
-                )}
-              </button>
+          {todoItems.map((item) => (
+            <div key={`${item.type}-${item.id}`} className={`task-card ${item.status}`}>
+              {item.type === 'task' ? (
+                <button
+                  className={`task-checkbox ${item.status === 'completed' ? 'checked' : ''}`}
+                  onClick={() => handleToggleTaskStatus(item)}
+                >
+                  {item.status === 'completed' && (
+                    <Check size={16} strokeWidth={3} />
+                  )}
+                </button>
+              ) : (
+                <div className={`task-type-icon ${item.status === 'completed' ? 'completed' : ''}`}>
+                  <BookOpen size={18} />
+                </div>
+              )}
 
               <div className="task-content">
                 <div className="task-header">
-                  <h3 className={`task-name ${task.status === 'completed' ? 'completed' : ''}`}>
-                    {task.name}
+                  <h3 className={`task-name ${item.status === 'completed' ? 'completed' : ''}`}>
+                    {item.name}
                   </h3>
-                  <span className={`badge badge-${getStatusBadge(task.status, task.dueDate, task.approvalStatus)}`}>
-                    {task.approvalStatus && task.approvalStatus !== 'approved'
-                      ? (task.approvalStatus === 'pending' ? 'Pending Approval' :
-                         task.approvalStatus === 'denied' ? 'Denied' : 'Reschedule Requested')
-                      : task.status === 'completed' ? 'Completed' :
-                        isPast(parseISO(task.dueDate)) && !isToday(parseISO(task.dueDate)) ? 'Overdue' :
-                        isToday(parseISO(task.dueDate)) ? 'Due Today' : 'Upcoming'}
-                  </span>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <span className={`badge badge-${item.type === 'lesson' ? 'primary' : 'neutral'}`} style={{ fontSize: '0.7rem' }}>
+                      {item.type === 'lesson' ? 'Lesson' : 'Task'}
+                    </span>
+                    <span className={`badge badge-${getStatusBadge(item)}`}>
+                      {getStatusLabel(item)}
+                    </span>
+                  </div>
                 </div>
 
-                {task.description && (
-                  <p className="task-description">{task.description}</p>
+                {item.description && (
+                  <p className="task-description">{item.description}</p>
                 )}
 
                 <div className="task-meta">
                   <span className="task-due">
                     <Calendar size={14} />
-                    {format(parseISO(task.dueDate), 'MMM d, yyyy')}
+                    {format(parseISO(item.date), 'MMM d, yyyy h:mm a')}
                   </span>
 
-                  {task.horses.length > 0 && (
+                  {item.horses.length > 0 && (
                     <span className="task-horses">
                       <HorseIcon size={14} />
-                      {task.horses.map(h => h.name).join(', ')}
+                      {item.horses.map(h => h.name).join(', ')}
                     </span>
                   )}
 
-                  {task.assignees.length > 0 && (
+                  {item.assignees.length > 0 && (
                     <span className="task-assignees">
                       <User size={14} />
-                      {task.assignees.map(a => a.name).join(', ')}
+                      {item.assignees.map(a => a.name).join(', ')}
                     </span>
                   )}
                 </div>
               </div>
 
               <div className="task-actions">
-                {task.approvalStatus === 'pending' &&
-                  task.assignees.some(a => a.id === (user?.id || '')) && (
+                {/* Task approval actions */}
+                {item.type === 'task' && item.approvalStatus === 'pending' &&
+                  item.taskData?.assignees.some(a => a.id === (user?.id || '')) && (
                     <div className="btn-group">
-                      <button className="btn btn-outline btn-sm" onClick={() => handleApprovalAction(task, 'approve')}>
+                      <button className="btn btn-outline btn-sm" onClick={() => handleApprovalAction(item, 'approve')}>
                         Approve
                       </button>
-                      <button className="btn btn-outline btn-sm" onClick={() => handleApprovalAction(task, 'reschedule')}>
+                      <button className="btn btn-outline btn-sm" onClick={() => handleApprovalAction(item, 'reschedule')}>
                         Reschedule
                       </button>
-                      <button className="btn btn-outline btn-sm btn-danger" onClick={() => handleApprovalAction(task, 'deny')}>
+                      <button className="btn btn-outline btn-sm btn-danger" onClick={() => handleApprovalAction(item, 'deny')}>
                         Deny
                       </button>
                     </div>
                   )}
-                {isStaff && (
+
+                {/* Lesson approval actions (for trainers on requested lessons) */}
+                {item.type === 'lesson' && item.originalStatus === 'requested' && isStaff && (
+                  <div className="btn-group">
+                    <button className="btn btn-outline btn-sm" onClick={() => handleLessonAction(item, 'approve')}>
+                      Approve
+                    </button>
+                    <button className="btn btn-outline btn-sm btn-danger" onClick={() => handleLessonAction(item, 'reject')}>
+                      Reject
+                    </button>
+                  </div>
+                )}
+
+                {/* Lesson complete/cancel actions */}
+                {item.type === 'lesson' && item.originalStatus === 'approved' && item.status !== 'completed' && (
+                  <div className="btn-group">
+                    <button className="btn btn-outline btn-sm" onClick={() => handleCompleteLesson(item)}>
+                      Complete
+                    </button>
+                    <button className="btn btn-outline btn-sm btn-danger" onClick={() => handleCancelLesson(item)}>
+                      Cancel
+                    </button>
+                  </div>
+                )}
+
+                {/* Delete actions */}
+                {isStaff && item.type === 'task' && (
                   <button
                     className="btn btn-ghost btn-sm btn-danger"
-                    onClick={() => handleDelete(task.id)}
+                    onClick={() => handleDeleteTask(item.id)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+                {isStaff && item.type === 'lesson' && (
+                  <button
+                    className="btn btn-ghost btn-sm btn-danger"
+                    onClick={() => handleDeleteLesson(item.id)}
                   >
                     <Trash2 size={16} />
                   </button>
@@ -218,28 +416,6 @@ export default function TasksPage() {
               </div>
             </div>
           ))}
-
-          {pagination.pages > 1 && (
-            <div className="pagination">
-              <button
-                className="btn btn-outline"
-                disabled={pagination.page === 1}
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-              >
-                Previous
-              </button>
-              <span className="pagination-info">
-                Page {pagination.page} of {pagination.pages}
-              </span>
-              <button
-                className="btn btn-outline"
-                disabled={pagination.page === pagination.pages}
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-              >
-                Next
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -248,7 +424,7 @@ export default function TasksPage() {
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             setShowAddModal(false);
-            loadTasks();
+            loadData();
           }}
         />
       )}

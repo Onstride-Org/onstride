@@ -4149,6 +4149,23 @@ a.btn-primary:hover {
   color: white;
 }
 
+.tasks-page .task-type-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background-color: var(--color-primary-100);
+  color: var(--color-primary-600);
+}
+
+.tasks-page .task-type-icon.completed {
+  background-color: var(--color-success-100);
+  color: var(--color-success-600);
+}
+
 .tasks-page .task-content {
   flex: 1;
   min-width: 0;
