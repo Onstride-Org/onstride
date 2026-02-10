@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, Users, Building2,
-  LogOut, Menu, X, BarChart3, Clock
+  LogOut, Menu, X, BarChart3, Clock, FileText
 } from 'lucide-react';
 
 interface AdminUser {
@@ -63,6 +63,7 @@ export default function AdminLayout() {
     { to: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
     { to: '/admin/users', icon: Users, label: 'Users' },
     { to: '/admin/barns', icon: Building2, label: 'Barns' },
+    { to: '/admin/docuseal', icon: FileText, label: 'Applications' },
   ];
 
   const demoNavItems = [
