@@ -57,7 +57,7 @@ const createTemplateFromPdf = async (name, fileBase64) => {
     ? fileBase64
     : `data:application/pdf;base64,${fileBase64}`;
 
-  const response = await api.post('/templates', {
+  const response = await api.post('/templates/pdf', {
     name,
     documents: [
       {
@@ -75,7 +75,7 @@ const createTemplateFromPdf = async (name, fileBase64) => {
  * @param {string} url - URL to the PDF file
  */
 const createTemplateFromUrl = async (name, url) => {
-  const response = await api.post('/templates', {
+  const response = await api.post('/templates/pdf', {
     name,
     documents: [
       {
