@@ -40,8 +40,9 @@ export default function DocusealTemplateManager() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadName, setUploadName] = useState('Merchant Application');
   const [showUploadForm, setShowUploadForm] = useState(false);
-  const [config, setConfig] = useState<{ applicationEmail?: string; docusealToken?: string } | null>(null);
+  const [config, setConfig] = useState<{ applicationEmail?: string } | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [builderToken, setBuilderToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const builderContainerRef = useRef<HTMLDivElement>(null);
   const builderScriptLoaded = useRef(false);
@@ -69,15 +70,14 @@ export default function DocusealTemplateManager() {
 
   // Initialize builder when editing a template
   useEffect(() => {
-    if (!editingTemplate || !builderContainerRef.current || !config?.docusealToken) return;
+    if (!editingTemplate || !builderContainerRef.current || !builderToken) return;
 
     // Clear previous builder
     builderContainerRef.current.innerHTML = '';
 
     // Create the builder element
     const builderEl = document.createElement('docuseal-builder');
-    builderEl.setAttribute('data-token', config.docusealToken);
-    builderEl.setAttribute('data-template-id', editingTemplate.id.toString());
+    builderEl.setAttribute('data-token', builderToken);
     builderEl.setAttribute('data-with-send-button', 'false');
     builderEl.setAttribute('data-with-upload-button', 'true');
     builderEl.setAttribute('data-with-title', 'false');
@@ -85,7 +85,7 @@ export default function DocusealTemplateManager() {
     builderEl.style.height = '100%';
 
     builderContainerRef.current.appendChild(builderEl);
-  }, [editingTemplate, config?.docusealToken]);
+  }, [editingTemplate, builderToken]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -145,17 +145,23 @@ export default function DocusealTemplateManager() {
     }
   };
 
-  const handleEditTemplate = (template: Template) => {
-    if (!config?.docusealToken) {
-      setError('DocuSeal API token not configured for embedded editing. Using external editor.');
+  const handleEditTemplate = async (template: Template) => {
+    setError(null);
+    try {
+      // Fetch a JWT token for this specific template
+      const { token } = await adminApi(`/windcave/templates/${template.id}/builder-token`);
+      setBuilderToken(token);
+      setEditingTemplate(template);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load template editor');
+      // Fall back to external editor
       window.open(`https://docuseal.co/templates/${template.id}`, '_blank');
-      return;
     }
-    setEditingTemplate(template);
   };
 
   const handleCloseEditor = () => {
     setEditingTemplate(null);
+    setBuilderToken(null);
     loadData(); // Refresh to get any changes
   };
 

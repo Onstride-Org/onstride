@@ -307,7 +307,7 @@ router.delete('/templates/:id', async (req, res, next) => {
   }
 });
 
-// Get DocuSeal config info for admin (API key status, recipient email, builder token)
+// Get DocuSeal config info for admin (API key status, recipient email)
 router.get('/docuseal-config', async (req, res, next) => {
   try {
     if (req.user.accountType !== 'admin') {
@@ -318,9 +318,30 @@ router.get('/docuseal-config', async (req, res, next) => {
       isConfigured: docuseal.isConfigured(),
       applicationEmail: docuseal.getApplicationRecipientEmail(),
       apiUrl: process.env.DOCUSEAL_API_URL || 'https://api.docuseal.com',
-      // Pass the API key for the embedded builder (DocuSeal uses it as a token)
-      docusealToken: process.env.DOCUSEAL_API_KEY || null,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get JWT token for embedded template builder (admin only)
+router.get('/templates/:id/builder-token', async (req, res, next) => {
+  try {
+    if (req.user.accountType !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const templateId = parseInt(req.params.id, 10);
+    if (!templateId) {
+      return res.status(400).json({ error: 'Invalid template ID' });
+    }
+
+    const token = docuseal.generateBuilderToken(templateId);
+    if (!token) {
+      return res.status(503).json({ error: 'DocuSeal API not configured' });
+    }
+
+    res.json({ token });
   } catch (error) {
     next(error);
   }

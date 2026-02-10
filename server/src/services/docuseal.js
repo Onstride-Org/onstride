@@ -6,6 +6,7 @@
  */
 
 const axios = require('axios');
+const jwt = require('jsonwebtoken');
 
 const DOCUSEAL_API_URL = process.env.DOCUSEAL_API_URL || 'https://api.docuseal.co';
 const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY;
@@ -172,6 +173,24 @@ const getApplicationRecipientEmail = () => {
   return WINDCAVE_APPLICATION_EMAIL;
 };
 
+/**
+ * Generate a JWT token for the DocuSeal embedded builder
+ * @param {number} templateId - The template ID to edit
+ * @returns {string} JWT token for the builder
+ */
+const generateBuilderToken = (templateId) => {
+  if (!DOCUSEAL_API_KEY) return null;
+
+  const payload = {
+    template_id: templateId,
+    // Token expires in 1 hour
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  };
+
+  // DocuSeal uses the API key as the JWT secret
+  return jwt.sign(payload, DOCUSEAL_API_KEY);
+};
+
 module.exports = {
   isConfigured,
   listTemplates,
@@ -184,4 +203,5 @@ module.exports = {
   listSubmissions,
   getFormEmbedUrl,
   getApplicationRecipientEmail,
+  generateBuilderToken,
 };
