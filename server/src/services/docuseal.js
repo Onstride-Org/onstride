@@ -51,12 +51,17 @@ const getTemplate = async (templateId) => {
  * @param {string} fileBase64 - Base64-encoded PDF content
  */
 const createTemplateFromPdf = async (name, fileBase64) => {
-  const response = await api.post('/templates/pdf', {
+  // DocuSeal API expects base64 with data URI prefix
+  const base64WithPrefix = fileBase64.startsWith('data:')
+    ? fileBase64
+    : `data:application/pdf;base64,${fileBase64}`;
+
+  const response = await api.post('/templates', {
     name,
     documents: [
       {
         name: `${name}.pdf`,
-        file: fileBase64,
+        file: base64WithPrefix,
       },
     ],
   });
@@ -69,7 +74,7 @@ const createTemplateFromPdf = async (name, fileBase64) => {
  * @param {string} url - URL to the PDF file
  */
 const createTemplateFromUrl = async (name, url) => {
-  const response = await api.post('/templates/pdf', {
+  const response = await api.post('/templates', {
     name,
     documents: [
       {

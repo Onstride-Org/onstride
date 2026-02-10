@@ -266,6 +266,10 @@ router.post('/templates', upload.single('pdf'), async (req, res, next) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
+    if (!docuseal.isConfigured()) {
+      return res.status(503).json({ error: 'DocuSeal API is not configured. Please set DOCUSEAL_API_KEY.' });
+    }
+
     if (!req.file) {
       return res.status(400).json({ error: 'No PDF file uploaded' });
     }
@@ -277,6 +281,13 @@ router.post('/templates', upload.single('pdf'), async (req, res, next) => {
     res.json(template);
   } catch (error) {
     console.error('Failed to create template:', error.response?.data || error.message);
+    // Return more specific error for DocuSeal API failures
+    if (error.response?.data) {
+      return res.status(error.response.status || 500).json({
+        error: error.response.data.error || error.response.data.message || 'DocuSeal API error',
+        details: error.response.data,
+      });
+    }
     next(error);
   }
 });
