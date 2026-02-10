@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, Trash2, FileText, AlertCircle, RefreshCw, ExternalLink, Mail, Plus } from 'lucide-react';
+import { Upload, Trash2, FileText, AlertCircle, RefreshCw, ExternalLink, Mail, Plus, X, Edit3 } from 'lucide-react';
 
 interface Template {
   id: number;
@@ -12,6 +12,9 @@ interface Template {
   documents?: any[];
   external_id?: string;
 }
+
+// DocuSeal Builder CDN URL
+const DOCUSEAL_BUILDER_URL = 'https://cdn.docuseal.co/js/builder.js';
 
 // Admin API helper (uses adminToken)
 const adminApi = (path: string, options: RequestInit = {}) => {
@@ -37,12 +40,52 @@ export default function DocusealTemplateManager() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadName, setUploadName] = useState('Merchant Application');
   const [showUploadForm, setShowUploadForm] = useState(false);
-  const [config, setConfig] = useState<{ applicationEmail?: string } | null>(null);
+  const [config, setConfig] = useState<{ applicationEmail?: string; docusealToken?: string } | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const builderContainerRef = useRef<HTMLDivElement>(null);
+  const builderScriptLoaded = useRef(false);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // Load DocuSeal builder script
+  useEffect(() => {
+    if (builderScriptLoaded.current) return;
+
+    const script = document.createElement('script');
+    script.src = DOCUSEAL_BUILDER_URL;
+    script.async = true;
+    script.onload = () => {
+      builderScriptLoaded.current = true;
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      // Cleanup if needed
+    };
+  }, []);
+
+  // Initialize builder when editing a template
+  useEffect(() => {
+    if (!editingTemplate || !builderContainerRef.current || !config?.docusealToken) return;
+
+    // Clear previous builder
+    builderContainerRef.current.innerHTML = '';
+
+    // Create the builder element
+    const builderEl = document.createElement('docuseal-builder');
+    builderEl.setAttribute('data-token', config.docusealToken);
+    builderEl.setAttribute('data-template-id', editingTemplate.id.toString());
+    builderEl.setAttribute('data-with-send-button', 'false');
+    builderEl.setAttribute('data-with-upload-button', 'true');
+    builderEl.setAttribute('data-with-title', 'false');
+    builderEl.style.width = '100%';
+    builderEl.style.height = '100%';
+
+    builderContainerRef.current.appendChild(builderEl);
+  }, [editingTemplate, config?.docusealToken]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -102,6 +145,20 @@ export default function DocusealTemplateManager() {
     }
   };
 
+  const handleEditTemplate = (template: Template) => {
+    if (!config?.docusealToken) {
+      setError('DocuSeal API token not configured for embedded editing. Using external editor.');
+      window.open(`https://docuseal.co/templates/${template.id}`, '_blank');
+      return;
+    }
+    setEditingTemplate(template);
+  };
+
+  const handleCloseEditor = () => {
+    setEditingTemplate(null);
+    loadData(); // Refresh to get any changes
+  };
+
   if (isLoading) {
     return (
       <div className="vendor-card">
@@ -110,6 +167,56 @@ export default function DocusealTemplateManager() {
             <div className="spinner spinner-lg"></div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Full-screen template editor
+  if (editingTemplate) {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 1000,
+        background: 'var(--bg-primary)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+        {/* Editor header */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 20px',
+          borderBottom: '1px solid var(--border-color)',
+          background: 'var(--bg-secondary)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Edit3 size={20} style={{ color: 'var(--color-primary)' }} />
+            <div>
+              <div style={{ fontWeight: 600 }}>Editing: {editingTemplate.name}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                Add form fields, signature areas, and configure the template
+              </div>
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={handleCloseEditor}>
+            <X size={16} />
+            Close Editor
+          </button>
+        </div>
+
+        {/* DocuSeal Builder Container */}
+        <div
+          ref={builderContainerRef}
+          style={{
+            flex: 1,
+            overflow: 'hidden',
+          }}
+        />
       </div>
     );
   }
@@ -219,14 +326,21 @@ export default function DocusealTemplateManager() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => handleEditTemplate(template)}
+                  >
+                    <Edit3 size={14} />
+                    Edit Template
+                  </button>
                   <a
                     href={`https://docuseal.co/templates/${template.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-outline btn-sm"
+                    title="Open in DocuSeal"
                   >
                     <ExternalLink size={14} />
-                    Edit Fields
                   </a>
                   <button
                     className="btn btn-ghost btn-sm"
