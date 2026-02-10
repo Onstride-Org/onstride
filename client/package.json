@@ -10,6 +10,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@docuseal/react": "^1.0.71",
     "axios": "^1.6.3",
     "date-fns": "^3.6.0",
     "lucide-react": "^0.344.0",

@@ -91,6 +91,7 @@ const createPaymentSession = async (options) => {
     returnUrl,
     callbackUrl,
     credentials,
+    billingAddress, // { street, city, state, postalCode, country }
   } = options;
 
   if (!hasValidCredentials(credentials)) {
@@ -126,6 +127,18 @@ const createPaymentSession = async (options) => {
     if (customerName) sessionData.customer.name = customerName;
   }
 
+  // Add billing address for AVS (Address Verification System)
+  if (billingAddress) {
+    sessionData.customer = sessionData.customer || {};
+    sessionData.customer.billing = {
+      address1: billingAddress.street || billingAddress.address1,
+      city: billingAddress.city,
+      state: billingAddress.state,
+      postalCode: billingAddress.postalCode || billingAddress.zipCode,
+      countryCode: billingAddress.country || billingAddress.countryCode || 'US',
+    };
+  }
+
   try {
     const response = await apiClient.post('/sessions', sessionData);
 
@@ -153,6 +166,9 @@ const createPaymentSession = async (options) => {
  * @param {string} options.currency - Currency code (default: USD)
  * @param {string} options.merchantReference - Unique merchant reference
  * @param {Object} options.credentials - Optional barn-specific credentials
+ * @param {Object} options.billingAddress - Billing address for AVS { street, city, state, postalCode, country }
+ * @param {string} options.customerEmail - Customer email
+ * @param {string} options.customerName - Customer name
  * @returns {Object} Session data with ajaxSubmitCard URL for Hosted Fields
  */
 const createHostedFieldsSession = async (options) => {
@@ -162,6 +178,9 @@ const createHostedFieldsSession = async (options) => {
     currency = 'USD',
     merchantReference,
     credentials,
+    billingAddress,
+    customerEmail,
+    customerName,
   } = options;
 
   if (!hasValidCredentials(credentials)) {
@@ -179,6 +198,23 @@ const createHostedFieldsSession = async (options) => {
     merchantReference: merchantReference || invoiceId,
     methods: ['card'],
   };
+
+  // Add customer info and billing address for AVS
+  if (customerEmail || customerName || billingAddress) {
+    sessionData.customer = {};
+    if (customerEmail) sessionData.customer.email = customerEmail;
+    if (customerName) sessionData.customer.name = customerName;
+
+    if (billingAddress) {
+      sessionData.customer.billing = {
+        address1: billingAddress.street || billingAddress.address1,
+        city: billingAddress.city,
+        state: billingAddress.state,
+        postalCode: billingAddress.postalCode || billingAddress.zipCode,
+        countryCode: billingAddress.country || billingAddress.countryCode || 'US',
+      };
+    }
+  }
 
   try {
     const response = await apiClient.post('/sessions', sessionData);
@@ -453,6 +489,8 @@ const processDirectPayment = async (options) => {
     cvv,
     cardholderName,
     credentials,
+    billingAddress,
+    customerEmail,
   } = options;
 
   if (!hasValidCredentials(credentials)) {
@@ -479,6 +517,22 @@ const processDirectPayment = async (options) => {
         cardHolderName: cardholderName,
       },
     };
+
+    // Add customer info and billing address for AVS
+    if (customerEmail || billingAddress) {
+      sessionData.customer = {};
+      if (customerEmail) sessionData.customer.email = customerEmail;
+
+      if (billingAddress) {
+        sessionData.customer.billing = {
+          address1: billingAddress.street || billingAddress.address1,
+          city: billingAddress.city,
+          state: billingAddress.state,
+          postalCode: billingAddress.postalCode || billingAddress.zipCode,
+          countryCode: billingAddress.country || billingAddress.countryCode || 'US',
+        };
+      }
+    }
 
     const response = await apiClient.post('/sessions', sessionData);
 

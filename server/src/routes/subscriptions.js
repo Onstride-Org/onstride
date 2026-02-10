@@ -6,6 +6,7 @@ const validate = require('../middleware/validate');
 const Invoice = require('../models/Invoice');
 const MerchantApplication = require('../models/MerchantApplication');
 const User = require('../models/User');
+const Barn = require('../models/Barn');
 const windcave = require('../services/windcave');
 
 const router = express.Router();
@@ -200,6 +201,9 @@ router.post('/checkout', [
       }
     });
 
+    // Get barn for billing address (AVS)
+    const barn = await Barn.findById(req.barnId);
+
     const merchantApp = await MerchantApplication.findOne({ barnId: req.barnId })
       .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
 
@@ -221,6 +225,15 @@ router.post('/checkout', [
       ? `${process.env.API_URL}/api/invoices/windcave-callback`
       : 'http://localhost:5001/api/invoices/windcave-callback';
 
+    // Build billing address for AVS
+    const billingAddress = barn ? {
+      street: barn.address,
+      city: barn.city,
+      state: barn.state,
+      zipCode: barn.zipCode,
+      country: 'US',
+    } : null;
+
     const session = await windcave.createPaymentSession({
       invoiceId: invoice._id.toString(),
       amount: feeBreakdown.total,
@@ -230,7 +243,8 @@ router.post('/checkout', [
       customerName: user?.name,
       returnUrl: `${baseUrl}/app/settings/subscription?success=1`,
       callbackUrl,
-      credentials
+      credentials,
+      billingAddress,
     });
 
     invoice.windcavePaymentInfo = { sessionId: session.sessionId };
@@ -327,6 +341,9 @@ router.get('/features/:feature', requireBarn, async (req, res, next) => {
 });
 
 // Create/update subscription
+// Note: Paid plan activation is handled by updateSubscriptionAfterPayment() after
+// successful Windcave payment via /checkout or /checkout-invoice flow.
+// This endpoint handles direct tier changes (free tier, admin overrides).
 router.post('/', [
   requireBarn,
   hasRole('owner'),
@@ -335,7 +352,7 @@ router.post('/', [
   validate
 ], async (req, res, next) => {
   try {
-    const { tier, billingInterval, paymentMethodId } = req.body;
+    const { tier, billingInterval } = req.body;
 
     const plan = await SubscriptionPlan.findOne({ tier });
     if (!plan) {
@@ -349,7 +366,6 @@ router.post('/', [
       if (subscription) {
         subscription.tier = 'free';
         subscription.status = 'active';
-        subscription.stripeSubscriptionId = null;
         subscription.currentPeriodEnd = null;
         await subscription.save();
       } else {
@@ -360,10 +376,10 @@ router.post('/', [
         });
       }
     } else {
-      // Paid plan - would integrate with Stripe here
-      // TODO: Create Stripe subscription
-      // const stripeSubscription = await stripe.subscriptions.create({...});
-
+      // For paid plans, payment should go through /checkout or /checkout-invoice
+      // which creates a Windcave payment session. After payment, the subscription
+      // is activated via updateSubscriptionAfterPayment().
+      // This direct path is kept for admin overrides and testing.
       if (subscription) {
         subscription.tier = tier;
         subscription.billingInterval = billingInterval || 'monthly';
@@ -408,9 +424,6 @@ router.delete('/', [
       return res.status(400).json({ error: 'Cannot cancel free tier' });
     }
 
-    // TODO: Cancel Stripe subscription
-    // await stripe.subscriptions.update(subscription.stripeSubscriptionId, { cancel_at_period_end: true });
-
     subscription.cancelAtPeriodEnd = true;
     subscription.canceledAt = new Date();
     await subscription.save();
@@ -424,52 +437,34 @@ router.delete('/', [
   }
 });
 
-// Stripe webhook
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res, next) => {
+// Subscription payment status check
+// Note: Windcave payment callbacks are handled via /api/invoices/windcave-callback
+// which calls updateSubscriptionAfterPayment() to activate the subscription.
+// This endpoint allows the client to check if a subscription payment has been processed.
+router.get('/payment-status/:invoiceId', [
+  requireBarn,
+  hasRole('owner')
+], async (req, res, next) => {
   try {
-    // TODO: Verify Stripe signature
-    const event = JSON.parse(req.body);
+    const Invoice = require('../models/Invoice');
+    const invoice = await Invoice.findById(req.params.invoiceId);
 
-    switch (event.type) {
-      case 'customer.subscription.updated':
-      case 'customer.subscription.deleted': {
-        const stripeSubscription = event.data.object;
-        const subscription = await BarnSubscription.findOne({
-          stripeSubscriptionId: stripeSubscription.id
-        });
-
-        if (subscription) {
-          if (stripeSubscription.status === 'canceled') {
-            subscription.status = 'canceled';
-            subscription.tier = 'free';
-          } else if (stripeSubscription.status === 'past_due') {
-            subscription.status = 'pastDue';
-          } else if (stripeSubscription.status === 'active') {
-            subscription.status = 'active';
-          }
-
-          subscription.currentPeriodStart = new Date(stripeSubscription.current_period_start * 1000);
-          subscription.currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000);
-          await subscription.save();
-        }
-        break;
-      }
-
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object;
-        const subscription = await BarnSubscription.findOne({
-          stripeCustomerId: invoice.customer
-        });
-
-        if (subscription) {
-          subscription.status = 'pastDue';
-          await subscription.save();
-        }
-        break;
-      }
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
     }
 
-    res.json({ received: true });
+    if (invoice.barnId.toString() !== req.barnId.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const subscription = await BarnSubscription.findOne({ barnId: req.barnId });
+
+    res.json({
+      invoiceStatus: invoice.status,
+      subscriptionTier: subscription?.tier || 'free',
+      subscriptionStatus: subscription?.status || 'active',
+      currentPeriodEnd: subscription?.currentPeriodEnd,
+    });
   } catch (error) {
     next(error);
   }

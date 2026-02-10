@@ -75,6 +75,11 @@ router.get('/guest/:token', [
 // Create Hosted Fields session for guest invoice (public)
 router.post('/guest/:token/hosted-fields-session', [
   param('token').isLength({ min: 64, max: 64 }),
+  body('billingAddress').optional().isObject(),
+  body('billingAddress.street').optional().isString(),
+  body('billingAddress.city').optional().isString(),
+  body('billingAddress.state').optional().isString(),
+  body('billingAddress.zipCode').optional().isString(),
   validate
 ], async (req, res, next) => {
   try {
@@ -96,6 +101,9 @@ router.post('/guest/:token/hosted-fields-session', [
       return res.status(400).json({ error: 'Invoice is already paid' });
     }
 
+    // Get barn for billing address (fallback if not provided in request)
+    const barn = await Barn.findById(invoice.barnId);
+
     // Get barn-specific Windcave credentials
     const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
       .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
@@ -111,13 +119,25 @@ router.post('/guest/:token/hosted-fields-session', [
       });
     }
 
-    // Create Hosted Fields session
+    // Use billing address from request body, or fall back to barn address for AVS
+    const billingAddress = req.body.billingAddress || (barn ? {
+      street: barn.address,
+      city: barn.city,
+      state: barn.state,
+      zipCode: barn.zipCode,
+      country: 'US',
+    } : null);
+
+    // Create Hosted Fields session with AVS data
     const session = await windcave.createHostedFieldsSession({
       invoiceId: invoice._id.toString(),
       amount: invoice.paymentBreakdown.total,
       currency: 'USD',
       merchantReference: `GUEST-INV-${invoice._id}`,
       credentials,
+      customerEmail: invoice.guestEmail,
+      customerName: invoice.guestName,
+      billingAddress,
     });
 
     // Store session ID on invoice
@@ -146,6 +166,11 @@ router.post('/guest/:token/pay', [
   body('expiryYear').notEmpty().isLength({ min: 4, max: 4 }),
   body('cvv').notEmpty().isLength({ min: 3, max: 4 }),
   body('cardholderName').notEmpty().trim(),
+  body('billingAddress').optional().isObject(),
+  body('billingAddress.street').optional().isString(),
+  body('billingAddress.city').optional().isString(),
+  body('billingAddress.state').optional().isString(),
+  body('billingAddress.zipCode').optional().isString(),
   validate
 ], async (req, res, next) => {
   try {
@@ -167,6 +192,9 @@ router.post('/guest/:token/pay', [
       return res.status(400).json({ error: 'Invoice is already paid' });
     }
 
+    // Get barn for billing address (AVS)
+    const barn = await Barn.findById(invoice.barnId);
+
     // Get barn-specific Windcave credentials
     const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
       .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
@@ -184,6 +212,15 @@ router.post('/guest/:token/pay', [
 
     const { cardNumber, expiryMonth, expiryYear, cvv, cardholderName } = req.body;
 
+    // Use billing address from request body, or fall back to barn address for AVS
+    const billingAddress = req.body.billingAddress || (barn ? {
+      street: barn.address,
+      city: barn.city,
+      state: barn.state,
+      zipCode: barn.zipCode,
+      country: 'US',
+    } : null);
+
     const result = await windcave.processDirectPayment({
       amount: invoice.paymentBreakdown.total,
       currency: 'USD',
@@ -194,6 +231,8 @@ router.post('/guest/:token/pay', [
       cvv,
       cardholderName,
       credentials,
+      billingAddress,
+      customerEmail: invoice.guestEmail,
     });
 
     if (result.authorised) {
@@ -546,6 +585,9 @@ router.post('/:id/payment', [
 
     // For card payments, create Windcave payment session
     if (method === 'card') {
+      // Get barn for billing address (AVS)
+      const barn = await Barn.findById(invoice.barnId);
+
       // Get barn-specific Windcave credentials
       const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
         .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
@@ -569,6 +611,15 @@ router.post('/:id/payment', [
         ? `${process.env.API_URL}/api/invoices/windcave-callback`
         : 'http://localhost:3000/api/invoices/windcave-callback';
 
+      // Build billing address for AVS
+      const billingAddress = barn ? {
+        street: barn.address,
+        city: barn.city,
+        state: barn.state,
+        zipCode: barn.zipCode,
+        country: 'US',
+      } : null;
+
       const session = await windcave.createPaymentSession({
         invoiceId: invoice._id.toString(),
         amount: invoice.paymentBreakdown.total,
@@ -579,6 +630,7 @@ router.post('/:id/payment', [
         returnUrl: returnUrl || `${baseUrl}/app/invoices/${invoice._id}`,
         callbackUrl,
         credentials,
+        billingAddress,
       });
 
       invoice.status = 'processing';
@@ -616,6 +668,11 @@ router.post('/:id/payment', [
 // Create Hosted Fields session for embedded payment
 router.post('/:id/hosted-fields-session', [
   param('id').isMongoId(),
+  body('billingAddress').optional().isObject(),
+  body('billingAddress.street').optional().isString(),
+  body('billingAddress.city').optional().isString(),
+  body('billingAddress.state').optional().isString(),
+  body('billingAddress.zipCode').optional().isString(),
   validate
 ], async (req, res, next) => {
   try {
@@ -639,6 +696,9 @@ router.post('/:id/hosted-fields-session', [
       return res.status(400).json({ error: 'Invoice is already paid' });
     }
 
+    // Get barn for billing address (fallback if not provided in request)
+    const barn = await Barn.findById(invoice.barnId);
+
     // Get barn-specific Windcave credentials
     const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
       .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
@@ -654,13 +714,25 @@ router.post('/:id/hosted-fields-session', [
       });
     }
 
-    // Create Hosted Fields session
+    // Use billing address from request body, or fall back to barn address for AVS
+    const billingAddress = req.body.billingAddress || (barn ? {
+      street: barn.address,
+      city: barn.city,
+      state: barn.state,
+      zipCode: barn.zipCode,
+      country: 'US',
+    } : null);
+
+    // Create Hosted Fields session with AVS data
     const session = await windcave.createHostedFieldsSession({
       invoiceId: invoice._id.toString(),
       amount: invoice.paymentBreakdown.total,
       currency: 'USD',
       merchantReference: `INV-${invoice._id}`,
       credentials,
+      customerEmail: invoice.boarderId?.email,
+      customerName: invoice.boarderId?.name,
+      billingAddress,
     });
 
     // Store session ID on invoice
@@ -689,6 +761,11 @@ router.post('/:id/pay-direct', [
   body('expiryYear').notEmpty().isLength({ min: 4, max: 4 }),
   body('cvv').notEmpty().isLength({ min: 3, max: 4 }),
   body('cardholderName').notEmpty().trim(),
+  body('billingAddress').optional().isObject(),
+  body('billingAddress.street').optional().isString(),
+  body('billingAddress.city').optional().isString(),
+  body('billingAddress.state').optional().isString(),
+  body('billingAddress.zipCode').optional().isString(),
   validate
 ], async (req, res, next) => {
   try {
@@ -712,6 +789,9 @@ router.post('/:id/pay-direct', [
       return res.status(400).json({ error: 'Invoice is already paid' });
     }
 
+    // Get barn for billing address (AVS)
+    const barn = await Barn.findById(invoice.barnId);
+
     // Get barn-specific Windcave credentials
     const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
       .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
@@ -729,6 +809,15 @@ router.post('/:id/pay-direct', [
 
     const { cardNumber, expiryMonth, expiryYear, cvv, cardholderName } = req.body;
 
+    // Use billing address from request body, or fall back to barn address for AVS
+    const billingAddress = req.body.billingAddress || (barn ? {
+      street: barn.address,
+      city: barn.city,
+      state: barn.state,
+      zipCode: barn.zipCode,
+      country: 'US',
+    } : null);
+
     // Process the payment directly
     const result = await windcave.processDirectPayment({
       amount: invoice.paymentBreakdown.total,
@@ -740,6 +829,8 @@ router.post('/:id/pay-direct', [
       cvv,
       cardholderName,
       credentials,
+      billingAddress,
+      customerEmail: invoice.boarderId?.email,
     });
 
     if (result.authorised) {
@@ -879,7 +970,7 @@ router.get('/:id/receipt', async (req, res, next) => {
       horse: invoice.horseId?.name,
       charges: invoice.charges,
       paymentBreakdown: invoice.paymentBreakdown,
-      paymentInfo: invoice.stripePaymentInfo
+      paymentInfo: invoice.windcavePaymentInfo
     };
 
     res.json(receipt);

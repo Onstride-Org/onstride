@@ -926,8 +926,6 @@ router.put('/barns/:id/subscription', async (req, res, next) => {
       // Update existing subscription
       subscription.tier = tier;
       subscription.status = 'active';
-      subscription.stripeSubscriptionId = undefined;
-      subscription.stripeCustomerId = undefined;
       await subscription.save();
     } else {
       // Create new subscription

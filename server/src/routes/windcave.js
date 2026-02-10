@@ -1,554 +1,219 @@
 const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const MerchantApplication = require('../models/MerchantApplication');
 const Barn = require('../models/Barn');
 const User = require('../models/User');
 const { authenticate, loadBarnContext, requireBarn, hasRole } = require('../middleware/auth');
 const emailService = require('../services/email');
+const docuseal = require('../services/docuseal');
 
 const router = express.Router();
 
-// Configure multer for document uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../uploads/merchant-docs');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, `${req.barnId}-${uniqueSuffix}${path.extname(file.originalname)}`);
-  }
-});
-
+// PDF upload for templates (memory storage, max 20MB)
 const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
-    if (allowedTypes.includes(file.mimetype)) {
+    if (file.mimetype === 'application/pdf') {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only PDF, PNG, and JPG are allowed.'));
+      cb(new Error('Only PDF files are allowed'));
     }
+  },
+});
+
+// ============ DocuSeal Webhook (no auth — called externally by DocuSeal) ============
+router.post('/webhook/docuseal', express.json(), async (req, res) => {
+  try {
+    const { event_type, data } = req.body;
+    console.log('DocuSeal webhook received:', event_type, data?.submission_id || data?.id);
+
+    if (event_type === 'submission.completed' || event_type === 'form.completed') {
+      const submissionId = data?.submission_id || data?.id;
+      if (!submissionId) return res.json({ received: true });
+
+      const application = await MerchantApplication.findOne({ docusealSubmissionId: submissionId });
+      if (application && application.status === 'draft') {
+        application.status = 'submitted';
+        application.submittedAt = new Date();
+        application.addAuditLog('submitted_via_webhook', null, 'Application auto-submitted via DocuSeal webhook', '0.0.0.0');
+        await application.save();
+
+        const barn = await Barn.findById(application.barnId);
+        emailService.sendMerchantApplicationNotification({
+          barnName: barn?.name || 'Unknown Barn',
+          barnId: application.barnId,
+          legalName: barn?.name,
+          submittedAt: application.submittedAt,
+        }).catch(err => console.error('Failed to send merchant application notification:', err));
+
+        console.log(`Application ${application._id} auto-submitted via DocuSeal webhook`);
+      }
+    }
+
+    res.json({ received: true });
+  } catch (error) {
+    console.error('DocuSeal webhook error:', error);
+    res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
 
-// Apply authentication and barn context to all routes
+// Apply authentication and barn context to all subsequent routes
 router.use(authenticate);
 router.use(loadBarnContext);
 
-// ============ Application CRUD ============
+// ============ DocuSeal Application Routes ============
 
-// Get application for current barn
+// Get application for current barn (status + embed info)
 router.get('/application', requireBarn, async (req, res, next) => {
   try {
-    let application = await MerchantApplication.findByBarn(req.barnId);
+    const application = await MerchantApplication.findByBarn(req.barnId);
 
     if (!application) {
-      // Return empty state to indicate no application exists
       return res.json({ exists: false });
     }
 
-    // Don't return encrypted fields, but show masked versions
-    const result = application.toObject();
-    result.exists = true;
-
-    // Add masked sensitive fields
-    if (application.merchantInfo?.einTinEncrypted) {
-      result.merchantInfo.einTinMasked = application.getMaskedEinTin();
-    }
-    if (application.bankAccount?.routingNumberEncrypted) {
-      result.bankAccount.routingNumberProvided = true;
-    }
-    if (application.bankAccount?.accountNumberEncrypted) {
-      result.bankAccount.accountNumberMasked = application.getMaskedBankAccount();
-      result.bankAccount.accountNumberProvided = true;
-    }
-
-    res.json(result);
+    res.json({
+      exists: true,
+      _id: application._id,
+      status: application.status,
+      submittedAt: application.submittedAt,
+      approvedAt: application.approvedAt,
+      rejectedAt: application.rejectedAt,
+      rejectionReason: application.rejectionReason,
+      additionalInfoRequested: application.additionalInfoRequested,
+      docusealSubmitterSlug: application.docusealSubmitterSlug,
+      docusealSubmissionId: application.docusealSubmissionId,
+      docusealTemplateId: application.docusealTemplateId,
+      windcaveCredentials: application.windcaveCredentials?.merchantId ? {
+        merchantId: application.windcaveCredentials.merchantId,
+        isActive: application.windcaveCredentials.isActive,
+        activatedAt: application.windcaveCredentials.activatedAt,
+        testResult: application.windcaveCredentials.testResult,
+      } : undefined,
+    });
   } catch (error) {
     next(error);
   }
 });
 
-// Create new application (or get existing draft)
-router.post('/application', [
+// Start a new application — creates DocuSeal submission and returns embed slug
+router.post('/application/start', [
   requireBarn,
-  hasRole('owner', 'admin')
+  hasRole('owner', 'admin'),
 ], async (req, res, next) => {
   try {
-    // Check if application already exists
+    if (!docuseal.isConfigured()) {
+      return res.status(503).json({ error: 'Document signing service is not configured.' });
+    }
+
+    // Check for existing application
     let application = await MerchantApplication.findByBarn(req.barnId);
 
-    if (application) {
-      return res.status(400).json({
-        error: 'Application already exists',
+    // If there's already an active submission, return the existing slug
+    if (application?.docusealSubmitterSlug && application.status === 'draft') {
+      return res.json({
         applicationId: application._id,
-        status: application.status
+        slug: application.docusealSubmitterSlug,
+        embedUrl: docuseal.getFormEmbedUrl(application.docusealSubmitterSlug),
+        status: application.status,
       });
     }
 
-    // Get barn and user data for pre-filling
-    const [barn, user] = await Promise.all([
+    // Find the active template — use the one set on the application or the newest one
+    let templateId = req.body.templateId || application?.docusealTemplateId;
+
+    if (!templateId) {
+      // Use the most recent template
+      const templates = await docuseal.listTemplates();
+      if (!templates || templates.length === 0) {
+        return res.status(400).json({ error: 'No application template has been configured. Please contact admin.' });
+      }
+      templateId = templates[0].id;
+    }
+
+    // Get user and barn info for pre-filling
+    const [user, barn] = await Promise.all([
+      User.findById(req.userId),
       Barn.findById(req.barnId),
-      User.findById(req.userId)
     ]);
 
-    // Create new application with pre-filled data
-    application = new MerchantApplication({
-      barnId: req.barnId,
-      userId: req.userId,
+    const baseUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+
+    // Create DocuSeal submission
+    const submissionData = await docuseal.createSubmission({
+      templateId,
+      email: user.email,
+      name: user.name || user.email,
+      completedRedirectUrl: `${baseUrl}/app/financials?application=completed`,
+      prefillData: {
+        'Business Name': barn?.name || '',
+        'Email': user.email || '',
+        'Phone': barn?.phoneNumber || '',
+        'Address': barn?.address || '',
+        'City': barn?.city || '',
+        'State': barn?.state || '',
+        'Zip Code': barn?.zipCode || '',
+      },
+    });
+
+    // Extract submitter info — DocuSeal returns array of submitters
+    const submitters = Array.isArray(submissionData) ? submissionData : [submissionData];
+    const submitter = submitters[0];
+    const submissionId = submitter.submission_id || submitter.id;
+    const slug = submitter.slug;
+
+    // Create or update application record
+    if (!application) {
+      application = new MerchantApplication({
+        barnId: req.barnId,
+        userId: req.userId,
+        status: 'draft',
+        docusealTemplateId: templateId,
+        docusealSubmissionId: submissionId,
+        docusealSubmitterSlug: slug,
+      });
+    } else {
+      application.docusealTemplateId = templateId;
+      application.docusealSubmissionId = submissionId;
+      application.docusealSubmitterSlug = slug;
+      application.status = 'draft';
+    }
+
+    application.addAuditLog('docuseal_submission_created', req.userId, `DocuSeal submission ${submissionId} created`, req.ip);
+    await application.save();
+
+    res.json({
+      applicationId: application._id,
+      slug,
+      embedUrl: docuseal.getFormEmbedUrl(slug),
       status: 'draft',
-      currentStep: 1,
-      completedSteps: [],
-
-      // Pre-fill from barn data
-      merchantInfo: {
-        legalName: barn.name,
-        tradingName: barn.name,
-        locationAddress: {
-          street: barn.address || '',
-          city: barn.city || '',
-          state: barn.state || '',
-          zipCode: barn.zipCode || ''
-        },
-        email: barn.email || user.email,
-        phone: barn.phoneNumber || user.phoneNumber || '',
-        website: barn.website || ''
-      },
-
-      // Pre-fill controlling person from user
-      controllingPerson: {
-        firstName: user.name?.split(' ')[0] || '',
-        lastName: user.name?.split(' ').slice(1).join(' ') || '',
-        email: user.email
-      },
-
-      // Equine business defaults
-      businessDescription: {
-        description: 'Equine boarding, training, lessons, and related services',
-        natureOfBusiness: 'arts_recreation'
-      },
-      transactionDetails: {
-        averageTicket: 500,
-        highTicket: 5000,
-        monthlyCardVolume: 10000,
-        hasFutureDatedEvents: true
-      },
-      cardAcceptanceMethods: {
-        swipeContactlessInserted: 0,
-        mailOrderTelephoneOrder: 0,
-        ecommerce: 100,
-        subscriptionRecurring: 0,
-        posSystem: 'OnStride'
-      },
-      additionalQuestionnaire: {
-        businessConsumersPercent: 10,
-        individualCustomersPercent: 90,
-        ownsProductInventory: false,
-        productStoredAtLocation: true,
-        whoEntersCardInfo: 'consumer',
-        whoShipsProduct: 'na',
-        daysUntilShipAfterAuth: 0
-      }
     });
-
-    application.addAuditLog('created', req.userId, 'Application created', req.ip);
-    await application.save();
-
-    res.status(201).json(application);
   } catch (error) {
+    console.error('Failed to start DocuSeal application:', error.response?.data || error.message);
     next(error);
   }
 });
 
-// Update application (save progress)
-router.put('/application', [
-  requireBarn,
-  hasRole('owner', 'admin')
-], async (req, res, next) => {
-  try {
-    const application = await MerchantApplication.findByBarn(req.barnId);
-
-    if (!application) {
-      return res.status(404).json({ error: 'Application not found' });
-    }
-
-    if (application.status !== 'draft' && application.status !== 'requires_info') {
-      return res.status(400).json({
-        error: 'Cannot edit application in current status',
-        status: application.status
-      });
-    }
-
-    // Update allowed fields
-    const allowedSections = [
-      'merchantInfo',
-      'businessDescription',
-      'transactionDetails',
-      'cardAcceptanceMethods',
-      'additionalQuestionnaire',
-      'beneficialOwners',
-      'controllingPerson',
-      'bankAccount',
-      'currentStep',
-      'completedSteps'
-    ];
-
-    allowedSections.forEach(section => {
-      if (req.body[section] !== undefined) {
-        if (typeof req.body[section] === 'object' && !Array.isArray(req.body[section])) {
-          // Merge objects
-          application[section] = {
-            ...application[section]?.toObject?.() || application[section] || {},
-            ...req.body[section]
-          };
-        } else {
-          application[section] = req.body[section];
-        }
-      }
-    });
-
-    // Handle sensitive fields specially - they come in plain and get encrypted on save
-    if (req.body.einTin) {
-      application.merchantInfo.einTinEncrypted = req.body.einTin;
-    }
-    if (req.body.routingNumber) {
-      application.bankAccount.routingNumberEncrypted = req.body.routingNumber;
-    }
-    if (req.body.accountNumber) {
-      application.bankAccount.accountNumberEncrypted = req.body.accountNumber;
-    }
-    if (req.body.controllingPersonSsn) {
-      application.controllingPerson.ssnEncrypted = req.body.controllingPersonSsn;
-    }
-    if (req.body.controllingPersonDriversLicense) {
-      application.controllingPerson.driversLicense = {
-        ...application.controllingPerson?.driversLicense || {},
-        numberEncrypted: req.body.controllingPersonDriversLicense
-      };
-    }
-
-    application.addAuditLog('updated', req.userId, `Updated: ${allowedSections.filter(s => req.body[s]).join(', ')}`, req.ip);
-    await application.save();
-
-    // Return without encrypted fields
-    const result = application.toObject();
-    if (application.merchantInfo?.einTinEncrypted) {
-      result.merchantInfo.einTinMasked = application.getMaskedEinTin();
-    }
-    if (application.bankAccount?.routingNumberEncrypted) {
-      result.bankAccount.routingNumberProvided = true;
-    }
-    if (application.bankAccount?.accountNumberEncrypted) {
-      result.bankAccount.accountNumberMasked = application.getMaskedBankAccount();
-      result.bankAccount.accountNumberProvided = true;
-    }
-
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
-});
-
-// ============ Document Upload ============
-
-// Upload document
-router.post('/application/documents', [
+// Mark application as submitted (called after DocuSeal form completion)
+router.post('/application/complete', [
   requireBarn,
   hasRole('owner', 'admin'),
-  upload.single('document')
 ], async (req, res, next) => {
   try {
     const application = await MerchantApplication.findByBarn(req.barnId);
-
-    if (!application) {
-      // Delete uploaded file if application doesn't exist
-      if (req.file) fs.unlinkSync(req.file.path);
-      return res.status(404).json({ error: 'Application not found' });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-    const { documentType } = req.body;
-    const filePath = `/uploads/merchant-docs/${req.file.filename}`;
-
-    // Update the appropriate document field
-    switch (documentType) {
-      case 'processingStatement':
-        if (!application.documents.processingStatements) {
-          application.documents.processingStatements = [];
-        }
-        application.documents.processingStatements.push(filePath);
-        break;
-      case 'proofOfAddress':
-        application.documents.proofOfAddress = filePath;
-        break;
-      case 'incorporationCert':
-        application.documents.incorporationCert = filePath;
-        break;
-      case 'voidedCheck':
-        application.documents.voidedCheck = filePath;
-        application.bankAccount.voidedCheckDocument = filePath;
-        break;
-      case 'ownerId':
-        if (!application.documents.ownerIds) {
-          application.documents.ownerIds = [];
-        }
-        application.documents.ownerIds.push(filePath);
-        break;
-      default:
-        fs.unlinkSync(req.file.path);
-        return res.status(400).json({ error: 'Invalid document type' });
-    }
-
-    application.addAuditLog('document_uploaded', req.userId, `Uploaded ${documentType}`, req.ip);
-    await application.save();
-
-    res.json({
-      success: true,
-      documentType,
-      filePath,
-      documents: application.documents
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Delete document
-router.delete('/application/documents/:documentType/:index?', [
-  requireBarn,
-  hasRole('owner', 'admin')
-], async (req, res, next) => {
-  try {
-    const application = await MerchantApplication.findByBarn(req.barnId);
-
     if (!application) {
       return res.status(404).json({ error: 'Application not found' });
     }
 
-    const { documentType, index } = req.params;
-    let filePath;
-
-    switch (documentType) {
-      case 'processingStatement':
-        if (application.documents.processingStatements && application.documents.processingStatements[index]) {
-          filePath = application.documents.processingStatements[index];
-          application.documents.processingStatements.splice(index, 1);
-        }
-        break;
-      case 'proofOfAddress':
-        filePath = application.documents.proofOfAddress;
-        application.documents.proofOfAddress = null;
-        break;
-      case 'incorporationCert':
-        filePath = application.documents.incorporationCert;
-        application.documents.incorporationCert = null;
-        break;
-      case 'voidedCheck':
-        filePath = application.documents.voidedCheck;
-        application.documents.voidedCheck = null;
-        application.bankAccount.voidedCheckDocument = null;
-        break;
-      case 'ownerId':
-        if (application.documents.ownerIds && application.documents.ownerIds[index]) {
-          filePath = application.documents.ownerIds[index];
-          application.documents.ownerIds.splice(index, 1);
-        }
-        break;
-      default:
-        return res.status(400).json({ error: 'Invalid document type' });
+    if (application.status !== 'draft') {
+      return res.json({ status: application.status, message: 'Application already submitted.' });
     }
 
-    // Delete file from disk
-    if (filePath) {
-      const fullPath = path.join(__dirname, '../..', filePath);
-      if (fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
-      }
-    }
-
-    application.addAuditLog('document_deleted', req.userId, `Deleted ${documentType}`, req.ip);
-    await application.save();
-
-    res.json({
-      success: true,
-      documents: application.documents
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// ============ Signatures ============
-
-// Save signature
-router.post('/application/signature', [
-  requireBarn,
-  hasRole('owner', 'admin'),
-  body('signatureType').isIn(['merchant', 'principal1', 'principal2']),
-  body('signature').notEmpty(),
-  body('printedName').notEmpty()
-], async (req, res, next) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const application = await MerchantApplication.findByBarn(req.barnId);
-
-    if (!application) {
-      return res.status(404).json({ error: 'Application not found' });
-    }
-
-    const { signatureType, signature, printedName } = req.body;
-
-    switch (signatureType) {
-      case 'merchant':
-        application.signatures.merchantSignature = signature;
-        application.signatures.merchantPrintedName = printedName;
-        application.signatures.merchantSignatureDate = new Date();
-        application.signatures.merchantSignatureIp = req.ip;
-        break;
-      case 'principal1':
-        application.signatures.principal1Signature = signature;
-        application.signatures.principal1PrintedName = printedName;
-        application.signatures.principal1SignatureDate = new Date();
-        application.signatures.principal1SignatureIp = req.ip;
-        break;
-      case 'principal2':
-        application.signatures.principal2Signature = signature;
-        application.signatures.principal2PrintedName = printedName;
-        application.signatures.principal2SignatureDate = new Date();
-        application.signatures.principal2SignatureIp = req.ip;
-        break;
-    }
-
-    application.addAuditLog('signature_added', req.userId, `${signatureType} signature added`, req.ip);
-    await application.save();
-
-    res.json({
-      success: true,
-      signatureType,
-      signatureDate: application.signatures[`${signatureType}SignatureDate`]
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Accept terms
-router.post('/application/accept-terms', [
-  requireBarn,
-  hasRole('owner', 'admin')
-], async (req, res, next) => {
-  try {
-    const application = await MerchantApplication.findByBarn(req.barnId);
-
-    if (!application) {
-      return res.status(404).json({ error: 'Application not found' });
-    }
-
-    application.signatures.termsAccepted = true;
-    application.signatures.termsAcceptedDate = new Date();
-    application.addAuditLog('terms_accepted', req.userId, 'Terms and conditions accepted', req.ip);
-    await application.save();
-
-    res.json({ success: true, termsAcceptedDate: application.signatures.termsAcceptedDate });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// ============ Submission ============
-
-// Submit application
-router.post('/application/submit', [
-  requireBarn,
-  hasRole('owner', 'admin')
-], async (req, res, next) => {
-  try {
-    // Include encrypted fields for validation
-    const application = await MerchantApplication.findOne({ barnId: req.barnId })
-      .select('+bankAccount.routingNumberEncrypted +bankAccount.accountNumberEncrypted +merchantInfo.einTinEncrypted');
-
-    if (!application) {
-      return res.status(404).json({ error: 'Application not found' });
-    }
-
-    if (application.status !== 'draft' && application.status !== 'requires_info') {
-      return res.status(400).json({
-        error: 'Application cannot be submitted in current status',
-        status: application.status
-      });
-    }
-
-    // Validate application is complete
-    if (!application.isComplete()) {
-      // Build detailed missing fields list
-      const missing = [];
-      if (!application.merchantInfo?.legalName) missing.push('Legal Business Name');
-      if (!application.merchantInfo?.businessType) missing.push('Business Type');
-      if (!application.merchantInfo?.locationAddress?.street) missing.push('Business Street Address');
-      if (!application.merchantInfo?.locationAddress?.city) missing.push('Business City');
-      if (!application.merchantInfo?.locationAddress?.state) missing.push('Business State');
-      if (!application.merchantInfo?.locationAddress?.zipCode) missing.push('Business ZIP Code');
-      if (!application.controllingPerson?.firstName) missing.push('Controlling Person First Name');
-      if (!application.controllingPerson?.lastName) missing.push('Controlling Person Last Name');
-      if (!application.bankAccount?.bankName) missing.push('Bank Name');
-      if (!application.bankAccount?.routingNumberEncrypted) missing.push('Bank Routing Number');
-      if (!application.bankAccount?.accountNumberEncrypted) missing.push('Bank Account Number');
-      if (!application.signatures?.merchantSignature) missing.push('Merchant Signature');
-      if (!application.signatures?.termsAccepted) missing.push('Terms & Conditions Acceptance');
-
-      return res.status(400).json({
-        error: 'Application is incomplete',
-        missingFields: missing,
-        details: {
-          hasLegalName: !!application.merchantInfo?.legalName,
-          hasBusinessType: !!application.merchantInfo?.businessType,
-          hasLocationAddress: !!(application.merchantInfo?.locationAddress?.street &&
-                                 application.merchantInfo?.locationAddress?.city &&
-                                 application.merchantInfo?.locationAddress?.state &&
-                                 application.merchantInfo?.locationAddress?.zipCode),
-          hasControllingPerson: !!(application.controllingPerson?.firstName && application.controllingPerson?.lastName),
-          hasBankAccount: !!(application.bankAccount?.bankName &&
-                             application.bankAccount?.routingNumberEncrypted &&
-                             application.bankAccount?.accountNumberEncrypted),
-          hasSignature: !!application.signatures?.merchantSignature,
-          hasTermsAccepted: application.signatures?.termsAccepted === true
-        }
-      });
-    }
-
-    // Validate card acceptance methods total 100%
-    if (!application.validateCardAcceptanceMethods()) {
-      return res.status(400).json({
-        error: 'Card acceptance methods must total 100%'
-      });
-    }
-
-    // Validate customer percentages total 100%
-    if (!application.validateCustomerPercentages()) {
-      return res.status(400).json({
-        error: 'Customer percentages must total 100%'
-      });
-    }
-
-    // Submit the application
     application.status = 'submitted';
     application.submittedAt = new Date();
-    application.addAuditLog('submitted', req.userId, 'Application submitted for review', req.ip);
+    application.addAuditLog('submitted', req.userId, 'Application submitted via DocuSeal', req.ip);
     await application.save();
 
     // Send notification to OnStride admin
@@ -556,31 +221,125 @@ router.post('/application/submit', [
     emailService.sendMerchantApplicationNotification({
       barnName: barn?.name || 'Unknown Barn',
       barnId: req.barnId,
-      legalName: application.merchantInfo?.legalName,
+      legalName: barn?.name,
       submittedAt: application.submittedAt,
     }).catch(err => console.error('Failed to send merchant application notification:', err));
 
     res.json({
       success: true,
-      status: application.status,
+      status: 'submitted',
       submittedAt: application.submittedAt,
-      message: 'Your application has been submitted and is now under review. You will receive an email once it has been processed.'
+      message: 'Your application has been submitted to Windcave for review.',
     });
   } catch (error) {
     next(error);
   }
 });
 
-// ============ Credentials (Post-Approval) ============
+// ============ Admin Template Management ============
+
+// List templates
+router.get('/templates', async (req, res, next) => {
+  try {
+    if (req.user.accountType !== 'admin') {
+      // Non-admins can see available templates (limited info)
+      const templates = await docuseal.listTemplates();
+      return res.json(templates.map(t => ({
+        id: t.id,
+        name: t.name,
+        created_at: t.created_at,
+      })));
+    }
+
+    const templates = await docuseal.listTemplates();
+    res.json(templates);
+  } catch (error) {
+    console.error('Failed to list templates:', error.response?.data || error.message);
+    next(error);
+  }
+});
+
+// Upload a new PDF template
+router.post('/templates', upload.single('pdf'), async (req, res, next) => {
+  try {
+    if (req.user.accountType !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No PDF file uploaded' });
+    }
+
+    const name = req.body.name || 'Merchant Application';
+    const fileBase64 = req.file.buffer.toString('base64');
+
+    const template = await docuseal.createTemplateFromPdf(name, fileBase64);
+    res.json(template);
+  } catch (error) {
+    console.error('Failed to create template:', error.response?.data || error.message);
+    next(error);
+  }
+});
+
+// Delete a template
+router.delete('/templates/:id', async (req, res, next) => {
+  try {
+    if (req.user.accountType !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    await docuseal.deleteTemplate(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete template:', error.response?.data || error.message);
+    next(error);
+  }
+});
+
+// Get DocuSeal config info for admin (API key status, recipient email)
+router.get('/docuseal-config', async (req, res, next) => {
+  try {
+    if (req.user.accountType !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    res.json({
+      isConfigured: docuseal.isConfigured(),
+      applicationEmail: docuseal.getApplicationRecipientEmail(),
+      apiUrl: process.env.DOCUSEAL_API_URL || 'https://api.docuseal.com',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============ Admin Submissions ============
+
+// List all submissions (admin)
+router.get('/submissions', async (req, res, next) => {
+  try {
+    if (req.user.accountType !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const templateId = req.query.templateId || null;
+    const submissions = await docuseal.listSubmissions(templateId);
+    res.json(submissions);
+  } catch (error) {
+    console.error('Failed to list submissions:', error.response?.data || error.message);
+    next(error);
+  }
+});
+
+// ============ Credentials (Post-Approval) — Unchanged ============
 
 // Save Windcave credentials
-// Supports both: 1) Adding credentials to approved application, 2) Direct credential entry (creates minimal application)
 router.post('/credentials', [
   requireBarn,
   hasRole('owner', 'admin'),
   body('merchantId').notEmpty().trim(),
   body('apiKey').notEmpty(),
-  body('apiSecret').notEmpty()
+  body('apiSecret').notEmpty(),
 ], async (req, res, next) => {
   try {
     const errors = validationResult(req);
@@ -592,20 +351,16 @@ router.post('/credentials', [
 
     let application = await MerchantApplication.findByBarn(req.barnId);
 
-    // If no application exists, create a minimal one for credential storage
-    // This allows users with existing Windcave accounts to connect directly
     if (!application) {
       const [barn, user] = await Promise.all([
         Barn.findById(req.barnId),
-        User.findById(req.userId)
+        User.findById(req.userId),
       ]);
 
       application = new MerchantApplication({
         barnId: req.barnId,
         userId: req.userId,
-        status: 'approved', // Mark as approved since they have existing credentials
-        currentStep: 8, // Mark as complete
-        completedSteps: [1, 2, 3, 4, 5, 6, 7, 8],
+        status: 'approved',
         approvedAt: new Date(),
         merchantInfo: {
           legalName: barn?.name || 'Unknown',
@@ -616,22 +371,19 @@ router.post('/credentials', [
           merchantId,
           apiKeyEncrypted: apiKey,
           apiSecretEncrypted: apiSecret,
-          isActive: false
-        }
+          isActive: false,
+        },
       });
 
-      application.addAuditLog('direct_credentials_added', req.userId, 'Windcave credentials added directly (existing account)', req.ip);
+      application.addAuditLog('direct_credentials_added', req.userId, 'Windcave credentials added directly', req.ip);
     } else {
-      // Existing application - update credentials
-      // Allow updating credentials regardless of application status (for users who already have accounts)
       application.windcaveCredentials = {
         merchantId,
         apiKeyEncrypted: apiKey,
         apiSecretEncrypted: apiSecret,
-        isActive: false
+        isActive: false,
       };
 
-      // If application wasn't approved, mark it as approved now (direct credential entry)
       if (application.status !== 'approved') {
         application.status = 'approved';
         application.approvedAt = new Date();
@@ -644,7 +396,7 @@ router.post('/credentials', [
 
     res.json({
       success: true,
-      message: 'Credentials saved. Please test the connection to activate payment processing.'
+      message: 'Credentials saved. Please test the connection to activate payment processing.',
     });
   } catch (error) {
     next(error);
@@ -654,24 +406,22 @@ router.post('/credentials', [
 // Test Windcave connection
 router.post('/test-connection', [
   requireBarn,
-  hasRole('owner', 'admin')
+  hasRole('owner', 'admin'),
 ], async (req, res, next) => {
   try {
     const application = await MerchantApplication.findOne({ barnId: req.barnId })
       .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
 
     if (!application) {
-      return res.status(404).json({ error: 'No credentials configured. Please add your Windcave credentials first.' });
+      return res.status(404).json({ error: 'No credentials configured.' });
     }
 
     if (!application.windcaveCredentials?.merchantId) {
       return res.status(400).json({ error: 'No credentials configured' });
     }
 
-    // Get decrypted credentials
     const credentials = application.getWindcaveCredentials();
 
-    // Make actual API call to Windcave to test credentials
     let testSuccess = false;
     let testMessage = '';
 
@@ -684,31 +434,22 @@ router.post('/test-connection', [
           amount: '1.00',
           currency: 'USD',
           merchantReference: `test-${Date.now()}`,
-          methods: ['card']
+          methods: ['card'],
         },
         {
-          auth: {
-            username: credentials.apiKey,
-            password: credentials.apiSecret
-          },
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          timeout: 10000
+          auth: { username: credentials.apiKey, password: credentials.apiSecret },
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 10000,
         }
       );
 
-      // If we get a session ID back, credentials are valid
       if (testResponse.data?.id) {
         testSuccess = true;
         testMessage = 'Connection successful! Your Windcave account is now active.';
       } else {
-        testMessage = 'Connection test returned unexpected response. Please verify credentials.';
+        testMessage = 'Connection test returned unexpected response.';
       }
     } catch (apiError) {
-      console.error('Windcave test connection error:', apiError.response?.data || apiError.message);
-
-      // Check for specific error types
       if (apiError.response?.status === 401) {
         testMessage = 'Authentication failed. Please check your API Key and API Secret.';
       } else if (apiError.response?.status === 403) {
@@ -716,20 +457,17 @@ router.post('/test-connection', [
       } else if (apiError.code === 'ECONNREFUSED' || apiError.code === 'ETIMEDOUT') {
         testMessage = 'Could not connect to Windcave. Please try again later.';
       } else {
-        testMessage = apiError.response?.data?.errors?.[0]?.message ||
-                      'Connection failed. Please verify your credentials.';
+        testMessage = apiError.response?.data?.errors?.[0]?.message || 'Connection failed.';
       }
     }
 
-    // Update test results
     application.windcaveCredentials.testResult = {
       success: testSuccess,
       message: testMessage,
-      testedAt: new Date()
+      testedAt: new Date(),
     };
     application.windcaveCredentials.lastTestedAt = new Date();
 
-    // If test successful, activate payment processing
     if (testSuccess) {
       application.windcaveCredentials.isActive = true;
       application.windcaveCredentials.activatedAt = new Date();
@@ -743,7 +481,7 @@ router.post('/test-connection', [
     res.json({
       success: testSuccess,
       message: testMessage,
-      isActive: application.windcaveCredentials.isActive
+      isActive: application.windcaveCredentials.isActive,
     });
   } catch (error) {
     next(error);
@@ -756,11 +494,7 @@ router.get('/credentials/status', requireBarn, async (req, res, next) => {
     const application = await MerchantApplication.findByBarn(req.barnId);
 
     if (!application) {
-      return res.json({
-        hasApplication: false,
-        status: null,
-        isActive: false
-      });
+      return res.json({ hasApplication: false, status: null, isActive: false });
     }
 
     res.json({
@@ -770,24 +504,23 @@ router.get('/credentials/status', requireBarn, async (req, res, next) => {
       isActive: application.windcaveCredentials?.isActive || false,
       activatedAt: application.windcaveCredentials?.activatedAt,
       lastTestedAt: application.windcaveCredentials?.lastTestedAt,
-      testResult: application.windcaveCredentials?.testResult
+      testResult: application.windcaveCredentials?.testResult,
     });
   } catch (error) {
     next(error);
   }
 });
 
-// ============ Admin Routes ============
+// ============ Admin Status Management ============
 
 // Update application status (admin only)
 router.put('/application/status', [
   authenticate,
   body('barnId').isMongoId(),
   body('status').isIn(['under_review', 'approved', 'rejected', 'requires_info']),
-  body('reason').optional().trim()
+  body('reason').optional().trim(),
 ], async (req, res, next) => {
   try {
-    // Verify admin
     if (req.user.accountType !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
@@ -822,12 +555,10 @@ router.put('/application/status', [
     application.addAuditLog(`status_changed_to_${status}`, req.userId, reason || '', req.ip);
     await application.save();
 
-    // TODO: Send email notification to barn owner about status change
-
     res.json({
       success: true,
       status: application.status,
-      message: `Application status updated to ${status}`
+      message: `Application status updated to ${status}`,
     });
   } catch (error) {
     next(error);

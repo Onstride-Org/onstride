@@ -124,6 +124,7 @@ export default function PaymentModal({
           'Authorization': `Bearer ${token}`,
           ...(barnId && { 'X-Barn-Id': barnId }),
         },
+        body: JSON.stringify({}), // Server falls back to barn address for AVS
       });
 
       const data = await response.json();

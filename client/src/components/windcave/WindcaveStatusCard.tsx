@@ -152,7 +152,6 @@ export default function WindcaveStatusCard({
 
   // State 2: Application In Progress (Draft)
   if (application.status === 'draft') {
-    const progressPercent = ((application.currentStep || 1) / 8) * 100;
     return (
       <div className="vendor-card windcave-status-card">
         <div className="vendor-card-header">
@@ -165,14 +164,8 @@ export default function WindcaveStatusCard({
           <span className="badge badge-warning">Draft</span>
         </div>
         <div className="vendor-card-body">
-          <div className="windcave-progress">
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${progressPercent}%` }}></div>
-            </div>
-            <span className="progress-text">Step {application.currentStep || 1} of 8</span>
-          </div>
           <p className="windcave-description">
-            Continue your merchant application to enable payment processing.
+            Your merchant application has been started. Continue filling it out to enable payment processing.
           </p>
         </div>
         <div className="vendor-card-actions">

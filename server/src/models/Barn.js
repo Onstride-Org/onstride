@@ -43,7 +43,6 @@ const barnSchema = new mongoose.Schema({
     of: stallPositionSchema,
     default: new Map()
   },
-  connectedAccountId: String, // Stripe Connect account
   // QuickBooks integration
   quickbooks: {
     accessToken: { type: String, select: false },

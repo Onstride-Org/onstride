@@ -1052,57 +1052,15 @@ export const windcaveApi = {
     return response.data;
   },
 
-  // Create new merchant application
-  createApplication: async () => {
-    const response = await api.post('/windcave/application');
+  // Start new application (creates DocuSeal submission, returns embed slug)
+  startApplication: async (templateId?: number) => {
+    const response = await api.post('/windcave/application/start', { templateId });
     return response.data;
   },
 
-  // Update merchant application (save progress)
-  updateApplication: async (data: object) => {
-    const response = await api.put('/windcave/application', data);
-    return response.data;
-  },
-
-  // Upload document
-  uploadDocument: async (file: File, documentType: string) => {
-    const formData = new FormData();
-    formData.append('document', file);
-    formData.append('documentType', documentType);
-    const response = await api.post('/windcave/application/documents', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
-  },
-
-  // Delete document
-  deleteDocument: async (documentType: string, index?: number) => {
-    const url = index !== undefined
-      ? `/windcave/application/documents/${documentType}/${index}`
-      : `/windcave/application/documents/${documentType}`;
-    const response = await api.delete(url);
-    return response.data;
-  },
-
-  // Save signature
-  saveSignature: async (signatureType: string, signature: string, printedName: string) => {
-    const response = await api.post('/windcave/application/signature', {
-      signatureType,
-      signature,
-      printedName,
-    });
-    return response.data;
-  },
-
-  // Accept terms
-  acceptTerms: async () => {
-    const response = await api.post('/windcave/application/accept-terms');
-    return response.data;
-  },
-
-  // Submit application
-  submitApplication: async () => {
-    const response = await api.post('/windcave/application/submit');
+  // Mark application as submitted (called after DocuSeal form completion)
+  completeApplication: async () => {
+    const response = await api.post('/windcave/application/complete');
     return response.data;
   },
 
@@ -1125,6 +1083,39 @@ export const windcaveApi = {
   // Get credential status
   getCredentialStatus: async () => {
     const response = await api.get('/windcave/credentials/status');
+    return response.data;
+  },
+
+  // ── Admin: Templates ──
+  listTemplates: async () => {
+    const response = await api.get('/windcave/templates');
+    return response.data;
+  },
+
+  uploadTemplate: async (file: File, name: string) => {
+    const formData = new FormData();
+    formData.append('pdf', file);
+    formData.append('name', name);
+    const response = await api.post('/windcave/templates', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  deleteTemplate: async (templateId: number) => {
+    const response = await api.delete(`/windcave/templates/${templateId}`);
+    return response.data;
+  },
+
+  getDocusealConfig: async () => {
+    const response = await api.get('/windcave/docuseal-config');
+    return response.data;
+  },
+
+  // ── Admin: Submissions ──
+  listSubmissions: async (templateId?: number) => {
+    const params = templateId ? { templateId } : {};
+    const response = await api.get('/windcave/submissions', { params });
     return response.data;
   },
 };

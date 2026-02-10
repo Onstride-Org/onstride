@@ -22,12 +22,12 @@ const invoiceChargeSchema = new mongoose.Schema({
 
 const paymentBreakdownSchema = new mongoose.Schema({
   subtotal: Number,
-  stripeFee: Number,       // Legacy - kept for backward compatibility
   processingFee: Number,   // Windcave processing fee
   platformFee: Number,
   total: Number
 }, { _id: false });
 
+// Legacy schema - kept for backward compatibility with older paid invoices
 const stripePaymentInfoSchema = new mongoose.Schema({
   paymentMethodType: String,
   last4Digits: String,

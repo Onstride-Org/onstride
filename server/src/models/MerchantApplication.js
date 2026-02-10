@@ -71,7 +71,12 @@ const merchantApplicationSchema = new mongoose.Schema({
   rejectionReason: String,
   additionalInfoRequested: String,
 
-  // Current wizard step (for saving progress)
+  // DocuSeal integration
+  docusealTemplateId: Number,
+  docusealSubmissionId: Number,
+  docusealSubmitterSlug: String,
+
+  // Current wizard step (legacy - kept for backward compat)
   currentStep: {
     type: Number,
     default: 1,

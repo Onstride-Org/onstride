@@ -39,7 +39,7 @@ import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, en
 import FilterTabs from '../../components/FilterTabs';
 import {
   WindcaveStatusCard,
-  WindcaveApplicationWizard,
+  DocusealApplicationForm,
   WindcaveCredentialsForm,
 } from '../../components/windcave';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -412,9 +412,9 @@ export default function FinancialsPage() {
         </div>
       )}
 
-      {/* Merchant Application Wizard */}
+      {/* Merchant Application Form (DocuSeal) */}
       {showMerchantWizard && (
-        <WindcaveApplicationWizard
+        <DocusealApplicationForm
           onClose={() => {
             setShowMerchantWizard(false);
             loadData();
@@ -1338,7 +1338,7 @@ function PaymentsTab({
 
       {/* Modals */}
       {showWizard && (
-        <WindcaveApplicationWizard
+        <DocusealApplicationForm
           onClose={handleWizardClose}
           onSuccess={handleWizardClose}
         />

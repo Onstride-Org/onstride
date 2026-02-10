@@ -23,8 +23,6 @@ const subscriptionPlanSchema = new mongoose.Schema({
   },
   /** For contact-only plans (e.g. Enterprise), email to show "Contact us" */
   contactEmail: String,
-  stripePriceIdMonthly: String,
-  stripePriceIdYearly: String,
 
   // Limits
   maxHorses: {
@@ -119,8 +117,8 @@ const barnSubscriptionSchema = new mongoose.Schema({
     enum: ['monthly', 'yearly'],
     default: 'monthly'
   },
-  stripeCustomerId: String,
-  stripeSubscriptionId: String,
+  // Payment is processed via Windcave through the invoice checkout flow.
+  // Subscription is activated by updateSubscriptionAfterPayment() after payment.
   trialEndsAt: Date,
   currentPeriodStart: Date,
   currentPeriodEnd: Date,

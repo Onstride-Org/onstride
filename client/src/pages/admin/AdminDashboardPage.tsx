@@ -8,6 +8,7 @@ import {
   AlertTriangle, TrendingUp, Shield, Database,
   BarChart3, DollarSign, ChevronRight, Calendar
 } from 'lucide-react';
+import { DocusealTemplateManager } from '../../components/windcave';
 
 interface AdminStats {
   totalUsers: number;
@@ -312,6 +313,9 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* DocuSeal Template Management */}
+      <DocusealTemplateManager />
 
       {/* System Alerts */}
       <div className="card">

@@ -138,6 +138,7 @@ export default function GuestInvoicePage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({}), // Server falls back to barn address for AVS
       });
 
       const data = await response.json();
