@@ -325,6 +325,9 @@ router.get('/docuseal-config', async (req, res, next) => {
 });
 
 // Get JWT token for embedded template builder (admin only)
+// Authorized DocuSeal users: admin@onstrideapp.com, gal@onstrideapp.com
+const DOCUSEAL_AUTHORIZED_EMAILS = ['admin@onstrideapp.com', 'gal@onstrideapp.com'];
+
 router.get('/templates/:id/builder-token', async (req, res, next) => {
   try {
     if (req.user.accountType !== 'admin') {
@@ -336,7 +339,12 @@ router.get('/templates/:id/builder-token', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid template ID' });
     }
 
-    const token = docuseal.generateBuilderToken(templateId);
+    // Use the user's email if they're authorized on DocuSeal, otherwise default to admin
+    const userEmail = DOCUSEAL_AUTHORIZED_EMAILS.includes(req.user.email)
+      ? req.user.email
+      : 'admin@onstrideapp.com';
+
+    const token = docuseal.generateBuilderToken(templateId, userEmail);
     if (!token) {
       return res.status(503).json({ error: 'DocuSeal API not configured' });
     }

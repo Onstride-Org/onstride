@@ -176,13 +176,15 @@ const getApplicationRecipientEmail = () => {
 /**
  * Generate a JWT token for the DocuSeal embedded builder
  * @param {number} templateId - The template ID to edit
+ * @param {string} userEmail - Email of the user editing (must be a DocuSeal account member)
  * @returns {string} JWT token for the builder
  */
-const generateBuilderToken = (templateId) => {
+const generateBuilderToken = (templateId, userEmail = 'admin@onstrideapp.com') => {
   if (!DOCUSEAL_API_KEY) return null;
 
   const payload = {
     template_id: templateId,
+    user_email: userEmail,
     // Token expires in 1 hour
     exp: Math.floor(Date.now() / 1000) + 3600,
   };
