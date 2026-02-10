@@ -10,7 +10,7 @@ const jwt = require('jsonwebtoken');
 
 const DOCUSEAL_API_URL = process.env.DOCUSEAL_API_URL || 'https://api.docuseal.co';
 const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY;
-const WINDCAVE_APPLICATION_EMAIL = process.env.WINDCAVE_APPLICATION_EMAIL || 'Aashil.vitha@windcave.com';
+const WINDCAVE_APPLICATION_EMAIL = 'admin@onstrideapp.com';
 
 const api = axios.create({
   baseURL: DOCUSEAL_API_URL,
