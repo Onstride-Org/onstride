@@ -81,6 +81,8 @@ export default function DocusealTemplateManager() {
     builderEl.setAttribute('data-with-send-button', 'false');
     builderEl.setAttribute('data-with-upload-button', 'true');
     builderEl.setAttribute('data-with-title', 'false');
+    // Use light theme for better visibility
+    builderEl.setAttribute('data-background-color', '#ffffff');
     builderEl.style.width = '100%';
     builderEl.style.height = '100%';
 
@@ -187,7 +189,7 @@ export default function DocusealTemplateManager() {
         right: 0,
         bottom: 0,
         zIndex: 1000,
-        background: 'var(--bg-primary)',
+        background: '#ffffff',
         display: 'flex',
         flexDirection: 'column',
       }}>
@@ -197,14 +199,15 @@ export default function DocusealTemplateManager() {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '12px 20px',
-          borderBottom: '1px solid var(--border-color)',
-          background: 'var(--bg-secondary)',
+          borderBottom: '1px solid #e5e7eb',
+          background: '#f9fafb',
+          color: '#111827',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Edit3 size={20} style={{ color: 'var(--color-primary)' }} />
+            <Edit3 size={20} style={{ color: '#4f46e5' }} />
             <div>
-              <div style={{ fontWeight: 600 }}>Editing: {editingTemplate.name}</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+              <div style={{ fontWeight: 600, color: '#111827' }}>Editing: {editingTemplate.name}</div>
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>
                 Add form fields, signature areas, and configure the template
               </div>
             </div>
