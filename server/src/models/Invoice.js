@@ -27,12 +27,21 @@ const paymentBreakdownSchema = new mongoose.Schema({
   total: Number
 }, { _id: false });
 
-// Legacy schema - kept for backward compatibility with older paid invoices
+// Stripe payment info schema - primary payment processor
 const stripePaymentInfoSchema = new mongoose.Schema({
+  paymentIntentId: String,
+  chargeId: String,
   paymentMethodType: String,
   last4Digits: String,
-  paymentIntentId: String,
-  chargeId: String
+  brand: String,           // visa, mastercard, amex, etc.
+  receiptUrl: String,
+  // Refund fields
+  refunded: { type: Boolean, default: false },
+  refundId: String,
+  // Error tracking for failed payments
+  failedAt: Date,
+  errorCode: String,
+  errorMessage: String,
 }, { _id: false });
 
 const windcavePaymentInfoSchema = new mongoose.Schema({

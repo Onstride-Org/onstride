@@ -24,6 +24,8 @@ const adminRoutes = require('./routes/admin');
 const stableRoutes = require('./routes/stables');
 const quickbooksRoutes = require('./routes/quickbooks');
 const windcaveRoutes = require('./routes/windcave');
+const stripeConnectRoutes = require('./routes/stripeConnect');
+const stripeWebhookRoutes = require('./routes/stripeWebhook');
 const demoRequestRoutes = require('./routes/demoRequests');
 const { startReminderScheduler } = require('./services/reminders');
 
@@ -31,6 +33,10 @@ const { startReminderScheduler } = require('./services/reminders');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
+
+// IMPORTANT: Stripe webhook must be registered BEFORE express.json() middleware
+// because Stripe requires the raw body for signature verification
+app.use('/api/stripe/webhook', stripeWebhookRoutes);
 
 // Middleware
 const corsOptions = {
@@ -83,6 +89,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/stables', stableRoutes);
 app.use('/api/quickbooks', quickbooksRoutes);
 app.use('/api/windcave', windcaveRoutes);
+app.use('/api/stripe-connect', stripeConnectRoutes);
 app.use('/api/demo-requests', demoRequestRoutes);
 
 // Health check

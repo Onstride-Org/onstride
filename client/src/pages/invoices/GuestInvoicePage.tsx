@@ -1,61 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { CreditCard, Lock, AlertCircle, CheckCircle, FileText } from 'lucide-react';
+import { loadStripe } from '@stripe/stripe-js';
+import {
+  Elements,
+  PaymentElement,
+  useStripe,
+  useElements,
+} from '@stripe/react-stripe-js';
 
-// Declare Windcave types
-declare global {
-  interface Window {
-    WindcavePayments?: {
-      HostedFields: {
-        create: (
-          options: HostedFieldsOptions,
-          timeout: number,
-          onSuccess: () => void,
-          onError: (error: string) => void
-        ) => HostedFieldsController;
-      };
-    };
-  }
-}
-
-interface HostedFieldsOptions {
-  env: 'uat' | 'sec';
-  fields: {
-    CardNumber?: FieldConfig;
-    ExpirationDate?: FieldConfig;
-    CVV?: FieldConfig;
-    CardHolderName?: FieldConfig;
-  };
-  styles?: {
-    input?: Record<string, string>;
-    'input-valid'?: Record<string, string>;
-    'input-invalid'?: Record<string, string>;
-    'input-focus'?: Record<string, string>;
-  };
-}
-
-interface FieldConfig {
-  container: string;
-  tabOrder?: number;
-  placeholder?: string;
-  isOptional?: boolean;
-  supportedCards?: string[];
-  styles?: Record<string, Record<string, string>>;
-  onValid?: () => void;
-  onInvalid?: () => void;
-  detectSchema?: (cardType: string) => void;
-}
-
-interface HostedFieldsController {
-  submit: (
-    ajaxSubmitUrl: string,
-    timeout: number,
-    onResult: (status: string) => void,
-    onError: (error: string) => void
-  ) => void;
-  validateField: (fieldName: string) => { valid: boolean; error?: string };
-}
+// Initialize Stripe with publishable key
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
 
 interface GuestInvoice {
   id: string;
@@ -83,6 +39,87 @@ interface GuestInvoice {
   paidAt?: string;
 }
 
+interface PaymentFormProps {
+  token: string;
+  total: number;
+  onSuccess: () => void;
+  onError: (message: string) => void;
+  onProcessing: (processing: boolean) => void;
+}
+
+// Inner payment form component that uses Stripe hooks
+function GuestPaymentForm({ token, total, onSuccess, onError, onProcessing }: PaymentFormProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [isReady, setIsReady] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!stripe || !elements) {
+      return;
+    }
+
+    onProcessing(true);
+    onError('');
+
+    try {
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/invoice/${token}?payment=success`,
+        },
+        redirect: 'if_required',
+      });
+
+      if (error) {
+        onError(error.message || 'Payment failed. Please try again.');
+        onProcessing(false);
+      } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+        onSuccess();
+      } else if (paymentIntent && paymentIntent.status === 'processing') {
+        // Payment is processing - will be confirmed via webhook
+        onSuccess();
+      } else {
+        onError('Payment was not completed. Please try again.');
+        onProcessing(false);
+      }
+    } catch (err: any) {
+      onError(err.message || 'Payment failed. Please try again.');
+      onProcessing(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="payment-form">
+      <h3>Payment Details</h3>
+
+      <PaymentElement
+        onReady={() => setIsReady(true)}
+        options={{
+          layout: 'tabs',
+        }}
+      />
+
+      <div className="payment-security" style={{ marginTop: '16px' }}>
+        <Lock size={14} />
+        <span>Your payment is secured with 256-bit encryption</span>
+      </div>
+
+      <div className="payment-actions" style={{ marginTop: '16px' }}>
+        <button
+          type="submit"
+          className="btn btn-primary btn-lg w-full"
+          disabled={!stripe || !elements || !isReady}
+        >
+          <Lock size={18} />
+          Pay ${total.toFixed(2)}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export default function GuestInvoicePage() {
   const { token } = useParams<{ token: string }>();
   const [invoice, setInvoice] = useState<GuestInvoice | null>(null);
@@ -95,9 +132,7 @@ export default function GuestInvoicePage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
-  const [cardType, setCardType] = useState<string | null>(null);
-  const [ajaxSubmitUrl, setAjaxSubmitUrl] = useState<string | null>(null);
-  const controllerRef = useRef<HostedFieldsController | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   useEffect(() => {
     loadInvoice();
@@ -124,21 +159,19 @@ export default function GuestInvoicePage() {
     }
   };
 
-  const initializeHostedFields = async () => {
+  const createPaymentIntent = async () => {
     if (!token) return;
 
     setIsInitializing(true);
     setPaymentError(null);
 
     try {
-      // 1. Create session on backend
       const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
-      const response = await fetch(`${apiBase}/invoices/guest/${token}/hosted-fields-session`, {
+      const response = await fetch(`${apiBase}/invoices/guest/${token}/stripe/payment-intent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}), // Server falls back to barn address for AVS
       });
 
       const data = await response.json();
@@ -147,189 +180,25 @@ export default function GuestInvoicePage() {
         throw new Error(data.error || 'Failed to initialize payment');
       }
 
-      setAjaxSubmitUrl(data.ajaxSubmitCardUrl);
-
-      // 2. Wait for Windcave library to load
-      await waitForWindcave();
-
-      // 3. Wait for container elements to exist
-      await waitForContainers();
-
-      // 4. Initialize Hosted Fields
-      const controller = window.WindcavePayments!.HostedFields.create(
-        {
-          env: 'sec',
-          fields: {
-            CardNumber: {
-              container: 'guest-wc-card-number',
-              tabOrder: 1,
-              placeholder: '4111 1111 1111 1111',
-              supportedCards: ['visa', 'masterCard', 'amex'],
-              detectSchema: (type: string) => {
-                setCardType(type);
-              },
-            },
-            ExpirationDate: {
-              container: 'guest-wc-expiry',
-              tabOrder: 2,
-              placeholder: 'MM / YY',
-            },
-            CVV: {
-              container: 'guest-wc-cvv',
-              tabOrder: 3,
-              placeholder: '123',
-            },
-            CardHolderName: {
-              container: 'guest-wc-cardholder',
-              tabOrder: 4,
-              placeholder: 'Name on card',
-            },
-          },
-          styles: {
-            input: {
-              'color': '#1a1a1a',
-              'font-size': '16px',
-              'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-              'padding': '14px 16px',
-              'background-color': '#ffffff',
-              'line-height': '1.5',
-            },
-            'input-valid': {
-              'color': '#1a1a1a',
-            },
-            'input-invalid': {
-              'color': '#dc2626',
-            },
-            'input-focus': {
-              'outline': 'none',
-            },
-          },
-        },
-        30,
-        () => {
-          // Success - fields loaded
-          setIsInitializing(false);
-        },
-        (err) => {
-          // Error loading fields
-          console.error('Hosted fields error:', err);
-          setPaymentError('Failed to load payment form. Please refresh and try again.');
-          setIsInitializing(false);
-        }
-      );
-
-      controllerRef.current = controller;
+      setClientSecret(data.clientSecret);
     } catch (err: any) {
       console.error('Payment initialization error:', err);
       setPaymentError(err.message || 'Failed to initialize payment');
+    } finally {
       setIsInitializing(false);
     }
   };
 
-  const waitForWindcave = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      let attempts = 0;
-      const maxAttempts = 50; // 5 seconds
-
-      const check = () => {
-        if (window.WindcavePayments?.HostedFields) {
-          resolve();
-        } else if (attempts >= maxAttempts) {
-          reject(new Error('Payment library failed to load'));
-        } else {
-          attempts++;
-          setTimeout(check, 100);
-        }
-      };
-
-      check();
-    });
-  };
-
-  const waitForContainers = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      let attempts = 0;
-      const maxAttempts = 50; // 5 seconds
-
-      const check = () => {
-        const cardNumber = document.getElementById('guest-wc-card-number');
-        const expiry = document.getElementById('guest-wc-expiry');
-        const cvv = document.getElementById('guest-wc-cvv');
-        const cardholder = document.getElementById('guest-wc-cardholder');
-
-        if (cardNumber && expiry && cvv && cardholder) {
-          resolve();
-        } else if (attempts >= maxAttempts) {
-          reject(new Error('Payment form containers not found'));
-        } else {
-          attempts++;
-          setTimeout(check, 100);
-        }
-      };
-
-      check();
-    });
-  };
-
   const handleShowPaymentForm = () => {
     setShowPaymentForm(true);
-    // Initialize hosted fields after DOM renders
-    setTimeout(() => {
-      initializeHostedFields();
-    }, 150);
+    createPaymentIntent();
   };
 
-  const handlePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPaymentError(null);
-
-    if (!controllerRef.current || !ajaxSubmitUrl) {
-      setPaymentError('Payment form not ready. Please wait and try again.');
-      return;
-    }
-
-    setIsProcessing(true);
-
-    controllerRef.current.submit(
-      ajaxSubmitUrl,
-      30,
-      async (status) => {
-        if (status === 'done') {
-          // Payment submitted - reload invoice to check status
-          try {
-            await loadInvoice();
-            if (invoice?.status === 'paid') {
-              setPaymentSuccess(true);
-              setShowPaymentForm(false);
-            } else {
-              // Check status from API
-              const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
-              const response = await fetch(`${apiBase}/invoices/guest/${token}`);
-              const data = await response.json();
-
-              if (data.status === 'paid') {
-                setPaymentSuccess(true);
-                setShowPaymentForm(false);
-                setInvoice(data);
-              } else {
-                setPaymentError('Payment was declined. Please try again.');
-              }
-            }
-          } catch (err) {
-            setPaymentError('Failed to verify payment status');
-          }
-          setIsProcessing(false);
-        } else if (status === '3DSecure') {
-          // 3D Secure popup is being displayed
-          console.log('3D Secure authentication required');
-        }
-      },
-      (err) => {
-        console.error('Payment submission error:', err);
-        setPaymentError(err || 'Payment failed. Please try again.');
-        setIsProcessing(false);
-      }
-    );
+  const handlePaymentSuccess = async () => {
+    setPaymentSuccess(true);
+    setShowPaymentForm(false);
+    // Reload invoice to show updated status
+    await loadInvoice();
   };
 
   const getStatusBadge = (status: string) => {
@@ -496,9 +365,7 @@ export default function GuestInvoicePage() {
                 Pay ${total.toFixed(2)}
               </button>
             ) : (
-              <form onSubmit={handlePayment} className="payment-form">
-                <h3>Payment Details</h3>
-
+              <div style={{ position: 'relative' }}>
                 {paymentError && (
                   <div className="alert alert-error mb-4">
                     <AlertCircle size={18} />
@@ -506,77 +373,74 @@ export default function GuestInvoicePage() {
                   </div>
                 )}
 
-                {/* Hosted Fields Form - always rendered so containers exist */}
-                <div style={{ position: 'relative' }}>
-                  {isInitializing && (
-                    <div className="payment-loading-overlay">
-                      <div className="spinner spinner-md"></div>
-                      <p>Loading secure payment form...</p>
-                    </div>
-                  )}
-                  <div className="form-group">
-                    <label className="form-label">Cardholder Name</label>
-                    <div id="guest-wc-cardholder" className="hosted-field-container"></div>
+                {isInitializing ? (
+                  <div className="payment-loading" style={{ padding: '40px', textAlign: 'center' }}>
+                    <div className="spinner spinner-md"></div>
+                    <p style={{ marginTop: '16px' }}>Loading secure payment form...</p>
                   </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Card Number</label>
-                    <div className="card-input-wrapper">
-                      <div id="guest-wc-card-number" className="hosted-field-container"></div>
-                      {cardType && (
-                        <span className={`card-type-badge ${cardType.toLowerCase()}`}>
-                          {cardType.toUpperCase()}
-                        </span>
-                      )}
-                    </div>
+                ) : clientSecret && token ? (
+                  <Elements
+                    stripe={stripePromise}
+                    options={{
+                      clientSecret,
+                      appearance: {
+                        theme: 'stripe',
+                        variables: {
+                          colorPrimary: '#405D4B',
+                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        },
+                      },
+                    }}
+                  >
+                    <GuestPaymentForm
+                      token={token}
+                      total={total}
+                      onSuccess={handlePaymentSuccess}
+                      onError={(msg) => setPaymentError(msg)}
+                      onProcessing={setIsProcessing}
+                    />
+                  </Elements>
+                ) : (
+                  <div className="alert alert-error">
+                    <AlertCircle size={18} />
+                    <span>Unable to load payment form. Please try again.</span>
                   </div>
+                )}
 
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label className="form-label">Expiry Date</label>
-                      <div id="guest-wc-expiry" className="hosted-field-container"></div>
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">CVV</label>
-                      <div id="guest-wc-cvv" className="hosted-field-container"></div>
-                    </div>
-                  </div>
-
-                  <div className="payment-security">
-                    <Lock size={14} />
-                    <span>Your payment is secured with 256-bit encryption</span>
-                  </div>
-                </div>
-
-                <div className="payment-actions">
+                <div className="payment-actions" style={{ marginTop: '16px' }}>
                   <button
                     type="button"
-                    className="btn btn-outline"
-                    onClick={() => setShowPaymentForm(false)}
+                    className="btn btn-outline w-full"
+                    onClick={() => {
+                      setShowPaymentForm(false);
+                      setClientSecret(null);
+                      setPaymentError(null);
+                    }}
                     disabled={isProcessing}
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={isProcessing || isInitializing}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <span className="spinner spinner-sm"></span>
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Lock size={18} />
-                        Pay ${total.toFixed(2)}
-                      </>
-                    )}
-                  </button>
                 </div>
-              </form>
+
+                {isProcessing && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10,
+                  }}>
+                    <div className="spinner spinner-lg"></div>
+                    <p style={{ marginTop: '16px' }}>Processing payment...</p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}

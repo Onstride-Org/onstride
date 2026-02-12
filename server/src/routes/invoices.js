@@ -9,6 +9,7 @@ const MerchantApplication = require('../models/MerchantApplication');
 const { authenticate, loadBarnContext, requireBarn, hasPermission, ownsResourceOrStaff } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const windcave = require('../services/windcave');
+const stripe = require('../services/stripe');
 const emailService = require('../services/email');
 const { updateSubscriptionAfterPayment } = require('../services/subscriptions');
 
@@ -154,6 +155,75 @@ router.post('/guest/:token/hosted-fields-session', [
     console.error('Guest hosted fields session error:', error.message);
     return res.status(400).json({
       error: error.message || 'Failed to create payment session',
+    });
+  }
+});
+
+// Create Stripe PaymentIntent for guest invoice (public)
+router.post('/guest/:token/stripe/payment-intent', [
+  param('token').isLength({ min: 64, max: 64 }),
+  validate
+], async (req, res, next) => {
+  try {
+    const invoice = await Invoice.findOne({
+      guestToken: req.params.token,
+      isGuestInvoice: true,
+      deletedAt: null
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    if (invoice.guestTokenExpiresAt && new Date() > invoice.guestTokenExpiresAt) {
+      return res.status(410).json({ error: 'This invoice link has expired' });
+    }
+
+    if (invoice.status === 'paid') {
+      return res.status(400).json({ error: 'Invoice is already paid' });
+    }
+
+    // Get barn's Stripe Connect account
+    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId });
+    const connectedAccountId = merchantApp?.stripeConnect?.accountId;
+
+    if (!stripe.isConfigured()) {
+      return res.status(503).json({
+        error: 'Payment processing is not available. Please contact the barn directly.'
+      });
+    }
+
+    // Create PaymentIntent
+    const paymentIntent = await stripe.createPaymentIntent({
+      invoiceId: invoice._id.toString(),
+      amount: invoice.paymentBreakdown.total,
+      currency: 'USD',
+      connectedAccountId,
+      platformFeePercent: invoice.platformFeePercent || 2.5,
+      customerEmail: invoice.guestEmail,
+      description: `Guest Invoice from ${invoice.barnId}`,
+      metadata: {
+        guestToken: req.params.token,
+        guestEmail: invoice.guestEmail,
+        guestName: invoice.guestName,
+        barnId: invoice.barnId.toString(),
+      },
+    });
+
+    // Store PaymentIntent ID on invoice
+    invoice.stripePaymentInfo = {
+      paymentIntentId: paymentIntent.paymentIntentId,
+    };
+    await invoice.save();
+
+    return res.json({
+      clientSecret: paymentIntent.clientSecret,
+      paymentIntentId: paymentIntent.paymentIntentId,
+    });
+  } catch (error) {
+    console.error('Guest Stripe payment intent error:', error.message);
+    return res.status(400).json({
+      error: error.message || 'Failed to create payment',
     });
   }
 });
@@ -753,6 +823,124 @@ router.post('/:id/hosted-fields-session', [
   }
 });
 
+// Create Stripe PaymentIntent for invoice (authenticated)
+router.post('/:id/stripe/payment-intent', [
+  param('id').isMongoId(),
+  validate
+], async (req, res, next) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id)
+      .populate('boarderId', 'name email');
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // Check ownership or staff
+    const isOwner = invoice.boarderId?._id?.toString() === req.userId?.toString();
+    const isStaff = ['owner', 'admin', 'manager'].includes(req.user.accountType) ||
+      (req.barnRole && ['owner', 'admin', 'manager'].includes(req.barnRole.role));
+
+    if (!isOwner && !isStaff) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (invoice.status === 'paid') {
+      return res.status(400).json({ error: 'Invoice is already paid' });
+    }
+
+    // Get barn's Stripe Connect account
+    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId });
+    const connectedAccountId = merchantApp?.stripeConnect?.accountId;
+
+    if (!stripe.isConfigured()) {
+      return res.status(503).json({
+        error: 'Payment processing is not configured. Please contact support.'
+      });
+    }
+
+    // Get barn details for description
+    const barn = await Barn.findById(invoice.barnId);
+
+    // Create PaymentIntent
+    const paymentIntent = await stripe.createPaymentIntent({
+      invoiceId: invoice._id.toString(),
+      amount: invoice.paymentBreakdown.total,
+      currency: 'USD',
+      connectedAccountId,
+      platformFeePercent: invoice.platformFeePercent || 2.5,
+      customerEmail: invoice.boarderId?.email,
+      description: `Invoice from ${barn?.name || 'Barn'}`,
+      metadata: {
+        boarderId: invoice.boarderId?._id?.toString(),
+        barnId: invoice.barnId.toString(),
+      },
+    });
+
+    // Store PaymentIntent ID on invoice
+    invoice.stripePaymentInfo = {
+      paymentIntentId: paymentIntent.paymentIntentId,
+    };
+    await invoice.save();
+
+    return res.json({
+      clientSecret: paymentIntent.clientSecret,
+      paymentIntentId: paymentIntent.paymentIntentId,
+    });
+  } catch (error) {
+    console.error('Stripe payment intent error:', error.message);
+    return res.status(400).json({
+      error: error.message || 'Failed to create payment',
+    });
+  }
+});
+
+// Get Stripe payment status for invoice
+router.get('/:id/stripe/status', [
+  param('id').isMongoId(),
+  validate
+], async (req, res, next) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id);
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    if (!invoice.stripePaymentInfo?.paymentIntentId) {
+      return res.json({ status: invoice.status });
+    }
+
+    // Get fresh status from Stripe
+    const paymentIntent = await stripe.retrievePaymentIntent(invoice.stripePaymentInfo.paymentIntentId);
+
+    // Update invoice if payment completed (backup for webhook)
+    if (paymentIntent.status === 'succeeded' && invoice.status !== 'paid') {
+      invoice.status = 'paid';
+      invoice.paidAt = new Date();
+      invoice.method = 'card';
+      invoice.stripePaymentInfo = {
+        ...invoice.stripePaymentInfo,
+        chargeId: paymentIntent.chargeId,
+        paymentMethodType: paymentIntent.paymentMethodType || 'card',
+        last4Digits: paymentIntent.card?.last4,
+        brand: paymentIntent.card?.brand,
+        receiptUrl: paymentIntent.receiptUrl,
+      };
+      await invoice.save();
+      await updateSubscriptionAfterPayment(invoice);
+    }
+
+    res.json({
+      status: invoice.status,
+      paymentStatus: paymentIntent.status,
+      receiptUrl: paymentIntent.receiptUrl,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Process direct card payment (embedded form - no redirect)
 router.post('/:id/pay-direct', [
   param('id').isMongoId(),
@@ -1101,7 +1289,7 @@ router.post('/windcave-callback', express.json(), async (req, res, next) => {
   }
 });
 
-// Process refund for paid invoice
+// Process refund for paid invoice (supports both Stripe and Windcave)
 router.post('/:id/refund', [
   hasPermission('generateInvoices'),
   param('id').isMongoId(),
@@ -1119,6 +1307,38 @@ router.post('/:id/refund', [
       return res.status(400).json({ error: 'Can only refund paid invoices' });
     }
 
+    const refundAmount = req.body.amount || invoice.paymentBreakdown.total;
+
+    // Check if this was a Stripe payment
+    if (invoice.stripePaymentInfo?.paymentIntentId) {
+      const refund = await stripe.processRefund({
+        paymentIntentId: invoice.stripePaymentInfo.paymentIntentId,
+        amount: req.body.amount, // undefined = full refund
+        reason: 'requested_by_customer',
+        metadata: {
+          invoiceId: invoice._id.toString(),
+          refundReason: req.body.reason || 'Refund requested',
+        },
+      });
+
+      invoice.status = 'refunded';
+      invoice.refundInfo = {
+        refundId: refund.refundId,
+        amount: refund.amount,
+        reason: req.body.reason || 'Refund requested',
+        refundedAt: new Date(),
+        refundedBy: req.userId,
+      };
+      await invoice.save();
+
+      return res.json({
+        message: 'Refund processed successfully',
+        invoice,
+        refund,
+      });
+    }
+
+    // Fall back to Windcave refund
     if (!invoice.windcavePaymentInfo?.transactionId) {
       return res.status(400).json({ error: 'No payment transaction found for refund' });
     }
@@ -1132,7 +1352,6 @@ router.post('/:id/refund', [
       credentials = merchantApp.getWindcaveCredentials();
     }
 
-    const refundAmount = req.body.amount || invoice.paymentBreakdown.total;
     const merchantReference = `REFUND-INV-${invoice._id}`;
     const metaData = [invoice._id.toString(), merchantReference];
 

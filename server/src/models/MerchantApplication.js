@@ -246,7 +246,7 @@ const merchantApplicationSchema = new mongoose.Schema({
     ownerIds: [String]
   },
 
-  // Windcave Credentials (After Approval)
+  // Windcave Credentials (After Approval) - Legacy, kept for backward compatibility
   windcaveCredentials: {
     merchantId: String,
     apiKeyEncrypted: { type: String, select: false },
@@ -259,6 +259,18 @@ const merchantApplicationSchema = new mongoose.Schema({
       message: String,
       testedAt: Date
     }
+  },
+
+  // Stripe Connect (Primary payment processor)
+  stripeConnect: {
+    accountId: String,                    // Stripe Connect account ID (acct_xxx)
+    chargesEnabled: { type: Boolean, default: false },
+    payoutsEnabled: { type: Boolean, default: false },
+    detailsSubmitted: { type: Boolean, default: false },
+    createdAt: Date,
+    onboardingCompletedAt: Date,
+    disconnectedAt: Date,                 // If barn disconnects their account
+    previousAccountId: String,            // For audit trail if reconnected
   },
 
   // Audit trail
@@ -281,6 +293,7 @@ merchantApplicationSchema.index({ barnId: 1 });
 merchantApplicationSchema.index({ userId: 1 });
 merchantApplicationSchema.index({ status: 1 });
 merchantApplicationSchema.index({ 'windcaveCredentials.isActive': 1 });
+merchantApplicationSchema.index({ 'stripeConnect.accountId': 1 });
 
 // Pre-save middleware to encrypt sensitive fields
 merchantApplicationSchema.pre('save', function(next) {
