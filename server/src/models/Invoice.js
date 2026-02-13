@@ -56,6 +56,7 @@ const windcavePaymentInfoSchema = new mongoose.Schema({
 
 const refundInfoSchema = new mongoose.Schema({
   transactionId: String,
+  refundId: String,
   amount: Number,
   reason: String,
   refundedAt: Date,
@@ -63,6 +64,20 @@ const refundInfoSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }
+}, { _id: false });
+
+// Dispute info schema for chargebacks
+const disputeInfoSchema = new mongoose.Schema({
+  disputeId: String,
+  amount: Number,
+  reason: String,         // fraudulent, duplicate, product_not_received, etc.
+  status: String,         // needs_response, under_review, won, lost, etc.
+  createdAt: Date,
+  updatedAt: Date,
+  closedAt: Date,
+  wonAt: Date,
+  evidenceDueBy: Date,
+  outcome: String,
 }, { _id: false });
 
 const invoiceSchema = new mongoose.Schema({
@@ -114,7 +129,7 @@ const invoiceSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'processing', 'paid', 'failed', 'cancelled', 'refunded'],
+    enum: ['pending', 'processing', 'paid', 'failed', 'cancelled', 'refunded', 'disputed', 'disputed_lost'],
     default: 'pending'
   },
   method: {
@@ -135,6 +150,7 @@ const invoiceSchema = new mongoose.Schema({
   stripePaymentInfo: stripePaymentInfoSchema,
   windcavePaymentInfo: windcavePaymentInfoSchema,
   refundInfo: refundInfoSchema,
+  disputeInfo: disputeInfoSchema,
   platformFeePercent: {
     type: Number,
     default: 2.5

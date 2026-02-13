@@ -109,7 +109,7 @@ const barnSubscriptionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['active', 'trialing', 'pastDue', 'canceled', 'expired'],
+    enum: ['active', 'trialing', 'pastDue', 'canceled', 'expired', 'incomplete', 'incomplete_expired', 'unpaid'],
     default: 'active'
   },
   billingInterval: {
@@ -117,7 +117,28 @@ const barnSubscriptionSchema = new mongoose.Schema({
     enum: ['monthly', 'yearly'],
     default: 'monthly'
   },
-  // Payment is processed via Windcave through the invoice checkout flow.
+
+  // Stripe subscription fields
+  stripeSubscriptionId: String,
+  stripeCustomerId: String,
+  stripePriceId: String,
+
+  // Payment tracking
+  lastPaymentAt: Date,
+  lastPaymentAmount: Number,
+  lastPaymentFailedAt: Date,
+  lastPaymentFailedReason: String,
+
+  // Payment history
+  paymentHistory: [{
+    invoiceId: String,
+    amount: Number,
+    paidAt: Date,
+    periodStart: Date,
+    periodEnd: Date,
+  }],
+
+  // Legacy: Payment is processed via invoice checkout flow.
   // Subscription is activated by updateSubscriptionAfterPayment() after payment.
   trialEndsAt: Date,
   currentPeriodStart: Date,

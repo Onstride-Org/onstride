@@ -460,9 +460,21 @@ export const invoicesApi = {
     return response.data;
   },
 
-  // Check payment status (polls Windcave for latest status)
+  // Check payment status (polls Stripe for latest status)
   getPaymentStatus: async (id: string) => {
     const response = await api.get(`/invoices/${id}/payment-status`);
+    return response.data;
+  },
+
+  // Get Stripe payment status
+  getStripePaymentStatus: async (id: string) => {
+    const response = await api.get(`/invoices/${id}/stripe/status`);
+    return response.data;
+  },
+
+  // Create Stripe payment intent
+  createPaymentIntent: async (id: string) => {
+    const response = await api.post(`/invoices/${id}/stripe/payment-intent`);
     return response.data;
   },
 
@@ -1116,6 +1128,125 @@ export const windcaveApi = {
   listSubmissions: async (templateId?: number) => {
     const params = templateId ? { templateId } : {};
     const response = await api.get('/windcave/submissions', { params });
+    return response.data;
+  },
+};
+
+// ============ Stripe API ============
+export const stripeApi = {
+  // Get config (publishable key)
+  getConfig: async () => {
+    const response = await api.get('/stripe/config');
+    return response.data;
+  },
+
+  // Customers & Payment Methods
+  createCustomer: async () => {
+    const response = await api.post('/stripe/customers');
+    return response.data;
+  },
+
+  getPaymentMethods: async () => {
+    const response = await api.get('/stripe/payment-methods');
+    return response.data;
+  },
+
+  createSetupIntent: async () => {
+    const response = await api.post('/stripe/setup-intent');
+    return response.data;
+  },
+
+  attachPaymentMethod: async (paymentMethodId: string, setDefault = true) => {
+    const response = await api.post(`/stripe/payment-methods/${paymentMethodId}/attach`, { setDefault });
+    return response.data;
+  },
+
+  deletePaymentMethod: async (paymentMethodId: string) => {
+    const response = await api.delete(`/stripe/payment-methods/${paymentMethodId}`);
+    return response.data;
+  },
+
+  // Subscriptions
+  getSubscriptionPlans: async () => {
+    const response = await api.get('/stripe/subscriptions/plans');
+    return response.data;
+  },
+
+  getCurrentSubscription: async () => {
+    const response = await api.get('/stripe/subscriptions/current');
+    return response.data;
+  },
+
+  createSubscription: async (priceId: string, paymentMethodId?: string) => {
+    const response = await api.post('/stripe/subscriptions', { priceId, paymentMethodId });
+    return response.data;
+  },
+
+  updateSubscription: async (subscriptionId: string, updates: { priceId?: string; paymentMethodId?: string }) => {
+    const response = await api.put(`/stripe/subscriptions/${subscriptionId}`, updates);
+    return response.data;
+  },
+
+  cancelSubscription: async (subscriptionId: string, immediately = false) => {
+    const response = await api.post(`/stripe/subscriptions/${subscriptionId}/cancel`, { immediately });
+    return response.data;
+  },
+
+  // Disputes
+  getDisputes: async (params?: { limit?: number; startingAfter?: string }) => {
+    const response = await api.get('/stripe/disputes', { params });
+    return response.data;
+  },
+
+  getDispute: async (disputeId: string) => {
+    const response = await api.get(`/stripe/disputes/${disputeId}`);
+    return response.data;
+  },
+
+  submitDisputeEvidence: async (disputeId: string, evidence: object) => {
+    const response = await api.post(`/stripe/disputes/${disputeId}/evidence`, evidence);
+    return response.data;
+  },
+
+  // Payouts
+  getPayouts: async (params?: { limit?: number; startingAfter?: string }) => {
+    const response = await api.get('/stripe/payouts', { params });
+    return response.data;
+  },
+
+  getPayout: async (payoutId: string) => {
+    const response = await api.get(`/stripe/payouts/${payoutId}`);
+    return response.data;
+  },
+
+  getBalance: async () => {
+    const response = await api.get('/stripe/balance');
+    return response.data;
+  },
+
+  // Stripe Connect (merchant onboarding)
+  getConnectStatus: async () => {
+    const response = await api.get('/stripe-connect/status');
+    return response.data;
+  },
+
+  startOnboarding: async () => {
+    const response = await api.post('/stripe-connect/account/start');
+    return response.data;
+  },
+
+  getOnboardingLink: async () => {
+    const response = await api.post('/stripe-connect/account/link');
+    return response.data;
+  },
+
+  getDashboardLink: async () => {
+    const response = await api.get('/stripe-connect/account/dashboard');
+    return response.data;
+  },
+
+  disconnectAccount: async () => {
+    const response = await api.delete('/stripe-connect/account');
     return response.data;
   },
 };

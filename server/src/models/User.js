@@ -78,7 +78,9 @@ const userSchema = new mongoose.Schema({
   },
   // Terms and privacy acceptance
   termsAcceptedAt: Date,
-  privacyAcceptedAt: Date
+  privacyAcceptedAt: Date,
+  // Stripe customer ID for saved payment methods
+  stripeCustomerId: String
 }, {
   timestamps: true
 });

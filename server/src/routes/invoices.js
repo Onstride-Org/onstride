@@ -8,7 +8,6 @@ const Barn = require('../models/Barn');
 const MerchantApplication = require('../models/MerchantApplication');
 const { authenticate, loadBarnContext, requireBarn, hasPermission, ownsResourceOrStaff } = require('../middleware/auth');
 const validate = require('../middleware/validate');
-const windcave = require('../services/windcave');
 const stripe = require('../services/stripe');
 const emailService = require('../services/email');
 const { updateSubscriptionAfterPayment } = require('../services/subscriptions');
@@ -73,91 +72,6 @@ router.get('/guest/:token', [
   }
 });
 
-// Create Hosted Fields session for guest invoice (public)
-router.post('/guest/:token/hosted-fields-session', [
-  param('token').isLength({ min: 64, max: 64 }),
-  body('billingAddress').optional().isObject(),
-  body('billingAddress.street').optional().isString(),
-  body('billingAddress.city').optional().isString(),
-  body('billingAddress.state').optional().isString(),
-  body('billingAddress.zipCode').optional().isString(),
-  validate
-], async (req, res, next) => {
-  try {
-    const invoice = await Invoice.findOne({
-      guestToken: req.params.token,
-      isGuestInvoice: true,
-      deletedAt: null
-    });
-
-    if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
-    }
-
-    if (invoice.guestTokenExpiresAt && new Date() > invoice.guestTokenExpiresAt) {
-      return res.status(410).json({ error: 'This invoice link has expired' });
-    }
-
-    if (invoice.status === 'paid') {
-      return res.status(400).json({ error: 'Invoice is already paid' });
-    }
-
-    // Get barn for billing address (fallback if not provided in request)
-    const barn = await Barn.findById(invoice.barnId);
-
-    // Get barn-specific Windcave credentials
-    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
-      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
-
-    let credentials = null;
-    if (merchantApp?.windcaveCredentials?.isActive) {
-      credentials = merchantApp.getWindcaveCredentials();
-    }
-
-    if (!windcave.hasValidCredentials(credentials)) {
-      return res.status(503).json({
-        error: 'Payment processing is not available. Please contact the barn directly.'
-      });
-    }
-
-    // Use billing address from request body, or fall back to barn address for AVS
-    const billingAddress = req.body.billingAddress || (barn ? {
-      street: barn.address,
-      city: barn.city,
-      state: barn.state,
-      zipCode: barn.zipCode,
-      country: 'US',
-    } : null);
-
-    // Create Hosted Fields session with AVS data
-    const session = await windcave.createHostedFieldsSession({
-      invoiceId: invoice._id.toString(),
-      amount: invoice.paymentBreakdown.total,
-      currency: 'USD',
-      merchantReference: `GUEST-INV-${invoice._id}`,
-      credentials,
-      customerEmail: invoice.guestEmail,
-      customerName: invoice.guestName,
-      billingAddress,
-    });
-
-    // Store session ID on invoice
-    invoice.windcavePaymentInfo = {
-      sessionId: session.sessionId,
-    };
-    await invoice.save();
-
-    return res.json({
-      sessionId: session.sessionId,
-      ajaxSubmitCardUrl: session.ajaxSubmitCardUrl,
-    });
-  } catch (error) {
-    console.error('Guest hosted fields session error:', error.message);
-    return res.status(400).json({
-      error: error.message || 'Failed to create payment session',
-    });
-  }
-});
 
 // Create Stripe PaymentIntent for guest invoice (public)
 router.post('/guest/:token/stripe/payment-intent', [
@@ -228,130 +142,6 @@ router.post('/guest/:token/stripe/payment-intent', [
   }
 });
 
-// Pay guest invoice (public) - DEPRECATED: Use hosted-fields-session + client-side submission
-router.post('/guest/:token/pay', [
-  param('token').isLength({ min: 64, max: 64 }),
-  body('cardNumber').notEmpty().isLength({ min: 13, max: 19 }),
-  body('expiryMonth').notEmpty().isLength({ min: 2, max: 2 }),
-  body('expiryYear').notEmpty().isLength({ min: 4, max: 4 }),
-  body('cvv').notEmpty().isLength({ min: 3, max: 4 }),
-  body('cardholderName').notEmpty().trim(),
-  body('billingAddress').optional().isObject(),
-  body('billingAddress.street').optional().isString(),
-  body('billingAddress.city').optional().isString(),
-  body('billingAddress.state').optional().isString(),
-  body('billingAddress.zipCode').optional().isString(),
-  validate
-], async (req, res, next) => {
-  try {
-    const invoice = await Invoice.findOne({
-      guestToken: req.params.token,
-      isGuestInvoice: true,
-      deletedAt: null
-    });
-
-    if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
-    }
-
-    if (invoice.guestTokenExpiresAt && new Date() > invoice.guestTokenExpiresAt) {
-      return res.status(410).json({ error: 'This invoice link has expired' });
-    }
-
-    if (invoice.status === 'paid') {
-      return res.status(400).json({ error: 'Invoice is already paid' });
-    }
-
-    // Get barn for billing address (AVS)
-    const barn = await Barn.findById(invoice.barnId);
-
-    // Get barn-specific Windcave credentials
-    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
-      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
-
-    let credentials = null;
-    if (merchantApp?.windcaveCredentials?.isActive) {
-      credentials = merchantApp.getWindcaveCredentials();
-    }
-
-    if (!windcave.hasValidCredentials(credentials)) {
-      return res.status(503).json({
-        error: 'Payment processing is not available. Please contact the barn directly.'
-      });
-    }
-
-    const { cardNumber, expiryMonth, expiryYear, cvv, cardholderName } = req.body;
-
-    // Use billing address from request body, or fall back to barn address for AVS
-    const billingAddress = req.body.billingAddress || (barn ? {
-      street: barn.address,
-      city: barn.city,
-      state: barn.state,
-      zipCode: barn.zipCode,
-      country: 'US',
-    } : null);
-
-    const result = await windcave.processDirectPayment({
-      amount: invoice.paymentBreakdown.total,
-      currency: 'USD',
-      merchantReference: `GUEST-INV-${invoice._id}`,
-      cardNumber,
-      expiryMonth,
-      expiryYear,
-      cvv,
-      cardholderName,
-      credentials,
-      billingAddress,
-      customerEmail: invoice.guestEmail,
-    });
-
-    if (result.authorised) {
-      invoice.status = 'paid';
-      invoice.paidAt = new Date();
-      invoice.method = 'card';
-      invoice.windcavePaymentInfo = {
-        sessionId: result.sessionId,
-        transactionId: result.transactionId,
-        cardNumber: result.cardNumber,
-        cardType: result.cardType,
-        responseCode: result.responseCode,
-        responseText: result.responseText,
-        rrn: result.rrn,
-      };
-      await invoice.save();
-      await updateSubscriptionAfterPayment(invoice);
-
-      return res.json({
-        status: 'paid',
-        authorised: true,
-        message: 'Payment successful',
-      });
-    } else if (result.requires3DS) {
-      const hppLink = result.links?.find(l => l.rel === 'hpp' || l.rel === 'redirect');
-      return res.json({
-        status: 'requires_action',
-        requires3DS: true,
-        redirectUrl: hppLink?.href,
-        sessionId: result.sessionId,
-      });
-    } else {
-      invoice.status = 'failed';
-      invoice.failureReason = result.responseText || 'Payment declined';
-      await invoice.save();
-
-      return res.status(400).json({
-        status: 'failed',
-        authorised: false,
-        responseText: result.responseText || 'Payment was declined',
-      });
-    }
-  } catch (error) {
-    console.error('Guest payment error:', error.message);
-    return res.status(400).json({
-      error: error.message || 'Payment failed',
-    });
-  }
-});
 
 // ============================================
 // AUTHENTICATED ROUTES
@@ -449,8 +239,8 @@ router.post('/', [
     // Calculate subtotal
     const subtotal = charges.reduce((sum, c) => sum + (c.amount * (c.quantity || 1)), 0);
 
-    // Calculate fees using Windcave fee structure
-    const feeBreakdown = windcave.calculateFees(subtotal, method);
+    // Calculate fees using Stripe fee structure
+    const feeBreakdown = stripe.calculateFees(subtotal, method);
 
     const invoice = await Invoice.create({
       barnId: req.barnId,
@@ -519,8 +309,8 @@ router.post('/guest', [
     // Calculate subtotal
     const subtotal = charges.reduce((sum, c) => sum + (c.amount * (c.quantity || 1)), 0);
 
-    // Calculate fees using Windcave fee structure
-    const feeBreakdown = windcave.calculateFees(subtotal, method);
+    // Calculate fees using Stripe fee structure
+    const feeBreakdown = stripe.calculateFees(subtotal, method);
 
     // Generate secure token for guest access (valid for 30 days)
     const guestToken = generateGuestToken();
@@ -629,7 +419,7 @@ router.put('/:id', [
   }
 });
 
-// Process payment - initiates Windcave payment session
+// Process payment - initiates Stripe payment or records manual payment
 router.post('/:id/payment', [
   param('id').isMongoId(),
   body('method').isIn(['card', 'ach', 'cash', 'check', 'other']),
@@ -651,72 +441,48 @@ router.post('/:id/payment', [
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const { method, returnUrl } = req.body;
+    const { method } = req.body;
 
-    // For card payments, create Windcave payment session
-    if (method === 'card') {
-      // Get barn for billing address (AVS)
-      const barn = await Barn.findById(invoice.barnId);
-
-      // Get barn-specific Windcave credentials
-      const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
-        .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
-
-      let credentials = null;
-
-      if (merchantApp?.windcaveCredentials?.isActive) {
-        // Use barn-specific credentials
-        credentials = merchantApp.getWindcaveCredentials();
-      }
-
-      // Check if we have valid credentials (barn-specific or global fallback)
-      if (!windcave.hasValidCredentials(credentials)) {
+    // For card/ACH payments, create Stripe PaymentIntent
+    if (method === 'card' || method === 'ach') {
+      if (!stripe.isConfigured()) {
         return res.status(503).json({
-          error: 'Payment processing is not configured. Please add your Windcave credentials in the Payments settings.'
+          error: 'Payment processing is not configured. Please contact support.'
         });
       }
 
-      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-      const callbackUrl = process.env.API_URL
-        ? `${process.env.API_URL}/api/invoices/windcave-callback`
-        : 'http://localhost:3000/api/invoices/windcave-callback';
+      // Get barn's Stripe Connect account
+      const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId });
+      const connectedAccountId = merchantApp?.stripeConnect?.accountId;
 
-      // Build billing address for AVS
-      const billingAddress = barn ? {
-        street: barn.address,
-        city: barn.city,
-        state: barn.state,
-        zipCode: barn.zipCode,
-        country: 'US',
-      } : null;
+      // Get barn details for description
+      const barn = await Barn.findById(invoice.barnId);
 
-      const session = await windcave.createPaymentSession({
+      // Create PaymentIntent
+      const paymentIntent = await stripe.createPaymentIntent({
         invoiceId: invoice._id.toString(),
         amount: invoice.paymentBreakdown.total,
         currency: 'USD',
-        merchantReference: `INV-${invoice._id}`,
+        connectedAccountId,
+        platformFeePercent: invoice.platformFeePercent || 2.5,
         customerEmail: invoice.boarderId?.email,
-        customerName: invoice.boarderId?.name,
-        returnUrl: returnUrl || `${baseUrl}/app/invoices/${invoice._id}`,
-        callbackUrl,
-        credentials,
-        billingAddress,
+        description: `Invoice from ${barn?.name || 'Barn'}`,
+        metadata: {
+          boarderId: invoice.boarderId?._id?.toString(),
+          barnId: invoice.barnId.toString(),
+        },
       });
 
-      invoice.status = 'processing';
       invoice.method = method;
-      invoice.windcavePaymentInfo = {
-        sessionId: session.sessionId,
+      invoice.stripePaymentInfo = {
+        paymentIntentId: paymentIntent.paymentIntentId,
       };
       await invoice.save();
 
       return res.json({
         invoice,
-        paymentSession: {
-          sessionId: session.sessionId,
-          redirectUrl: session.redirectUrl,
-          expiresAt: session.expiresAt,
-        },
+        clientSecret: paymentIntent.clientSecret,
+        paymentIntentId: paymentIntent.paymentIntentId,
       });
     } else {
       // Cash/check - mark as paid directly (staff only)
@@ -735,93 +501,6 @@ router.post('/:id/payment', [
   }
 });
 
-// Create Hosted Fields session for embedded payment
-router.post('/:id/hosted-fields-session', [
-  param('id').isMongoId(),
-  body('billingAddress').optional().isObject(),
-  body('billingAddress.street').optional().isString(),
-  body('billingAddress.city').optional().isString(),
-  body('billingAddress.state').optional().isString(),
-  body('billingAddress.zipCode').optional().isString(),
-  validate
-], async (req, res, next) => {
-  try {
-    const invoice = await Invoice.findById(req.params.id)
-      .populate('boarderId', 'name email');
-
-    if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
-    }
-
-    // Check ownership or staff
-    const isOwner = invoice.boarderId?._id?.toString() === req.userId?.toString();
-    const isStaff = ['owner', 'admin', 'manager'].includes(req.user.accountType) ||
-      (req.barnRole && ['owner', 'admin', 'manager'].includes(req.barnRole.role));
-
-    if (!isOwner && !isStaff) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    if (invoice.status === 'paid') {
-      return res.status(400).json({ error: 'Invoice is already paid' });
-    }
-
-    // Get barn for billing address (fallback if not provided in request)
-    const barn = await Barn.findById(invoice.barnId);
-
-    // Get barn-specific Windcave credentials
-    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
-      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
-
-    let credentials = null;
-    if (merchantApp?.windcaveCredentials?.isActive) {
-      credentials = merchantApp.getWindcaveCredentials();
-    }
-
-    if (!windcave.hasValidCredentials(credentials)) {
-      return res.status(503).json({
-        error: 'Payment processing is not configured. Please contact support.'
-      });
-    }
-
-    // Use billing address from request body, or fall back to barn address for AVS
-    const billingAddress = req.body.billingAddress || (barn ? {
-      street: barn.address,
-      city: barn.city,
-      state: barn.state,
-      zipCode: barn.zipCode,
-      country: 'US',
-    } : null);
-
-    // Create Hosted Fields session with AVS data
-    const session = await windcave.createHostedFieldsSession({
-      invoiceId: invoice._id.toString(),
-      amount: invoice.paymentBreakdown.total,
-      currency: 'USD',
-      merchantReference: `INV-${invoice._id}`,
-      credentials,
-      customerEmail: invoice.boarderId?.email,
-      customerName: invoice.boarderId?.name,
-      billingAddress,
-    });
-
-    // Store session ID on invoice
-    invoice.windcavePaymentInfo = {
-      sessionId: session.sessionId,
-    };
-    await invoice.save();
-
-    return res.json({
-      sessionId: session.sessionId,
-      ajaxSubmitCardUrl: session.ajaxSubmitCardUrl,
-    });
-  } catch (error) {
-    console.error('Hosted fields session error:', error.message);
-    return res.status(400).json({
-      error: error.message || 'Failed to create payment session',
-    });
-  }
-});
 
 // Create Stripe PaymentIntent for invoice (authenticated)
 router.post('/:id/stripe/payment-intent', [
@@ -941,139 +620,7 @@ router.get('/:id/stripe/status', [
   }
 });
 
-// Process direct card payment (embedded form - no redirect)
-router.post('/:id/pay-direct', [
-  param('id').isMongoId(),
-  body('cardNumber').notEmpty().isLength({ min: 13, max: 19 }),
-  body('expiryMonth').notEmpty().isLength({ min: 2, max: 2 }),
-  body('expiryYear').notEmpty().isLength({ min: 4, max: 4 }),
-  body('cvv').notEmpty().isLength({ min: 3, max: 4 }),
-  body('cardholderName').notEmpty().trim(),
-  body('billingAddress').optional().isObject(),
-  body('billingAddress.street').optional().isString(),
-  body('billingAddress.city').optional().isString(),
-  body('billingAddress.state').optional().isString(),
-  body('billingAddress.zipCode').optional().isString(),
-  validate
-], async (req, res, next) => {
-  try {
-    const invoice = await Invoice.findById(req.params.id)
-      .populate('boarderId', 'name email');
-
-    if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
-    }
-
-    // Check ownership or staff
-    const isOwner = invoice.boarderId._id.toString() === req.userId.toString();
-    const isStaff = ['owner', 'admin', 'manager'].includes(req.user.accountType) ||
-      (req.barnRole && ['owner', 'admin', 'manager'].includes(req.barnRole.role));
-
-    if (!isOwner && !isStaff) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    if (invoice.status === 'paid') {
-      return res.status(400).json({ error: 'Invoice is already paid' });
-    }
-
-    // Get barn for billing address (AVS)
-    const barn = await Barn.findById(invoice.barnId);
-
-    // Get barn-specific Windcave credentials
-    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
-      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
-
-    let credentials = null;
-    if (merchantApp?.windcaveCredentials?.isActive) {
-      credentials = merchantApp.getWindcaveCredentials();
-    }
-
-    if (!windcave.hasValidCredentials(credentials)) {
-      return res.status(503).json({
-        error: 'Payment processing is not configured. Please contact support.'
-      });
-    }
-
-    const { cardNumber, expiryMonth, expiryYear, cvv, cardholderName } = req.body;
-
-    // Use billing address from request body, or fall back to barn address for AVS
-    const billingAddress = req.body.billingAddress || (barn ? {
-      street: barn.address,
-      city: barn.city,
-      state: barn.state,
-      zipCode: barn.zipCode,
-      country: 'US',
-    } : null);
-
-    // Process the payment directly
-    const result = await windcave.processDirectPayment({
-      amount: invoice.paymentBreakdown.total,
-      currency: 'USD',
-      merchantReference: `INV-${invoice._id}`,
-      cardNumber,
-      expiryMonth,
-      expiryYear,
-      cvv,
-      cardholderName,
-      credentials,
-      billingAddress,
-      customerEmail: invoice.boarderId?.email,
-    });
-
-    if (result.authorised) {
-      // Payment successful
-      invoice.status = 'paid';
-      invoice.paidAt = new Date();
-      invoice.method = 'card';
-      invoice.windcavePaymentInfo = {
-        sessionId: result.sessionId,
-        transactionId: result.transactionId,
-        cardNumber: result.cardNumber,
-        cardType: result.cardType,
-        responseCode: result.responseCode,
-        responseText: result.responseText,
-        rrn: result.rrn,
-      };
-      await invoice.save();
-      await updateSubscriptionAfterPayment(invoice);
-
-      return res.json({
-        status: 'paid',
-        authorised: true,
-        transactionId: result.transactionId,
-        message: 'Payment successful',
-      });
-    } else if (result.requires3DS) {
-      // 3D Secure required - return the redirect URL
-      const hppLink = result.links?.find(l => l.rel === 'hpp' || l.rel === 'redirect');
-      return res.json({
-        status: 'requires_action',
-        requires3DS: true,
-        redirectUrl: hppLink?.href,
-        sessionId: result.sessionId,
-      });
-    } else {
-      // Payment declined
-      invoice.status = 'failed';
-      invoice.failureReason = result.responseText || 'Payment declined';
-      await invoice.save();
-
-      return res.status(400).json({
-        status: 'failed',
-        authorised: false,
-        responseText: result.responseText || 'Payment was declined',
-      });
-    }
-  } catch (error) {
-    console.error('Direct payment error:', error.message);
-    return res.status(400).json({
-      error: error.message || 'Payment failed',
-    });
-  }
-});
-
-// Check Windcave payment session status
+// Get payment status (checks Stripe status)
 router.get('/:id/payment-status', [
   param('id').isMongoId(),
   validate
@@ -1084,47 +631,35 @@ router.get('/:id/payment-status', [
       return res.status(404).json({ error: 'Invoice not found' });
     }
 
-    if (!invoice.windcavePaymentInfo?.sessionId) {
-      return res.json({ status: invoice.status });
+    // Check Stripe payment status if available
+    if (invoice.stripePaymentInfo?.paymentIntentId) {
+      const paymentIntent = await stripe.retrievePaymentIntent(invoice.stripePaymentInfo.paymentIntentId);
+
+      // Update invoice if payment completed (backup for webhook)
+      if (paymentIntent.status === 'succeeded' && invoice.status !== 'paid') {
+        invoice.status = 'paid';
+        invoice.paidAt = new Date();
+        invoice.method = 'card';
+        invoice.stripePaymentInfo = {
+          ...invoice.stripePaymentInfo,
+          chargeId: paymentIntent.chargeId,
+          paymentMethodType: paymentIntent.paymentMethodType || 'card',
+          last4Digits: paymentIntent.card?.last4,
+          brand: paymentIntent.card?.brand,
+          receiptUrl: paymentIntent.receiptUrl,
+        };
+        await invoice.save();
+        await updateSubscriptionAfterPayment(invoice);
+      }
+
+      return res.json({
+        status: invoice.status,
+        paymentStatus: paymentIntent.status,
+        receiptUrl: paymentIntent.receiptUrl,
+      });
     }
 
-    // Get barn-specific Windcave credentials
-    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
-      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
-
-    let credentials = null;
-    if (merchantApp?.windcaveCredentials?.isActive) {
-      credentials = merchantApp.getWindcaveCredentials();
-    }
-
-    // Query Windcave for latest session status
-    const session = await windcave.getSession(invoice.windcavePaymentInfo.sessionId, credentials);
-
-    // Update invoice if payment completed
-    if (session.transaction?.authorised && invoice.status !== 'paid') {
-      invoice.status = 'paid';
-      invoice.paidAt = new Date();
-      invoice.windcavePaymentInfo = {
-        ...invoice.windcavePaymentInfo,
-        transactionId: session.transaction.id,
-        rrn: session.transaction.rrn,
-        cardNumber: session.transaction.cardNumber,
-        cardType: session.transaction.cardType,
-        responseCode: session.transaction.responseCode,
-        responseText: session.transaction.responseText,
-      };
-      await invoice.save();
-    } else if (session.transaction && !session.transaction.authorised && invoice.status === 'processing') {
-      invoice.status = 'failed';
-      invoice.failureReason = session.transaction.responseText;
-      await invoice.save();
-    }
-
-    res.json({
-      status: invoice.status,
-      sessionState: session.state,
-      transaction: session.transaction,
-    });
+    res.json({ status: invoice.status });
   } catch (error) {
     next(error);
   }
@@ -1158,7 +693,7 @@ router.get('/:id/receipt', async (req, res, next) => {
       horse: invoice.horseId?.name,
       charges: invoice.charges,
       paymentBreakdown: invoice.paymentBreakdown,
-      paymentInfo: invoice.windcavePaymentInfo
+      paymentInfo: invoice.stripePaymentInfo || invoice.windcavePaymentInfo
     };
 
     res.json(receipt);
@@ -1218,78 +753,7 @@ router.delete('/:id', [
   }
 });
 
-// Windcave callback/webhook (public route - no auth)
-// This endpoint receives notifications when payment status changes
-router.post('/windcave-callback', express.json(), async (req, res, next) => {
-  try {
-    const rawBody = JSON.stringify(req.body);
-    const signature = req.headers['x-windcave-signature'];
-    const webhookSecret = process.env.WINDCAVE_WEBHOOK_SECRET;
-
-    // Verify webhook signature if secret is configured
-    if (webhookSecret && signature) {
-      const isValid = windcave.verifyWebhookSignature(rawBody, signature, webhookSecret);
-      if (!isValid) {
-        console.error('Invalid Windcave webhook signature');
-        return res.status(401).json({ error: 'Invalid signature' });
-      }
-    }
-
-    // Parse the notification
-    const notification = windcave.parseNotification(req.body);
-    console.log('Windcave callback received:', notification);
-
-    // Find invoice by session ID or merchant reference
-    let invoice;
-    if (notification.sessionId) {
-      invoice = await Invoice.findOne({
-        'windcavePaymentInfo.sessionId': notification.sessionId
-      });
-    }
-    if (!invoice && notification.merchantReference) {
-      // merchantReference format: INV-{invoiceId}
-      const invoiceId = notification.merchantReference.replace('INV-', '');
-      invoice = await Invoice.findById(invoiceId);
-    }
-
-    if (!invoice) {
-      console.error('Invoice not found for Windcave callback:', notification);
-      return res.status(404).json({ error: 'Invoice not found' });
-    }
-
-    // Update invoice based on payment status
-    if (notification.authorised) {
-      invoice.status = 'paid';
-      invoice.paidAt = new Date();
-      invoice.windcavePaymentInfo = {
-        ...invoice.windcavePaymentInfo?.toObject?.() || invoice.windcavePaymentInfo || {},
-        transactionId: notification.transactionId,
-        cardNumber: notification.card?.number,
-        cardType: notification.card?.type,
-        responseCode: notification.responseCode,
-        responseText: notification.responseText,
-      };
-
-      // Log subscription fields for debugging
-      console.log(`Invoice subscription fields: tier=${invoice.subscriptionTier}, interval=${invoice.subscriptionInterval}, barnId=${invoice.barnId}`);
-
-      await updateSubscriptionAfterPayment(invoice);
-    } else {
-      invoice.status = 'failed';
-      invoice.failureReason = notification.responseText || 'Payment declined';
-    }
-
-    await invoice.save();
-    console.log(`Invoice ${invoice._id} updated to status: ${invoice.status}`);
-
-    res.json({ received: true });
-  } catch (error) {
-    console.error('Windcave callback error:', error);
-    next(error);
-  }
-});
-
-// Process refund for paid invoice (supports both Stripe and Windcave)
+// Process refund for paid invoice (Stripe only)
 router.post('/:id/refund', [
   hasPermission('generateInvoices'),
   param('id').isMongoId(),
@@ -1307,84 +771,36 @@ router.post('/:id/refund', [
       return res.status(400).json({ error: 'Can only refund paid invoices' });
     }
 
-    const refundAmount = req.body.amount || invoice.paymentBreakdown.total;
-
     // Check if this was a Stripe payment
-    if (invoice.stripePaymentInfo?.paymentIntentId) {
-      const refund = await stripe.processRefund({
-        paymentIntentId: invoice.stripePaymentInfo.paymentIntentId,
-        amount: req.body.amount, // undefined = full refund
-        reason: 'requested_by_customer',
-        metadata: {
-          invoiceId: invoice._id.toString(),
-          refundReason: req.body.reason || 'Refund requested',
-        },
-      });
-
-      invoice.status = 'refunded';
-      invoice.refundInfo = {
-        refundId: refund.refundId,
-        amount: refund.amount,
-        reason: req.body.reason || 'Refund requested',
-        refundedAt: new Date(),
-        refundedBy: req.userId,
-      };
-      await invoice.save();
-
-      return res.json({
-        message: 'Refund processed successfully',
-        invoice,
-        refund,
-      });
-    }
-
-    // Fall back to Windcave refund
-    if (!invoice.windcavePaymentInfo?.transactionId) {
+    if (!invoice.stripePaymentInfo?.paymentIntentId) {
       return res.status(400).json({ error: 'No payment transaction found for refund' });
     }
 
-    // Get barn-specific Windcave credentials
-    const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId })
-      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
+    const refund = await stripe.processRefund({
+      paymentIntentId: invoice.stripePaymentInfo.paymentIntentId,
+      amount: req.body.amount, // undefined = full refund
+      reason: 'requested_by_customer',
+      metadata: {
+        invoiceId: invoice._id.toString(),
+        refundReason: req.body.reason || 'Refund requested',
+      },
+    });
 
-    let credentials = null;
-    if (merchantApp?.windcaveCredentials?.isActive) {
-      credentials = merchantApp.getWindcaveCredentials();
-    }
+    invoice.status = 'refunded';
+    invoice.refundInfo = {
+      refundId: refund.refundId,
+      amount: refund.amount,
+      reason: req.body.reason || 'Refund requested',
+      refundedAt: new Date(),
+      refundedBy: req.userId,
+    };
+    await invoice.save();
 
-    const merchantReference = `REFUND-INV-${invoice._id}`;
-    const metaData = [invoice._id.toString(), merchantReference];
-
-    const refund = await windcave.processRefund(
-      invoice.windcavePaymentInfo.transactionId,
-      refundAmount,
-      merchantReference,
-      credentials,
-      metaData
-    );
-
-    if (refund.authorised) {
-      invoice.status = 'refunded';
-      invoice.refundInfo = {
-        transactionId: refund.id,
-        amount: refundAmount,
-        reason: req.body.reason || 'Refund requested',
-        refundedAt: new Date(),
-        refundedBy: req.userId,
-      };
-      await invoice.save();
-
-      res.json({
-        message: 'Refund processed successfully',
-        invoice,
-        refund,
-      });
-    } else {
-      res.status(400).json({
-        error: 'Refund failed',
-        reason: refund.responseText,
-      });
-    }
+    return res.json({
+      message: 'Refund processed successfully',
+      invoice,
+      refund,
+    });
   } catch (error) {
     next(error);
   }
