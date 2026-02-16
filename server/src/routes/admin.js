@@ -1007,6 +1007,26 @@ router.delete('/barns/:id', async (req, res, next) => {
   }
 });
 
+// ==================== Tasks Stats ====================
+
+// Get task stats for sidebar (open tasks across all barns)
+router.get('/tasks/stats', async (req, res, next) => {
+  try {
+    const Task = require('../models/Task');
+
+    const openCount = await Task.countDocuments({
+      status: { $in: ['notStarted', 'inProgress'] },
+      deletedAt: null
+    });
+
+    res.json({
+      open: openCount
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ==================== Demo Requests ====================
 
 // Get all demo requests (with pagination)

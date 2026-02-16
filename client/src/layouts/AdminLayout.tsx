@@ -1,19 +1,48 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, Users, Building2,
   LogOut, Menu, X, BarChart3, Clock, FileText
 } from 'lucide-react';
+import axios from 'axios';
 
 interface AdminUser {
   email: string;
   name: string;
 }
 
+interface SidebarCounts {
+  newDemoRequests: number;
+  openTasks: number;
+}
+
 export default function AdminLayout() {
   const navigate = useNavigate();
   const [user, setUser] = useState<AdminUser | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [counts, setCounts] = useState<SidebarCounts>({ newDemoRequests: 0, openTasks: 0 });
+
+  const loadCounts = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      if (!token) return;
+
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const headers = { Authorization: `Bearer ${token}` };
+
+      const [demoRes, tasksRes] = await Promise.all([
+        axios.get(`${apiBase}/admin/demo-requests/stats`, { headers }).catch(() => ({ data: null })),
+        axios.get(`${apiBase}/admin/tasks/stats`, { headers }).catch(() => ({ data: null })),
+      ]);
+
+      setCounts({
+        newDemoRequests: demoRes.data?.new || 0,
+        openTasks: tasksRes.data?.open || 0,
+      });
+    } catch (error) {
+      console.error('Failed to load sidebar counts:', error);
+    }
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -26,10 +55,14 @@ export default function AdminLayout() {
 
     try {
       setUser(JSON.parse(userData));
+      loadCounts();
+      // Refresh counts every 60 seconds
+      const interval = setInterval(loadCounts, 60000);
+      return () => clearInterval(interval);
     } catch {
       navigate('/admin/login');
     }
-  }, [navigate]);
+  }, [navigate, loadCounts]);
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
@@ -59,16 +92,16 @@ export default function AdminLayout() {
   }
 
   const mainNavItems = [
-    { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
-    { to: '/admin/users', icon: Users, label: 'Users' },
-    { to: '/admin/barns', icon: Building2, label: 'Barns' },
-    { to: '/admin/docuseal', icon: FileText, label: 'Applications' },
+    { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard', count: 0 },
+    { to: '/admin/analytics', icon: BarChart3, label: 'Analytics', count: 0 },
+    { to: '/admin/users', icon: Users, label: 'Users', count: 0 },
+    { to: '/admin/barns', icon: Building2, label: 'Barns', count: 0 },
+    { to: '/admin/docuseal', icon: FileText, label: 'Applications', count: 0 },
   ];
 
   const demoNavItems = [
-    { to: '/admin/demo-requests', icon: Calendar, label: 'Requests' },
-    { to: '/admin/availability', icon: Clock, label: 'Availability' },
+    { to: '/admin/demo-requests', icon: Calendar, label: 'Requests', count: counts.newDemoRequests },
+    { to: '/admin/availability', icon: Clock, label: 'Availability', count: 0 },
   ];
 
   return (
@@ -161,7 +194,21 @@ export default function AdminLayout() {
                 })}
               >
                 <item.icon size={15} />
-                {item.label}
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {item.count > 0 && (
+                  <span style={{
+                    background: '#3b82f6',
+                    color: 'white',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '2px 6px',
+                    borderRadius: '10px',
+                    minWidth: '18px',
+                    textAlign: 'center'
+                  }}>
+                    {item.count}
+                  </span>
+                )}
               </NavLink>
             ))}
           </div>
@@ -199,7 +246,21 @@ export default function AdminLayout() {
                 })}
               >
                 <item.icon size={15} />
-                {item.label}
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {item.count > 0 && (
+                  <span style={{
+                    background: '#ef4444',
+                    color: 'white',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '2px 6px',
+                    borderRadius: '10px',
+                    minWidth: '18px',
+                    textAlign: 'center'
+                  }}>
+                    {item.count}
+                  </span>
+                )}
               </NavLink>
             ))}
           </div>
