@@ -49,6 +49,7 @@ import AdminBarnsListPage from './pages/admin/AdminBarnsListPage';
 import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage';
 import AdminAvailabilityPage from './pages/admin/AdminAvailabilityPage';
 import AdminDocusealPage from './pages/admin/AdminDocusealPage';
+import AdminStripePage from './pages/admin/AdminStripePage';
 import BillingTemplatesPage from './pages/billing/BillingTemplatesPage';
 import StablePage from './pages/stable/StablePage';
 import FinancialsPage from './pages/financials/FinancialsPage';
@@ -261,6 +262,7 @@ function App() {
         <Route path="analytics" element={<AdminAnalyticsPage />} />
         <Route path="availability" element={<AdminAvailabilityPage />} />
         <Route path="docuseal" element={<AdminDocusealPage />} />
+        <Route path="stripe" element={<AdminStripePage />} />
       </Route>
 
       {/* Catch all - redirect to landing page */}

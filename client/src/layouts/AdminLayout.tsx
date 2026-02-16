@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, Users, Building2,
-  LogOut, Menu, X, BarChart3, Clock, FileText
+  LogOut, Menu, X, BarChart3, Clock, FileText, CreditCard
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -97,6 +97,7 @@ export default function AdminLayout() {
     { to: '/admin/users', icon: Users, label: 'Users', count: 0 },
     { to: '/admin/barns', icon: Building2, label: 'Barns', count: 0 },
     { to: '/admin/docuseal', icon: FileText, label: 'Applications', count: 0 },
+    { to: '/admin/stripe', icon: CreditCard, label: 'Stripe', count: 0 },
   ];
 
   const demoNavItems = [
