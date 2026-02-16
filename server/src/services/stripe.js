@@ -13,26 +13,130 @@
  * - Dispute/Chargeback handling
  * - Payout tracking
  * - Webhook signature verification
+ *
+ * Configuration priority:
+ * 1. Database (PlatformSettings) - can be updated by admin
+ * 2. Environment variables - fallback
  */
 
 const Stripe = require('stripe');
 
-// Initialize Stripe with secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+// Cache for platform settings
+let cachedSettings = null;
+let cacheExpiry = 0;
+const CACHE_TTL = 60000; // 1 minute
+
+/**
+ * Get Stripe credentials (from DB or env)
+ * Uses caching to avoid hitting DB on every request
+ */
+const getCredentials = async () => {
+  // Check cache first
+  if (cachedSettings && Date.now() < cacheExpiry) {
+    return cachedSettings;
+  }
+
+  try {
+    // Lazy load to avoid circular dependency
+    const PlatformSettings = require('../models/PlatformSettings');
+    const settings = await PlatformSettings.getSettings();
+
+    // Check if DB has valid credentials
+    const dbSecretKey = settings.getStripeSecretKey();
+    const dbPublishableKey = settings.stripe?.publishableKey;
+    const dbWebhookSecret = settings.getStripeWebhookSecret();
+
+    if (dbSecretKey && dbPublishableKey) {
+      cachedSettings = {
+        secretKey: dbSecretKey,
+        publishableKey: dbPublishableKey,
+        webhookSecret: dbWebhookSecret || process.env.STRIPE_WEBHOOK_SECRET,
+        platformFeePercent: settings.stripe?.platformFeePercent || 2.5,
+        source: 'database',
+      };
+    } else {
+      // Fall back to env vars
+      cachedSettings = {
+        secretKey: process.env.STRIPE_SECRET_KEY,
+        publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
+        webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+        platformFeePercent: parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENT) || 2.5,
+        source: 'environment',
+      };
+    }
+
+    cacheExpiry = Date.now() + CACHE_TTL;
+    return cachedSettings;
+  } catch (error) {
+    // If DB fails, fall back to env vars
+    console.error('Failed to load Stripe credentials from DB:', error.message);
+    return {
+      secretKey: process.env.STRIPE_SECRET_KEY,
+      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      platformFeePercent: parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENT) || 2.5,
+      source: 'environment',
+    };
+  }
+};
+
+/**
+ * Clear credentials cache (call after admin updates settings)
+ */
+const clearCredentialsCache = () => {
+  cachedSettings = null;
+  cacheExpiry = 0;
+};
+
+/**
+ * Get a Stripe instance with current credentials
+ */
+const getStripeInstance = async () => {
+  const creds = await getCredentials();
+  if (!creds.secretKey) {
+    throw new Error('Stripe secret key not configured');
+  }
+  return new Stripe(creds.secretKey, { apiVersion: '2023-10-16' });
+};
+
+// Initialize default Stripe instance with env var (for backwards compat)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_placeholder', {
   apiVersion: '2023-10-16',
 });
 
 /**
  * Check if Stripe is configured
  */
-const isConfigured = () => {
+const isConfigured = async () => {
+  const creds = await getCredentials();
+  return !!(creds.secretKey && creds.publishableKey);
+};
+
+/**
+ * Synchronous check (uses cache or env vars)
+ */
+const isConfiguredSync = () => {
+  if (cachedSettings) {
+    return !!(cachedSettings.secretKey && cachedSettings.publishableKey);
+  }
   return !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PUBLISHABLE_KEY);
 };
 
 /**
  * Get publishable key for frontend
  */
-const getPublishableKey = () => {
+const getPublishableKey = async () => {
+  const creds = await getCredentials();
+  return creds.publishableKey;
+};
+
+/**
+ * Synchronous version (uses cache or env vars)
+ */
+const getPublishableKeySync = () => {
+  if (cachedSettings) {
+    return cachedSettings.publishableKey;
+  }
   return process.env.STRIPE_PUBLISHABLE_KEY;
 };
 
@@ -1067,8 +1171,13 @@ const createStripeInvoice = async ({
 
 module.exports = {
   stripe, // Export raw stripe instance for advanced usage
+  getStripeInstance, // Get instance with current credentials
   isConfigured,
+  isConfiguredSync,
   getPublishableKey,
+  getPublishableKeySync,
+  getCredentials,
+  clearCredentialsCache,
   // Connect
   createConnectAccount,
   createAccountLink,

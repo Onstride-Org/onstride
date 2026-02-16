@@ -1251,6 +1251,44 @@ export const stripeApi = {
   },
 };
 
+// ============ Admin Stripe API ============
+export const adminStripeApi = {
+  // Get Stripe configuration status
+  getConfig: async () => {
+    const response = await api.get('/admin/stripe/config');
+    return response.data;
+  },
+
+  // Update Stripe credentials
+  updateConfig: async (data: {
+    secretKey?: string;
+    publishableKey?: string;
+    webhookSecret?: string;
+    platformFeePercent?: number;
+  }) => {
+    const response = await api.put('/admin/stripe/config', data);
+    return response.data;
+  },
+
+  // Test Stripe connection
+  testConnection: async () => {
+    const response = await api.post('/admin/stripe/test');
+    return response.data;
+  },
+
+  // Get Stripe dashboard data
+  getDashboard: async () => {
+    const response = await api.get('/admin/stripe/dashboard');
+    return response.data;
+  },
+
+  // Clear Stripe configuration (revert to env vars)
+  clearConfig: async () => {
+    const response = await api.delete('/admin/stripe/config');
+    return response.data;
+  },
+};
+
 // ============ Auth API additional methods ============
 (authApi as any).changePassword = async (currentPassword: string, newPassword: string) => {
   const response = await api.post('/auth/change-password', { currentPassword, newPassword });

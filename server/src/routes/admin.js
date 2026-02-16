@@ -8,7 +8,9 @@ const { BarnSubscription } = require('../models/Subscription');
 const Invoice = require('../models/Invoice');
 const DemoRequest = require('../models/DemoRequest');
 const DemoAvailability = require('../models/DemoAvailability');
+const PlatformSettings = require('../models/PlatformSettings');
 const { authenticate, hasRole } = require('../middleware/auth');
+const Stripe = require('stripe');
 
 const router = express.Router();
 
@@ -1222,6 +1224,264 @@ router.put('/availability', async (req, res, next) => {
     );
 
     res.json(updates);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==================== Stripe Configuration ====================
+
+/**
+ * GET /api/admin/stripe/config
+ * Get current Stripe configuration status
+ */
+router.get('/stripe/config', async (req, res, next) => {
+  try {
+    const settings = await PlatformSettings.getSettings();
+
+    // Check if using env vars or database config
+    const usingEnvVars = !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PUBLISHABLE_KEY);
+
+    res.json({
+      source: usingEnvVars ? 'environment' : 'database',
+      stripe: {
+        publishableKey: settings.stripe?.publishableKey || process.env.STRIPE_PUBLISHABLE_KEY,
+        secretKeyMasked: settings.getMaskedSecretKey() || (process.env.STRIPE_SECRET_KEY ? 'sk_****' + process.env.STRIPE_SECRET_KEY.slice(-8) : null),
+        webhookSecretConfigured: !!(settings.stripe?.webhookSecretEncrypted || process.env.STRIPE_WEBHOOK_SECRET),
+        platformFeePercent: settings.stripe?.platformFeePercent || parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENT) || 2.5,
+        isConfigured: settings.stripe?.isConfigured || usingEnvVars,
+        lastTestedAt: settings.stripe?.lastTestedAt,
+        testResult: settings.stripe?.testResult,
+      },
+      lastUpdatedBy: settings.lastUpdatedBy,
+      lastUpdatedAt: settings.lastUpdatedAt,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PUT /api/admin/stripe/config
+ * Update Stripe API credentials
+ */
+router.put('/stripe/config', async (req, res, next) => {
+  try {
+    const { secretKey, publishableKey, webhookSecret, platformFeePercent } = req.body;
+
+    // Validate required fields
+    if (!secretKey && !publishableKey) {
+      return res.status(400).json({ error: 'At least one of secretKey or publishableKey is required' });
+    }
+
+    // Validate key formats
+    if (secretKey && !secretKey.startsWith('sk_')) {
+      return res.status(400).json({ error: 'Invalid secret key format. Must start with sk_' });
+    }
+    if (publishableKey && !publishableKey.startsWith('pk_')) {
+      return res.status(400).json({ error: 'Invalid publishable key format. Must start with pk_' });
+    }
+    if (webhookSecret && !webhookSecret.startsWith('whsec_')) {
+      return res.status(400).json({ error: 'Invalid webhook secret format. Must start with whsec_' });
+    }
+
+    const settings = await PlatformSettings.getSettings();
+
+    // Update settings
+    if (secretKey) {
+      settings.stripe.secretKeyEncrypted = secretKey; // Will be encrypted on save
+    }
+    if (publishableKey) {
+      settings.stripe.publishableKey = publishableKey;
+    }
+    if (webhookSecret) {
+      settings.stripe.webhookSecretEncrypted = webhookSecret; // Will be encrypted on save
+    }
+    if (platformFeePercent !== undefined) {
+      settings.stripe.platformFeePercent = parseFloat(platformFeePercent);
+    }
+
+    settings.stripe.isConfigured = true;
+    settings.lastUpdatedBy = req.user?.email || 'admin';
+
+    await settings.save();
+
+    res.json({
+      message: 'Stripe configuration updated successfully',
+      stripe: {
+        publishableKey: settings.stripe.publishableKey,
+        secretKeyMasked: settings.getMaskedSecretKey(),
+        webhookSecretConfigured: !!settings.stripe.webhookSecretEncrypted,
+        platformFeePercent: settings.stripe.platformFeePercent,
+        isConfigured: settings.stripe.isConfigured,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/stripe/test
+ * Test Stripe connection with current credentials
+ */
+router.post('/stripe/test', async (req, res, next) => {
+  try {
+    const settings = await PlatformSettings.getSettings();
+
+    // Get secret key from database or env
+    let secretKey = settings.getStripeSecretKey() || process.env.STRIPE_SECRET_KEY;
+
+    if (!secretKey) {
+      return res.status(400).json({
+        success: false,
+        error: 'No Stripe secret key configured',
+      });
+    }
+
+    try {
+      // Initialize Stripe with the key and make a test call
+      const stripe = new Stripe(secretKey, { apiVersion: '2023-10-16' });
+
+      // Retrieve account to verify credentials
+      const account = await stripe.accounts.retrieve();
+
+      // Get balance to verify full access
+      const balance = await stripe.balance.retrieve();
+
+      // Update test result
+      settings.stripe.lastTestedAt = new Date();
+      settings.stripe.testResult = {
+        success: true,
+        message: `Connected to Stripe account: ${account.business_profile?.name || account.id}`,
+        testedAt: new Date(),
+      };
+      await settings.save();
+
+      res.json({
+        success: true,
+        account: {
+          id: account.id,
+          name: account.business_profile?.name,
+          email: account.email,
+          country: account.country,
+          chargesEnabled: account.charges_enabled,
+          payoutsEnabled: account.payouts_enabled,
+        },
+        balance: {
+          available: balance.available.map(b => ({
+            amount: b.amount / 100,
+            currency: b.currency,
+          })),
+          pending: balance.pending.map(b => ({
+            amount: b.amount / 100,
+            currency: b.currency,
+          })),
+        },
+      });
+    } catch (stripeError) {
+      // Update test result with failure
+      settings.stripe.lastTestedAt = new Date();
+      settings.stripe.testResult = {
+        success: false,
+        message: stripeError.message,
+        testedAt: new Date(),
+      };
+      await settings.save();
+
+      res.status(400).json({
+        success: false,
+        error: stripeError.message,
+        code: stripeError.code,
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/stripe/dashboard
+ * Get Stripe dashboard summary for admin view
+ */
+router.get('/stripe/dashboard', async (req, res, next) => {
+  try {
+    const settings = await PlatformSettings.getSettings();
+    let secretKey = settings.getStripeSecretKey() || process.env.STRIPE_SECRET_KEY;
+
+    if (!secretKey) {
+      return res.status(400).json({ error: 'Stripe not configured' });
+    }
+
+    try {
+      const stripe = new Stripe(secretKey, { apiVersion: '2023-10-16' });
+
+      // Get recent data
+      const [balance, recentPayments, recentPayouts] = await Promise.all([
+        stripe.balance.retrieve(),
+        stripe.paymentIntents.list({ limit: 10 }),
+        stripe.payouts.list({ limit: 5 }),
+      ]);
+
+      res.json({
+        balance: {
+          available: balance.available.map(b => ({
+            amount: b.amount / 100,
+            currency: b.currency,
+          })),
+          pending: balance.pending.map(b => ({
+            amount: b.amount / 100,
+            currency: b.currency,
+          })),
+        },
+        recentPayments: recentPayments.data.map(p => ({
+          id: p.id,
+          amount: p.amount / 100,
+          currency: p.currency,
+          status: p.status,
+          created: new Date(p.created * 1000),
+          description: p.description,
+        })),
+        recentPayouts: recentPayouts.data.map(p => ({
+          id: p.id,
+          amount: p.amount / 100,
+          currency: p.currency,
+          status: p.status,
+          arrivalDate: new Date(p.arrival_date * 1000),
+        })),
+      });
+    } catch (stripeError) {
+      res.status(400).json({
+        error: stripeError.message,
+        code: stripeError.code,
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/admin/stripe/config
+ * Clear Stripe configuration from database (reverts to env vars)
+ */
+router.delete('/stripe/config', async (req, res, next) => {
+  try {
+    const settings = await PlatformSettings.getSettings();
+
+    // Clear Stripe settings
+    settings.stripe = {
+      platformFeePercent: 2.5,
+      isConfigured: false,
+    };
+    settings.lastUpdatedBy = req.user?.email || 'admin';
+
+    await settings.save();
+
+    res.json({
+      message: 'Stripe configuration cleared. System will use environment variables if available.',
+      usingEnvVars: !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PUBLISHABLE_KEY),
+    });
   } catch (error) {
     next(error);
   }
