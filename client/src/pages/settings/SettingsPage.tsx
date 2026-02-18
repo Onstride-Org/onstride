@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { User, Home, Palette, CreditCard, ChevronRight, Shield, FileText } from 'lucide-react';
+import { User, Home, Palette, CreditCard, ChevronRight, Shield, FileText, Wallet } from 'lucide-react';
 
 export default function SettingsPage() {
   const settingsGroups = [
@@ -38,8 +38,14 @@ export default function SettingsPage() {
       ],
     },
     {
-      title: 'Billing',
+      title: 'Billing & Payments',
       items: [
+        {
+          path: '/app/settings/payments',
+          icon: 'wallet',
+          title: 'Payment Settings',
+          description: 'Manage payment methods and Stripe connection',
+        },
         {
           path: '/app/settings/subscription',
           icon: 'credit-card',
@@ -71,6 +77,8 @@ export default function SettingsPage() {
         return <CreditCard {...iconProps} />;
       case 'file-text':
         return <FileText {...iconProps} />;
+      case 'wallet':
+        return <Wallet {...iconProps} />;
       default:
         return null;
     }

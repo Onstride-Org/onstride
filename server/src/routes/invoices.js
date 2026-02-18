@@ -101,7 +101,7 @@ router.post('/guest/:token/stripe/payment-intent', [
     const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId });
     const connectedAccountId = merchantApp?.stripeConnect?.accountId;
 
-    if (!stripe.isConfigured()) {
+    if (!stripe.isConfiguredSync()) {
       return res.status(503).json({
         error: 'Payment processing is not available. Please contact the barn directly.'
       });
@@ -263,8 +263,23 @@ router.post('/', [
     });
 
     const populated = await Invoice.findById(invoice._id)
-      .populate('boarderId', 'name email')
+      .populate('boarderId', 'name email stripeCustomerId')
       .populate('horseId', 'name');
+
+    // Auto-create Stripe customer for the boarder if not already set
+    if (populated.boarderId && !populated.boarderId.stripeCustomerId && stripe.isConfiguredSync()) {
+      try {
+        const customer = await stripe.createOrRetrieveCustomer({
+          email: populated.boarderId.email,
+          name: populated.boarderId.name,
+          userId: populated.boarderId._id.toString(),
+          barnId: req.barnId.toString(),
+        });
+        await User.findByIdAndUpdate(boarderId, { stripeCustomerId: customer.customerId });
+      } catch (stripeErr) {
+        console.error('Auto Stripe customer creation failed:', stripeErr.message);
+      }
+    }
 
     // Send email notification to boarder
     if (populated.boarderId?.email) {
@@ -280,7 +295,6 @@ router.post('/', [
         });
       } catch (emailError) {
         console.error('Failed to send invoice email:', emailError.message);
-        // Don't fail the request if email fails
       }
     }
 
@@ -392,7 +406,7 @@ router.put('/:id', [
       invoice.charges = charges;
       // Recalculate
       const subtotal = charges.reduce((sum, c) => sum + (c.amount * (c.quantity || 1)), 0);
-      const feeBreakdown = windcave.calculateFees(subtotal, method || invoice.method);
+      const feeBreakdown = stripe.calculateFees(subtotal, method || invoice.method);
       invoice.paymentBreakdown = {
         subtotal: feeBreakdown.subtotal,
         processingFee: feeBreakdown.processingFee,
@@ -445,7 +459,7 @@ router.post('/:id/payment', [
 
     // For card/ACH payments, create Stripe PaymentIntent
     if (method === 'card' || method === 'ach') {
-      if (!stripe.isConfigured()) {
+      if (!stripe.isConfiguredSync()) {
         return res.status(503).json({
           error: 'Payment processing is not configured. Please contact support.'
         });
@@ -532,7 +546,7 @@ router.post('/:id/stripe/payment-intent', [
     const merchantApp = await MerchantApplication.findOne({ barnId: invoice.barnId });
     const connectedAccountId = merchantApp?.stripeConnect?.accountId;
 
-    if (!stripe.isConfigured()) {
+    if (!stripe.isConfiguredSync()) {
       return res.status(503).json({
         error: 'Payment processing is not configured. Please contact support.'
       });

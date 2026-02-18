@@ -149,12 +149,15 @@ export interface Invoice {
   subscriptionTier?: 'free' | 'basic' | 'pro' | 'enterprise' | null;
   subscriptionInterval?: 'monthly' | 'yearly' | null;
   paymentBreakdown?: PaymentBreakdown;
+  stripePaymentInfo?: StripePaymentInfo;
   windcavePaymentInfo?: WindcavePaymentInfo;
   refundInfo?: RefundInfo;
+  disputeInfo?: DisputeInfo;
   subtotal: number;
   paidAt?: string;
   failureReason?: string;
   createdAt: string;
+  notes?: string;
 }
 
 export interface InvoiceCharge {
@@ -173,6 +176,20 @@ export interface PaymentBreakdown {
   total: number;
 }
 
+export interface StripePaymentInfo {
+  paymentIntentId?: string;
+  chargeId?: string;
+  paymentMethodType?: string;
+  last4Digits?: string;
+  brand?: string;
+  receiptUrl?: string;
+  refunded?: boolean;
+  refundId?: string;
+  failedAt?: string;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
 export interface WindcavePaymentInfo {
   sessionId?: string;
   transactionId?: string;
@@ -185,10 +202,44 @@ export interface WindcavePaymentInfo {
 
 export interface RefundInfo {
   transactionId?: string;
+  refundId?: string;
   amount?: number;
   reason?: string;
   refundedAt?: string;
   refundedBy?: string;
+}
+
+export interface DisputeInfo {
+  disputeId?: string;
+  amount?: number;
+  reason?: string;
+  status?: string;
+  createdAt?: string;
+  closedAt?: string;
+  outcome?: string;
+}
+
+export interface StripeConnectStatus {
+  connected: boolean;
+  accountId?: string;
+  chargesEnabled?: boolean;
+  payoutsEnabled?: boolean;
+  detailsSubmitted?: boolean;
+  requiresAction?: boolean;
+  error?: string;
+}
+
+export interface SavedPaymentMethod {
+  paymentMethodId: string;
+  type: string;
+  card?: {
+    brand: string;
+    last4: string;
+    expMonth: number;
+    expYear: number;
+  };
+  isDefault: boolean;
+  created?: string;
 }
 
 // Task types

@@ -35,6 +35,7 @@ import SecurityPage from './pages/settings/SecurityPage';
 import BarnSettingsPage from './pages/settings/BarnSettingsPage';
 import BrandingPage from './pages/settings/BrandingPage';
 import SubscriptionPage from './pages/settings/SubscriptionPage';
+import PaymentSettingsPage from './pages/settings/PaymentSettingsPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminBarnsPage from './pages/admin/AdminBarnsPage';
 import AdminBarnDetailPage from './pages/admin/AdminBarnDetailPage';
@@ -235,6 +236,7 @@ function App() {
         <Route path="settings/barn" element={<BarnSettingsPage />} />
         <Route path="settings/branding" element={<BrandingPage />} />
         <Route path="settings/subscription" element={<SubscriptionPage />} />
+        <Route path="settings/payments" element={<PaymentSettingsPage />} />
         <Route path="settings/billing-templates" element={<BillingTemplatesPage />} />
 
         {/* Admin */}

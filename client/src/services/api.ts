@@ -1224,6 +1224,22 @@ export const stripeApi = {
     return response.data;
   },
 
+  // User payment profile
+  getPaymentProfile: async () => {
+    const response = await api.get('/stripe/user/payment-profile');
+    return response.data;
+  },
+
+  ensureCustomer: async () => {
+    const response = await api.post('/stripe/user/ensure-customer');
+    return response.data;
+  },
+
+  getUserInvoiceHistory: async () => {
+    const response = await api.get('/stripe/user/invoices');
+    return response.data;
+  },
+
   // Stripe Connect (merchant onboarding)
   getConnectStatus: async () => {
     const response = await api.get('/stripe-connect/status');

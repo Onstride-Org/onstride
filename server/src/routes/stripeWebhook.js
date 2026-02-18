@@ -14,6 +14,7 @@
 
 const express = require('express');
 const Invoice = require('../models/Invoice');
+const User = require('../models/User');
 const MerchantApplication = require('../models/MerchantApplication');
 const { BarnSubscription } = require('../models/Subscription');
 const stripe = require('../services/stripe');
@@ -101,6 +102,11 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
 
       case 'payout.failed':
         await handlePayoutFailed(event.data.object);
+        break;
+
+      // Setup Intent events (saved payment methods)
+      case 'setup_intent.succeeded':
+        await handleSetupIntentSucceeded(event.data.object);
         break;
 
       // Account events
@@ -586,6 +592,43 @@ async function handlePayoutFailed(payout) {
   // 1. Store the failure in a payouts collection
   // 2. Send notification to barn owner
   // 3. Potentially trigger retry logic
+}
+
+// ============================================
+// SETUP INTENT EVENT HANDLERS
+// ============================================
+
+/**
+ * Handle setup_intent.succeeded - payment method saved
+ * Syncs the stripeCustomerId back to the user if not already set
+ */
+async function handleSetupIntentSucceeded(setupIntent) {
+  console.log(`Setup intent succeeded: ${setupIntent.id}`);
+
+  const customerId = setupIntent.customer;
+  if (!customerId) return;
+
+  const user = await User.findOne({ stripeCustomerId: customerId });
+  if (user) {
+    console.log(`Setup intent for user ${user._id} - payment method saved`);
+    return;
+  }
+
+  // If user doesn't have stripeCustomerId, try to find by metadata
+  try {
+    const customer = await stripe.stripe.customers.retrieve(customerId);
+    const userId = customer.metadata?.userId;
+    if (userId) {
+      const userToUpdate = await User.findById(userId);
+      if (userToUpdate && !userToUpdate.stripeCustomerId) {
+        userToUpdate.stripeCustomerId = customerId;
+        await userToUpdate.save();
+        console.log(`Synced stripeCustomerId ${customerId} to user ${userId}`);
+      }
+    }
+  } catch (err) {
+    console.error('Error syncing customer to user:', err.message);
+  }
 }
 
 module.exports = router;

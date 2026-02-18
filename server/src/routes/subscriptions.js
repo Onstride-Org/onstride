@@ -7,11 +7,11 @@ const Invoice = require('../models/Invoice');
 const MerchantApplication = require('../models/MerchantApplication');
 const User = require('../models/User');
 const Barn = require('../models/Barn');
-const windcave = require('../services/windcave');
+const stripe = require('../services/stripe');
 
 const router = express.Router();
 
-// Default plans: Windcave as processor. $15 Starter, $99 Business, $299 Business Pro, Enterprise contact, $100 Founders
+// Default plans: Stripe as processor. $15 Starter, $99 Business, $299 Business Pro, Enterprise contact, $100 Founders
 const DEFAULT_PLANS = [
   { tier: 'free', name: 'Free', description: 'Get started with core features.', monthlyPriceCents: 0, yearlyPriceCents: 0, maxHorses: 5, maxUsers: 3, maxLessonsPerMonth: 10, maxBarns: 1, hasBilling: false, hasFullBilling: false, hasAiFeatures: false, hasMultiBarn: false, hasBranding: false, hasApiAccess: false, hasPrioritySupport: false, isPopular: false, sortOrder: 0 },
   { tier: 'starter', name: 'Starter', description: 'For small barns getting started.', monthlyPriceCents: 1500, yearlyPriceCents: 15000, maxHorses: 10, maxUsers: 5, maxLessonsPerMonth: 50, maxBarns: 1, hasBilling: true, hasFullBilling: false, hasAiFeatures: false, hasMultiBarn: false, hasBranding: false, hasApiAccess: false, hasPrioritySupport: false, isPopular: true, sortOrder: 1 },
@@ -33,7 +33,7 @@ async function ensurePlansExist() {
 
 const PLAN_TIERS = ['free', 'starter', 'business', 'business_pro', 'enterprise', 'founders'];
 
-// Get available plans (public); ensures default plans exist (Windcave as processor)
+// Get available plans (public); ensures default plans exist (Stripe as processor)
 router.get('/plans', async (req, res, next) => {
   try {
     await ensurePlansExist();
@@ -112,7 +112,7 @@ router.post('/checkout-invoice', [
       type: 'other'
     }];
     const subtotal = amountDollars;
-    const feeBreakdown = windcave.calculateFees(subtotal, 'card');
+    const feeBreakdown = stripe.calculateFees(subtotal, 'card');
 
     const invoice = await Invoice.create({
       barnId: req.barnId,
@@ -144,7 +144,7 @@ router.post('/checkout-invoice', [
   }
 });
 
-// Create checkout session (Windcave) - creates subscription invoice and returns redirect URL
+// Create checkout session (Stripe) - creates subscription invoice and returns PaymentIntent
 router.post('/checkout', [
   requireBarn,
   hasRole('owner'),
@@ -171,7 +171,7 @@ router.post('/checkout', [
       return res.status(400).json({ error: 'Plan has no price' });
     }
 
-    const user = await User.findById(req.userId).select('name email');
+    const user = await User.findById(req.userId).select('name email stripeCustomerId');
     const dueDate = new Date();
 
     const charges = [{
@@ -181,7 +181,7 @@ router.post('/checkout', [
       type: 'other'
     }];
     const subtotal = amountDollars;
-    const feeBreakdown = windcave.calculateFees(subtotal, 'card');
+    const feeBreakdown = stripe.calculateFees(subtotal, 'card');
 
     const invoice = await Invoice.create({
       barnId: req.barnId,
@@ -192,7 +192,7 @@ router.post('/checkout', [
       method: 'card',
       subscriptionTier: tier,
       subscriptionInterval: billingInterval,
-      status: 'processing',
+      status: 'pending',
       paymentBreakdown: {
         subtotal: feeBreakdown.subtotal,
         processingFee: feeBreakdown.processingFee,
@@ -201,59 +201,54 @@ router.post('/checkout', [
       }
     });
 
-    // Get barn for billing address (AVS)
-    const barn = await Barn.findById(req.barnId);
-
-    const merchantApp = await MerchantApplication.findOne({ barnId: req.barnId })
-      .select('+windcaveCredentials.apiKeyEncrypted +windcaveCredentials.apiSecretEncrypted');
-
-    let credentials = null;
-    if (merchantApp?.windcaveCredentials?.isActive) {
-      credentials = merchantApp.getWindcaveCredentials();
-    }
-
-    if (!windcave.hasValidCredentials(credentials)) {
-      invoice.status = 'pending';
-      await invoice.save();
+    if (!stripe.isConfiguredSync()) {
       return res.status(503).json({
-        error: 'Payment processing is not configured. Please add your Windcave credentials in the Payments settings.'
+        error: 'Payment processing is not configured. Please contact support.'
       });
     }
 
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const callbackUrl = process.env.API_URL
-      ? `${process.env.API_URL}/api/invoices/windcave-callback`
-      : 'http://localhost:5001/api/invoices/windcave-callback';
+    // Ensure user has a Stripe customer
+    if (!user.stripeCustomerId) {
+      const customer = await stripe.createOrRetrieveCustomer({
+        email: user.email,
+        name: user.name,
+        userId: user._id.toString(),
+        barnId: req.barnId.toString(),
+      });
+      user.stripeCustomerId = customer.customerId;
+      await user.save();
+    }
 
-    // Build billing address for AVS
-    const billingAddress = barn ? {
-      street: barn.address,
-      city: barn.city,
-      state: barn.state,
-      zipCode: barn.zipCode,
-      country: 'US',
-    } : null;
+    // Get barn's connected account
+    const merchantApp = await MerchantApplication.findOne({ barnId: req.barnId });
+    const connectedAccountId = merchantApp?.stripeConnect?.accountId;
 
-    const session = await windcave.createPaymentSession({
+    const paymentIntent = await stripe.createPaymentIntent({
       invoiceId: invoice._id.toString(),
       amount: feeBreakdown.total,
       currency: 'USD',
-      merchantReference: `INV-${invoice._id}`,
-      customerEmail: user?.email,
-      customerName: user?.name,
-      returnUrl: `${baseUrl}/app/settings/subscription?success=1`,
-      callbackUrl,
-      credentials,
-      billingAddress,
+      connectedAccountId,
+      platformFeePercent: 2.5,
+      customerEmail: user.email,
+      description: `${plan.name} Subscription - ${billingInterval}`,
+      metadata: {
+        barnId: req.barnId.toString(),
+        userId: req.userId.toString(),
+        subscriptionTier: tier,
+        subscriptionInterval: billingInterval,
+      },
     });
 
-    invoice.windcavePaymentInfo = { sessionId: session.sessionId };
+    invoice.stripePaymentInfo = {
+      paymentIntentId: paymentIntent.paymentIntentId,
+    };
     await invoice.save();
 
     return res.json({
-      url: session.redirectUrl,
-      sessionId: session.sessionId,
-      invoiceId: invoice._id
+      invoiceId: invoice._id.toString(),
+      clientSecret: paymentIntent.clientSecret,
+      paymentIntentId: paymentIntent.paymentIntentId,
+      amount: feeBreakdown.total,
     });
   } catch (error) {
     next(error);
@@ -342,7 +337,7 @@ router.get('/features/:feature', requireBarn, async (req, res, next) => {
 
 // Create/update subscription
 // Note: Paid plan activation is handled by updateSubscriptionAfterPayment() after
-// successful Windcave payment via /checkout or /checkout-invoice flow.
+// successful Stripe payment via /checkout or /checkout-invoice flow.
 // This endpoint handles direct tier changes (free tier, admin overrides).
 router.post('/', [
   requireBarn,
@@ -438,8 +433,7 @@ router.delete('/', [
 });
 
 // Subscription payment status check
-// Note: Windcave payment callbacks are handled via /api/invoices/windcave-callback
-// which calls updateSubscriptionAfterPayment() to activate the subscription.
+// Note: Stripe webhook handles payment_intent.succeeded which calls updateSubscriptionAfterPayment().
 // This endpoint allows the client to check if a subscription payment has been processed.
 router.get('/payment-status/:invoiceId', [
   requireBarn,

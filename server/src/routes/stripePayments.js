@@ -32,14 +32,14 @@ router.use(loadBarnContext);
  * GET /api/stripe/config
  * Get Stripe publishable key for frontend
  */
-router.get('/config', (req, res) => {
-  if (!stripe.isConfigured()) {
+router.get('/config', async (req, res) => {
+  const configured = await stripe.isConfigured();
+  if (!configured) {
     return res.status(503).json({ error: 'Payment processing is not configured' });
   }
 
-  res.json({
-    publishableKey: stripe.getPublishableKey(),
-  });
+  const publishableKey = await stripe.getPublishableKey();
+  res.json({ publishableKey });
 });
 
 // ============================================
@@ -52,7 +52,7 @@ router.get('/config', (req, res) => {
  */
 router.post('/customers', async (req, res, next) => {
   try {
-    if (!stripe.isConfigured()) {
+    if (!stripe.isConfiguredSync()) {
       return res.status(503).json({ error: 'Payment processing is not configured' });
     }
 
@@ -104,7 +104,7 @@ router.get('/payment-methods', async (req, res, next) => {
  */
 router.post('/setup-intent', async (req, res, next) => {
   try {
-    if (!stripe.isConfigured()) {
+    if (!stripe.isConfiguredSync()) {
       return res.status(503).json({ error: 'Payment processing is not configured' });
     }
 
@@ -232,7 +232,7 @@ router.post('/subscriptions', [
   validate
 ], async (req, res, next) => {
   try {
-    if (!stripe.isConfigured()) {
+    if (!stripe.isConfiguredSync()) {
       return res.status(503).json({ error: 'Payment processing is not configured' });
     }
 
@@ -489,6 +489,111 @@ router.get('/balance', [
 
     const balance = await stripe.getBalance(merchantApp.stripeConnect.accountId);
     res.json(balance);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// USER PAYMENT PROFILE
+// ============================================
+
+/**
+ * GET /api/stripe/user/payment-profile
+ * Get the current user's Stripe payment profile
+ * Returns customer ID, saved payment methods, and connection status
+ */
+router.get('/user/payment-profile', async (req, res, next) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const profile = {
+      hasStripeCustomer: !!user.stripeCustomerId,
+      stripeCustomerId: user.stripeCustomerId || null,
+      paymentMethods: [],
+      defaultPaymentMethod: null,
+    };
+
+    if (user.stripeCustomerId && stripe.isConfiguredSync()) {
+      try {
+        const methods = await stripe.listPaymentMethods(user.stripeCustomerId);
+        profile.paymentMethods = methods;
+        profile.defaultPaymentMethod = methods.find(m => m.isDefault) || null;
+      } catch (err) {
+        console.error('Error fetching payment methods:', err.message);
+      }
+    }
+
+    res.json(profile);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/stripe/user/ensure-customer
+ * Ensure the current user has a Stripe customer record
+ * Creates one if it doesn't exist
+ */
+router.post('/user/ensure-customer', async (req, res, next) => {
+  try {
+    if (!stripe.isConfiguredSync()) {
+      return res.status(503).json({ error: 'Payment processing is not configured' });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.stripeCustomerId) {
+      return res.json({
+        customerId: user.stripeCustomerId,
+        isNew: false,
+      });
+    }
+
+    const customer = await stripe.createOrRetrieveCustomer({
+      email: user.email,
+      name: user.name,
+      userId: user._id.toString(),
+      barnId: req.barnId?.toString(),
+    });
+
+    user.stripeCustomerId = customer.customerId;
+    await user.save();
+
+    res.json({
+      customerId: customer.customerId,
+      isNew: customer.isNew,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/stripe/user/invoices
+ * Get invoice payment history for the current user with Stripe details
+ */
+router.get('/user/invoices', requireBarn, async (req, res, next) => {
+  try {
+    const Invoice = require('../models/Invoice');
+
+    const invoices = await Invoice.find({
+      barnId: req.barnId,
+      boarderId: req.userId,
+      'stripePaymentInfo.paymentIntentId': { $exists: true },
+      deletedAt: null,
+    })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .select('status paidAt method charges paymentBreakdown stripePaymentInfo createdAt dueDate');
+
+    res.json({ invoices });
   } catch (error) {
     next(error);
   }

@@ -4,7 +4,7 @@ import { invoicesApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 import { Invoice, InvoiceStatus } from '../../types';
 import { format } from 'date-fns';
-import { CreditCard, DollarSign, RefreshCw, X } from 'lucide-react';
+import { CreditCard, DollarSign, RefreshCw, X, ExternalLink, Receipt, AlertCircle } from 'lucide-react';
 import { PaymentModal } from '../../components/payments';
 import OnboardingStepsModal from '../../components/OnboardingStepsModal';
 
@@ -234,7 +234,7 @@ export default function InvoiceDetailPage() {
                 Refresh Status
               </button>
             )}
-            {isStaff && invoice.status === 'paid' && (invoice as any).windcavePaymentInfo?.transactionId && (
+            {isStaff && invoice.status === 'paid' && (invoice.stripePaymentInfo?.paymentIntentId || (invoice as any).windcavePaymentInfo?.transactionId) && (
               <button
                 className="btn btn-outline btn-danger"
                 onClick={handleRefund}
@@ -304,6 +304,112 @@ export default function InvoiceDetailPage() {
             </dl>
           </div>
         </div>
+
+        {/* Stripe Payment Details */}
+        {invoice.stripePaymentInfo?.paymentIntentId && invoice.status === 'paid' && (
+          <div className="card">
+            <div className="card-header">
+              <h3>
+                <Receipt size={18} style={{ marginRight: '8px', verticalAlign: 'text-bottom' }} />
+                Payment Details
+              </h3>
+            </div>
+            <div className="card-body">
+              <dl className="detail-list">
+                {invoice.stripePaymentInfo.brand && (
+                  <>
+                    <dt>Card</dt>
+                    <dd>
+                      {invoice.stripePaymentInfo.brand.charAt(0).toUpperCase() + invoice.stripePaymentInfo.brand.slice(1)}
+                      {invoice.stripePaymentInfo.last4Digits && ` ending in ${invoice.stripePaymentInfo.last4Digits}`}
+                    </dd>
+                  </>
+                )}
+                {invoice.stripePaymentInfo.paymentMethodType && (
+                  <>
+                    <dt>Payment Type</dt>
+                    <dd>{invoice.stripePaymentInfo.paymentMethodType === 'card' ? 'Credit/Debit Card' : invoice.stripePaymentInfo.paymentMethodType.toUpperCase()}</dd>
+                  </>
+                )}
+                <dt>Transaction ID</dt>
+                <dd style={{ fontFamily: 'monospace', fontSize: '13px' }}>
+                  {invoice.stripePaymentInfo.paymentIntentId.slice(0, 24)}...
+                </dd>
+                {invoice.stripePaymentInfo.receiptUrl && (
+                  <>
+                    <dt>Receipt</dt>
+                    <dd>
+                      <a
+                        href={invoice.stripePaymentInfo.receiptUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-outline btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <ExternalLink size={14} />
+                        View Receipt
+                      </a>
+                    </dd>
+                  </>
+                )}
+              </dl>
+            </div>
+          </div>
+        )}
+
+        {/* Dispute Info */}
+        {invoice.disputeInfo?.disputeId && (
+          <div className="card">
+            <div className="card-header">
+              <h3>Dispute Information</h3>
+            </div>
+            <div className="card-body">
+              <div className="alert alert-warning mb-3">
+                <AlertCircle size={18} />
+                <span>This payment has a dispute filed against it.</span>
+              </div>
+              <dl className="detail-list">
+                <dt>Reason</dt>
+                <dd>{invoice.disputeInfo.reason || 'Not specified'}</dd>
+                <dt>Status</dt>
+                <dd>
+                  <span className={`badge badge-${invoice.disputeInfo.status === 'won' ? 'success' : invoice.disputeInfo.status === 'lost' ? 'error' : 'warning'}`}>
+                    {invoice.disputeInfo.status}
+                  </span>
+                </dd>
+                {invoice.disputeInfo.closedAt && (
+                  <>
+                    <dt>Resolved</dt>
+                    <dd>{format(new Date(invoice.disputeInfo.closedAt), 'MMMM d, yyyy')}</dd>
+                  </>
+                )}
+              </dl>
+            </div>
+          </div>
+        )}
+
+        {/* Refund Info */}
+        {invoice.refundInfo?.refundedAt && (
+          <div className="card">
+            <div className="card-header">
+              <h3>Refund Details</h3>
+            </div>
+            <div className="card-body">
+              <dl className="detail-list">
+                <dt>Amount Refunded</dt>
+                <dd>${invoice.refundInfo.amount?.toFixed(2) || 'Full'}</dd>
+                <dt>Refunded On</dt>
+                <dd>{format(new Date(invoice.refundInfo.refundedAt), 'MMMM d, yyyy')}</dd>
+                {invoice.refundInfo.reason && (
+                  <>
+                    <dt>Reason</dt>
+                    <dd>{invoice.refundInfo.reason}</dd>
+                  </>
+                )}
+              </dl>
+            </div>
+          </div>
+        )}
 
         {/* Charges */}
         <div className="card">

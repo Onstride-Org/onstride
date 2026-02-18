@@ -267,16 +267,16 @@ router.delete('/account', [
  * Get Stripe publishable key for client-side initialization
  * This is public information, but we keep it behind auth for structure
  */
-router.get('/config', (req, res) => {
-  if (!stripe.isConfigured()) {
+router.get('/config', async (req, res) => {
+  const configured = await stripe.isConfigured();
+  if (!configured) {
     return res.status(503).json({
       error: 'Stripe is not configured',
     });
   }
 
-  res.json({
-    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
-  });
+  const publishableKey = await stripe.getPublishableKey();
+  res.json({ publishableKey });
 });
 
 module.exports = router;
