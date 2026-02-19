@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, CreditCard, Lock, AlertCircle, CheckCircle } from 'lucide-react';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, Stripe } from '@stripe/stripe-js';
 import {
   Elements,
   PaymentElement,
@@ -8,8 +8,44 @@ import {
   useElements,
 } from '@stripe/react-stripe-js';
 
-// Initialize Stripe with publishable key
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
+// Cache for stripe instance to avoid reloading
+let stripePromiseCache: Promise<Stripe | null> | null = null;
+let cachedPublishableKey: string | null = null;
+
+const getStripeInstance = async (apiBase: string): Promise<Stripe | null> => {
+  try {
+    const token = localStorage.getItem('accessToken');
+    const response = await fetch(`${apiBase}/stripe/config`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      // Fallback to env variable
+      const envKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+      if (envKey) {
+        return loadStripe(envKey);
+      }
+      throw new Error('Failed to load Stripe configuration');
+    }
+
+    const data = await response.json();
+    if (data.publishableKey && data.publishableKey !== cachedPublishableKey) {
+      cachedPublishableKey = data.publishableKey;
+      stripePromiseCache = loadStripe(data.publishableKey);
+    }
+    return stripePromiseCache;
+  } catch (err) {
+    console.error('Error loading Stripe config:', err);
+    // Fallback to env variable
+    const envKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+    if (envKey) {
+      return loadStripe(envKey);
+    }
+    return null;
+  }
+};
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -123,19 +159,29 @@ export default function PaymentModal({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
+
+  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
   useEffect(() => {
     if (isOpen && !clientSecret) {
-      createPaymentIntent();
+      initializePayment();
     }
   }, [isOpen, invoiceId]);
 
-  const createPaymentIntent = async () => {
+  const initializePayment = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+      // Load Stripe instance first
+      const stripe = await getStripeInstance(apiBase);
+      if (!stripe) {
+        throw new Error('Payment processing is not configured. Please contact support.');
+      }
+      setStripePromise(Promise.resolve(stripe));
+
+      // Then create payment intent
       const token = localStorage.getItem('accessToken');
       const barnId = localStorage.getItem('currentBarnId');
 
@@ -174,6 +220,7 @@ export default function PaymentModal({
   const handleClose = () => {
     if (!isProcessing) {
       setClientSecret(null);
+      setStripePromise(null);
       setSuccess(false);
       setError(null);
       onClose();
@@ -247,7 +294,7 @@ export default function PaymentModal({
                 <div className="spinner spinner-md"></div>
                 <p style={{ marginTop: '16px' }}>Loading secure payment form...</p>
               </div>
-            ) : clientSecret ? (
+            ) : clientSecret && stripePromise ? (
               <Elements
                 stripe={stripePromise}
                 options={{

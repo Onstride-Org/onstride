@@ -166,12 +166,10 @@ router.get('/', requireBarn, async (req, res, next) => {
       ...(startDate && endDate && {
         createdAt: { $gte: new Date(startDate), $lte: new Date(endDate) }
       }),
-      // Hide failed/processing subscription invoices from users - they're internal payment attempts
+      // Exclude ALL subscription invoices - they belong in the Subscriptions tab only
       $or: [
         { subscriptionTier: { $exists: false } },
-        { subscriptionTier: null },
-        { status: 'paid' },
-        { status: 'pending' }
+        { subscriptionTier: null }
       ]
     };
 

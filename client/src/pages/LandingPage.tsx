@@ -361,7 +361,7 @@ export default function LandingPage() {
           <div className="pricing-grid">
             <div className="pricing-card">
               <div className="pricing-card-header">
-                <h3 className="pricing-tier">Free</h3>
+                <h3 className="pricing-tier">Starter</h3>
                 <p className="pricing-tier-desc">For small operations getting started</p>
                 <div className="pricing-amount">
                   <span className="pricing-currency">$</span>
@@ -384,7 +384,7 @@ export default function LandingPage() {
 
             <div className="pricing-card">
               <div className="pricing-card-header">
-                <h3 className="pricing-tier">Starter</h3>
+                <h3 className="pricing-tier">Growth</h3>
                 <p className="pricing-tier-desc">For growing barns</p>
                 <div className="pricing-amount">
                   <span className="pricing-currency">$</span>

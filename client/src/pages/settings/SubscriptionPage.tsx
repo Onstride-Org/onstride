@@ -105,7 +105,7 @@ export default function SubscriptionPage() {
       </div>
 
       <div className="subscription-content">
-        {/* Post-payment notification: complete Windcave setup */}
+        {/* Post-payment notification: complete Stripe Connect setup */}
         {showPostPaymentNotice && (
           <div className="card" style={{ borderColor: 'var(--color-success-500)', marginBottom: 'var(--spacing-6)' }}>
             <div className="card-content" style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-4)', padding: 'var(--spacing-6)' }}>
@@ -113,10 +113,10 @@ export default function SubscriptionPage() {
               <div style={{ flex: 1 }}>
                 <h3 style={{ margin: '0 0 var(--spacing-2) 0', fontSize: '1.1rem' }}>Payment Successful!</h3>
                 <p style={{ margin: '0 0 var(--spacing-3) 0', color: 'var(--color-text-secondary)' }}>
-                  Your subscription is now active. To start accepting payments from your clients, you need to complete the <strong>Windcave merchant application</strong>.
+                  Your subscription is now active. To start accepting payments from your clients, you need to complete the <strong>Stripe Connect setup</strong>.
                 </p>
                 <p style={{ margin: '0 0 var(--spacing-4) 0', color: 'var(--color-text-secondary)' }}>
-                  <strong>Next step:</strong> Go to the <strong>Financials</strong> tab in the sidebar and complete the Windcave application to enable payment processing for your barn.
+                  <strong>Next step:</strong> Go to the <strong>Financials</strong> tab in the sidebar and set up Stripe Connect to enable payment processing for your barn.
                 </p>
                 <div style={{ display: 'flex', gap: 'var(--spacing-3)' }}>
                   <button
@@ -192,7 +192,7 @@ export default function SubscriptionPage() {
 
         {/* Plans Grid */}
         <h2 className="plans-title">Available Plans</h2>
-        <p className="plans-processor">Payments processed by Windcave.</p>
+        <p className="plans-processor">Payments processed securely by Stripe.</p>
         <div className="plans-grid">
           {plans.filter((p) => p.tier !== 'free').map((plan) => (
             <div
@@ -315,7 +315,7 @@ export default function SubscriptionPage() {
             </div>
           ))}
         </div>
-        <p className="plans-processor-footer">Payments processed by Windcave.</p>
+        <p className="plans-processor-footer">Payments processed securely by Stripe.</p>
 
         {/* FAQ */}
         <div className="card">

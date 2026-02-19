@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { financialsApi, invoicesApi, usersApi, horsesApi, billingApi, windcaveApi } from '../../services/api';
+import { financialsApi, invoicesApi, usersApi, horsesApi, billingApi, stripeApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 import {
   Invoice,
@@ -37,11 +37,7 @@ import {
 } from 'lucide-react';
 import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, subQuarters, subYears, isWithinInterval } from 'date-fns';
 import FilterTabs from '../../components/FilterTabs';
-import {
-  WindcaveStatusCard,
-  DocusealApplicationForm,
-  WindcaveCredentialsForm,
-} from '../../components/windcave';
+import { StripeConnectStatusCard } from '../../components/payments';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 type TabType = 'overview' | 'invoices' | 'payments' | 'expenses' | 'reports';
@@ -62,8 +58,6 @@ export default function FinancialsPage() {
   const timeframeBtnRef = useRef<HTMLButtonElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const [showMerchantPrompt, setShowMerchantPrompt] = useState(false);
-  const [showMerchantWizard, setShowMerchantWizard] = useState(false);
-  const [showMerchantCredentials, setShowMerchantCredentials] = useState(false);
 
   const isStaff = currentBarnRole && !['boarder'].includes(currentBarnRole.role);
   const isOwner = currentBarnRole?.role === 'owner';
@@ -103,16 +97,16 @@ export default function FinancialsPage() {
         }
       }
 
-      // Check merchant application status for owners - prompt if not submitted
+      // Check Stripe Connect status for owners - prompt if not connected
       if (isOwner) {
         try {
-          const merchantApp = await windcaveApi.getApplication();
-          // Show prompt if no application or draft status (not submitted yet)
-          if (!merchantApp?.exists || merchantApp?.status === 'draft') {
+          const connectStatus = await stripeApi.getConnectStatus();
+          // Show prompt if not connected or requires action
+          if (!connectStatus?.connected) {
             setShowMerchantPrompt(true);
           }
         } catch (err) {
-          console.error('Failed to check merchant application:', err);
+          console.error('Failed to check Stripe Connect status:', err);
         }
       }
     } catch (error) {
@@ -346,7 +340,7 @@ export default function FinancialsPage() {
         />
       )}
 
-      {/* Merchant Application Prompt Modal - shows for owners without submitted application */}
+      {/* Stripe Connect Prompt Modal - shows for owners without connected account */}
       {showMerchantPrompt && (
         <div className="modal-overlay" onClick={() => setShowMerchantPrompt(false)}>
           <div className="modal modal-md" onClick={(e) => e.stopPropagation()}>
@@ -361,7 +355,7 @@ export default function FinancialsPage() {
             </div>
             <div className="modal-body">
               <p className="text-secondary mb-4">
-                Set up payment processing to accept credit cards and ACH payments directly through OnStride.
+                Connect to Stripe to accept credit cards and ACH payments directly through OnStride.
                 Funds are deposited directly into your bank account.
               </p>
               <div className="merchant-prompt-features">
@@ -389,55 +383,25 @@ export default function FinancialsPage() {
               </button>
               <button
                 className="btn btn-primary"
-                onClick={() => {
+                onClick={async () => {
                   setShowMerchantPrompt(false);
-                  setShowMerchantCredentials(true);
+                  try {
+                    const result = await stripeApi.startOnboarding();
+                    if (result.onboardingUrl) {
+                      window.location.href = result.onboardingUrl;
+                    }
+                  } catch (err) {
+                    console.error('Failed to start Stripe onboarding:', err);
+                  }
                 }}
               >
                 <CreditCard size={18} />
-                I Have Credentials
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setShowMerchantPrompt(false);
-                  setShowMerchantWizard(true);
-                }}
-              >
-                Apply for Account
+                Connect with Stripe
                 <ChevronRight size={18} />
               </button>
             </div>
           </div>
         </div>
-      )}
-
-      {/* Merchant Application Form (DocuSeal) */}
-      {showMerchantWizard && (
-        <DocusealApplicationForm
-          onClose={() => {
-            setShowMerchantWizard(false);
-            loadData();
-          }}
-          onSuccess={() => {
-            setShowMerchantWizard(false);
-            loadData();
-          }}
-        />
-      )}
-
-      {/* Merchant Credentials Form */}
-      {showMerchantCredentials && (
-        <WindcaveCredentialsForm
-          onClose={() => {
-            setShowMerchantCredentials(false);
-            loadData();
-          }}
-          onSuccess={() => {
-            setShowMerchantCredentials(false);
-            loadData();
-          }}
-        />
       )}
     </div>
   );
@@ -1246,51 +1210,10 @@ function PaymentsTab({
   formatCurrency: (amount: number) => string;
   isConnected?: boolean;
 }) {
-  const [showWizard, setShowWizard] = useState(false);
-  const [showCredentials, setShowCredentials] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  const handleStartApplication = () => {
-    setShowWizard(true);
-  };
-
-  const handleContinueApplication = () => {
-    setShowWizard(true);
-  };
-
-  const handleEnterCredentials = () => {
-    setShowCredentials(true);
-  };
-
-  const handleViewApplication = () => {
-    setShowWizard(true);
-  };
-
-  const handleManageCredentials = () => {
-    setShowCredentials(true);
-  };
-
-  const handleWizardClose = () => {
-    setShowWizard(false);
-    setRefreshKey(prev => prev + 1);
-  };
-
-  const handleCredentialsClose = () => {
-    setShowCredentials(false);
-    setRefreshKey(prev => prev + 1);
-  };
-
   return (
     <div className="financials-payments">
-      {/* Windcave Payment Processing Status */}
-      <WindcaveStatusCard
-        key={refreshKey}
-        onStartApplication={handleStartApplication}
-        onContinueApplication={handleContinueApplication}
-        onEnterCredentials={handleEnterCredentials}
-        onViewApplication={handleViewApplication}
-        onManageCredentials={handleManageCredentials}
-      />
+      {/* Stripe Connect Payment Processing Status */}
+      <StripeConnectStatusCard />
 
       {/* QuickBooks Payments History (if connected) */}
       {isConnected && (
@@ -1334,21 +1257,6 @@ function PaymentsTab({
             </div>
           </div>
         </section>
-      )}
-
-      {/* Modals */}
-      {showWizard && (
-        <DocusealApplicationForm
-          onClose={handleWizardClose}
-          onSuccess={handleWizardClose}
-        />
-      )}
-
-      {showCredentials && (
-        <WindcaveCredentialsForm
-          onClose={handleCredentialsClose}
-          onSuccess={handleCredentialsClose}
-        />
       )}
     </div>
   );

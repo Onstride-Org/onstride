@@ -136,7 +136,7 @@ router.post('/account/start', [
     await merchantApp.save();
 
     // Generate onboarding link
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const baseUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
     const accountLink = await stripe.createAccountLink(
       account.accountId,
       `${baseUrl}/app/settings/payments?refresh=true`,
@@ -171,7 +171,7 @@ router.post('/account/link', [
       });
     }
 
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const baseUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
     const accountLink = await stripe.createAccountLink(
       merchantApp.stripeConnect.accountId,
       `${baseUrl}/app/settings/payments?refresh=true`,
