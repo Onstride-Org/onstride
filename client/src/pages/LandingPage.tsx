@@ -384,7 +384,7 @@ export default function LandingPage() {
 
             <div className="pricing-card">
               <div className="pricing-card-header">
-                <h3 className="pricing-tier">Growth</h3>
+                <h3 className="pricing-tier">Business</h3>
                 <p className="pricing-tier-desc">For growing barns</p>
                 <div className="pricing-amount">
                   <span className="pricing-currency">$</span>
@@ -409,8 +409,8 @@ export default function LandingPage() {
             <div className="pricing-card pricing-card-featured">
               <div className="pricing-badge">Most popular</div>
               <div className="pricing-card-header">
-                <h3 className="pricing-tier">Pro</h3>
-                <p className="pricing-tier-desc">For growing operations</p>
+                <h3 className="pricing-tier">Business Pro</h3>
+                <p className="pricing-tier-desc">For professional barns</p>
                 <div className="pricing-amount">
                   <span className="pricing-currency">$</span>
                   <span className="pricing-value">299</span>

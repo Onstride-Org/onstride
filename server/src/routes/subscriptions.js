@@ -372,7 +372,7 @@ router.post('/', [
       }
     } else {
       // For paid plans, payment should go through /checkout or /checkout-invoice
-      // which creates a Windcave payment session. After payment, the subscription
+      // which creates a Stripe payment session. After payment, the subscription
       // is activated via updateSubscriptionAfterPayment().
       // This direct path is kept for admin overrides and testing.
       if (subscription) {

@@ -158,7 +158,7 @@ export default function PaymentPromptModal({ isOpen, onClose, onStartTrial: _onS
             </div>
             <div className="info-item">
               <CreditCard size={18} />
-              <span>Payments processed by Windcave</span>
+              <span>Payments processed securely by Stripe</span>
             </div>
           </div>
         </div>
