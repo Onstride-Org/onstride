@@ -355,7 +355,7 @@ export default function LandingPage() {
           <div className="section-header">
             <span className="section-eyebrow">Pricing</span>
             <h2 className="section-headline">Simple, transparent pricing</h2>
-            <p className="section-description">Start free. Upgrade when you're ready.</p>
+            <p className="section-description">Start with a free trial. Upgrade when you're ready.</p>
           </div>
 
           <div className="pricing-grid">
