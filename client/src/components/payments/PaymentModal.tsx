@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { X, CreditCard, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 import { loadStripe, Stripe } from '@stripe/stripe-js';
 import {

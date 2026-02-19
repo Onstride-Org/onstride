@@ -6,7 +6,6 @@ import {
   RefreshCw,
   ExternalLink,
   Shield,
-  Wallet,
 } from 'lucide-react';
 import { stripeApi } from '../../services/api';
 import type { StripeConnectStatus } from '../../types';
