@@ -31,9 +31,10 @@ const getStripeInstance = async (apiBase: string): Promise<Stripe | null> => {
     }
 
     const data = await response.json();
-    if (data.publishableKey && data.publishableKey !== cachedPublishableKey) {
-      cachedPublishableKey = data.publishableKey;
-      stripePromiseCache = loadStripe(data.publishableKey);
+    const key = typeof data.publishableKey === 'string' ? data.publishableKey : null;
+    if (key && key !== cachedPublishableKey) {
+      cachedPublishableKey = key;
+      stripePromiseCache = loadStripe(key);
     }
     return stripePromiseCache;
   } catch (err) {

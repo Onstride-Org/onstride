@@ -127,7 +127,9 @@ const isConfiguredSync = () => {
  */
 const getPublishableKey = async () => {
   const creds = await getCredentials();
-  return creds.publishableKey;
+  // Ensure we always return a string or null
+  const key = creds.publishableKey;
+  return typeof key === 'string' ? key : null;
 };
 
 /**
